@@ -101,7 +101,6 @@ BenchmarkExecutor::~BenchmarkExecutor()
 void BenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
 {
   planner_interfaces_.clear();
-
   // Load the planning plugins
   const std::vector<std::string>& classes = planner_plugin_loader_->getDeclaredClasses();
 
@@ -254,7 +253,6 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
 
       writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
-
     return true;
   }
   return false;
@@ -284,6 +282,8 @@ bool BenchmarkExecutor::queriesAndPlannersCompatible(const std::vector<Benchmark
 bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
                                              std::vector<BenchmarkRequest>& requests)
 {
+  // RBRICOUT: What is done here is that "opts" data is used to load what was stored in the database. We might use
+
   if (!plannerConfigurationsExist(opts.getPlannerConfigurations(), opts.getGroupName()))
     return false;
 
@@ -812,6 +812,51 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
   }
 }
 
+
+double evaluate_plan(const robot_trajectory::RobotTrajectory& p){
+  int num_of_joints = p.getWayPoint(0).getVariableCount();
+
+  std::vector<int> weights(num_of_joints, 0);
+  for(int k = 0; k<num_of_joints; k++){
+    weights[k] = num_of_joints - k;
+  }
+
+  std::vector<std::vector <double> > plan_array (p.getWayPointCount(), std::vector<double>(num_of_joints));
+  for (size_t i = 0 ; i < p.getWayPointCount() ; ++i){
+    for (size_t j = 0 ; j < num_of_joints ; ++j){
+      plan_array[i][j] = p.getWayPoint(i).getVariablePositions()[j];
+    }
+  }
+
+  std::vector<std::vector <double> > deltas (p.getWayPointCount()-1, std::vector<double>(num_of_joints));
+  for (size_t i = 0 ; i < p.getWayPointCount()-1 ; ++i){
+    for (size_t j = 0 ; j < num_of_joints ; ++j){
+      deltas[i][j] = plan_array[i+1][j] - plan_array[i][j];
+      if(deltas[i][j] < 0)                                      // abs() only works for integers. We can also use fabs() from math.h
+	deltas[i][j] = - deltas[i][j];
+    }
+  }
+
+  std::vector<double> sum_deltas(num_of_joints, 0);
+  for (size_t i = 0 ; i < p.getWayPointCount()-1 ; ++i){
+    for (size_t j = 0 ; j < num_of_joints ; ++j){
+      sum_deltas[j] += deltas[i][j];
+    }
+  }
+
+  std::vector<double> sum_deltas_weighted(num_of_joints, 0);
+  for (size_t j = 0 ; j < num_of_joints ; ++j){
+    sum_deltas_weighted[j] = sum_deltas[j] * weights[j];
+  }
+
+  double plan_quality = 0.0;
+  for (auto it = sum_deltas_weighted.begin() ; it != sum_deltas_weighted.end(); ++it){
+    plan_quality += *it;
+  }
+
+  return plan_quality;
+}
+
 void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
                                        const planning_interface::MotionPlanDetailedResponse& mp_res, bool solved,
                                        double total_time)
@@ -826,6 +871,7 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
     double clearance = 0.0;   // trajectory clearance (average)
     double smoothness = 0.0;  // trajectory smoothness (average)
     bool correct = true;      // entire trajectory collision free and in bounds
+    double planQuality = 0.0; // trajectory quality (added attribute)
 
     double process_time = total_time;
     for (std::size_t j = 0; j < mp_res.trajectory_.size(); ++j)
@@ -835,6 +881,9 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       clearance = 0.0;
       smoothness = 0.0;
       const robot_trajectory::RobotTrajectory& p = *mp_res.trajectory_[j];
+
+      // compute plan quality
+      planQuality  = evaluate_plan(p);
 
       // compute path length
       for (std::size_t k = 1; k < p.getWayPointCount(); ++k)
@@ -891,6 +940,7 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       metrics["path_" + mp_res.description_[j] + "_correct BOOLEAN"] = boost::lexical_cast<std::string>(correct);
       metrics["path_" + mp_res.description_[j] + "_length REAL"] = boost::lexical_cast<std::string>(L);
       metrics["path_" + mp_res.description_[j] + "_clearance REAL"] = boost::lexical_cast<std::string>(clearance);
+      metrics["path_" + mp_res.description_[j] + "_plan_quality REAL"] = boost::lexical_cast<std::string>(planQuality);
       metrics["path_" + mp_res.description_[j] + "_smoothness REAL"] = boost::lexical_cast<std::string>(smoothness);
       metrics["path_" + mp_res.description_[j] + "_time REAL"] =
           boost::lexical_cast<std::string>(mp_res.processing_time_[j]);
