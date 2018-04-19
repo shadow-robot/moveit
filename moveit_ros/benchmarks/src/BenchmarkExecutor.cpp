@@ -353,7 +353,7 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   opts.getGoalOffsets(goal_offset);
 
   // Create the combinations of BenchmarkRequests
-
+  
   // 1) Create requests for combinations of start states,
   //    goal constraints, and path constraints
   for (std::size_t i = 0; i < goal_constraints.size(); ++i)
@@ -683,7 +683,6 @@ bool BenchmarkExecutor::loadPathConstraints(const std::string& regex, std::vecto
   {
     std::vector<std::string> cnames;
     cs_->getKnownConstraints(regex, cnames);
-
     for (std::size_t i = 0; i < cnames.size(); ++i)
     {
       moveit_warehouse::ConstraintsWithMetadata constr;
