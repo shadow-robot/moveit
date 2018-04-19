@@ -82,7 +82,7 @@ void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* 
 }
 
 void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-                moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
+	       moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
 {
   std::string joint;
   std::string marker;
@@ -125,16 +125,17 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
   std::string scene_name;
   in >> scene_name;
   
-  moveit_msgs::RobotState startState;
-  moveit_msgs::Constraints goalState;
-  
   while (in.good() && !in.eof())
   {
     std::string query_name;
     in >> query_name;
     
+    moveit_msgs::RobotState startState;
+    moveit_msgs::Constraints goalState;
+
     if (in.good() && !in.eof())
       {
+	
 	std::string type;
 	in >> type;
 
@@ -162,14 +163,18 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
 	    ROS_ERROR("Unknown query type: '%s'", type.c_str());
 	  }
 
-	// Save the query as Start state + Goal constraint
-	moveit_msgs::MotionPlanRequest planning_query;
-	planning_query.start_state = startState;
-	planning_query.goal_constraints = {goalState};
+	if(goalState.joint_constraints.size()){
+	  // Save the query as Start state + Goal constraint
+	  moveit_msgs::MotionPlanRequest planning_query;
+	  planning_query.start_state = startState;
+	  planning_query.goal_constraints = {goalState};
 	
-	pss->addPlanningQuery(planning_query, scene_name, query_name);
+	  pss->addPlanningQuery(planning_query, scene_name, query_name);
 	
-	ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
+	  ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
+	} else{
+	  ROS_ERROR("Unknown query: ERROR");
+	}
       }
   }
 }
