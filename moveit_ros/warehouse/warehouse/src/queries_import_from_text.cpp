@@ -124,59 +124,66 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
 {
   std::string scene_name;
   in >> scene_name;
-  
-  while (in.good() && !in.eof())
-  {
-    std::string query_name;
-    in >> query_name;
-    
-    moveit_msgs::RobotState startState;
-    moveit_msgs::Constraints goalState;
 
-    if (in.good() && !in.eof())
+  if(pss->hasPlanningScene(scene_name))
+    {
+    while (in.good() && !in.eof())
       {
-	
-	std::string type;
-	in >> type;
+	std::string query_name;
+	in >> query_name;
+    
+	moveit_msgs::RobotState startState;
+	moveit_msgs::Constraints goalState;
 
-	// Get the start state of the query
-	if(type == "START" && in.good() && !in.eof())
+	if (in.good() && !in.eof())
 	  {
-	    parseStart(in, psm, rs, startState);
+	
+	    std::string type;
 	    in >> type;
-	  }
-	else
-	  {
-	    ROS_ERROR("Unknown query type: '%s'", type.c_str());
-	  }
 
-	// Get the goal of the query as a set of joint_constraints
-	if(type == "GOAL" && in.good() && !in.eof())
-	  {
-	    std::string joint_constraint;
-	    in >> joint_constraint;
-	    if(joint_constraint == "joint_constraint")
-	      parseGoal(in, psm, rs, goalState);
-	  }
-	else
-	  {
-	    ROS_ERROR("Unknown query type: '%s'", type.c_str());
-	  }
+	    // Get the start state of the query
+	    if(type == "START" && in.good() && !in.eof())
+	      {
+		parseStart(in, psm, rs, startState);
+		in >> type;
+	      }
+	    else
+	      {
+		ROS_ERROR("Unknown query type: '%s'", type.c_str());
+	      }
 
-	if(goalState.joint_constraints.size()){
-	  // Save the query as Start state + Goal constraint
-	  moveit_msgs::MotionPlanRequest planning_query;
-	  planning_query.start_state = startState;
-	  planning_query.goal_constraints = {goalState};
+	    // Get the goal of the query as a set of joint_constraints
+	    if(type == "GOAL" && in.good() && !in.eof())
+	      {
+		std::string joint_constraint;
+		in >> joint_constraint;
+		if(joint_constraint == "joint_constraint")
+		  parseGoal(in, psm, rs, goalState);
+	      }
+	    else
+	      {
+		ROS_ERROR("Unknown query type: '%s'", type.c_str());
+	      }
+
+	    if(goalState.joint_constraints.size()){
+	      // Save the query as Start state + Goal constraint
+	      moveit_msgs::MotionPlanRequest planning_query;
+	      planning_query.start_state = startState;
+	      planning_query.goal_constraints = {goalState};
 	
-	  pss->addPlanningQuery(planning_query, scene_name, query_name);
+	      pss->addPlanningQuery(planning_query, scene_name, query_name);
 	
-	  ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
-	} else{
-	  ROS_ERROR("Unknown query: ERROR");
-	}
+	      ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
+	    } else{
+	      ROS_ERROR("Unknown query: ERROR");
+	    }
+	  }
       }
-  }
+    }
+  else
+    {
+      ROS_ERROR("The scene doesn't exist!");
+    }
 }
 
 
