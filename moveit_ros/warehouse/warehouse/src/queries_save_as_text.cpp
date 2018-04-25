@@ -45,7 +45,6 @@
 #include <moveit/robot_state/conversions.h>
 #include <ros/ros.h>
 
-
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
 typedef std::pair<geometry_msgs::Point, geometry_msgs::Quaternion> LinkConstraintPair;
@@ -112,7 +111,7 @@ int main(int argc, char** argv)
 
   std::vector<std::string> scene_names;
   pss.getPlanningSceneNames(scene_names);
-  
+
   for (std::size_t i = 0; i < scene_names.size(); ++i)
   {
     moveit_warehouse::PlanningSceneWithMetadata pswm;
@@ -130,7 +129,7 @@ int main(int argc, char** argv)
       std::stringstream rsregex;
       rsregex << ".*" << scene_names[i] << ".*";
       rss.getKnownRobotStates(rsregex.str(), robotStateNames);
-      
+
       // Get goal constraints for scene
       std::vector<std::string> constraintNames;
 
@@ -138,10 +137,7 @@ int main(int argc, char** argv)
       csregex << ".*" << scene_names[i] << ".*";
       cs.getKnownConstraints(csregex.str(), constraintNames);
 
-
-      // RBRICOUT
       std::vector<std::string> query_names;
-      
       std::stringstream pssregex;
       pssregex << ".*";
       pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_names[i]);
@@ -151,54 +147,54 @@ int main(int argc, char** argv)
         std::ofstream qfout((scene_names[i] + ".queries").c_str());
         qfout << scene_names[i] << std::endl;
 
-	for (std::size_t k = 0; k < query_names.size(); ++k)
-	  {
-	    moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
-	    try
-	      {
-		pss.getPlanningQuery(planning_query, scene_names[i], query_names[k]);
-	      }
-	    catch (std::exception& ex)
-	      {
-		ROS_ERROR("Error loading motion planning query '%s': %s", query_names[i].c_str(), ex.what());
-		continue;
-	      }
-	    
-	    moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
-	    
-	    moveit_msgs::RobotState startState = plan_request.start_state;
-	    sensor_msgs::JointState jointState = startState.joint_state;
+        for (std::size_t k = 0; k < query_names.size(); ++k)
+        {
+          moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
+          try
+          {
+            pss.getPlanningQuery(planning_query, scene_names[i], query_names[k]);
+          }
+          catch (std::exception& ex)
+          {
+            ROS_ERROR("Error loading motion planning query '%s': %s", query_names[i].c_str(), ex.what());
+            continue;
+          }
 
-	    qfout << query_names[k] << std::endl;
-	    qfout << "START" << std::endl;
-	    
-	    for (std::size_t p = 0; p < jointState.position.size(); ++p){
-	      qfout << jointState.name[p] << " = ";
-	      qfout << jointState.position[p] << std::endl;
-	    }
-	    qfout << "." << std::endl;
+          moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
+          moveit_msgs::RobotState startState = plan_request.start_state;
+          sensor_msgs::JointState jointState = startState.joint_state;
 
-	    std::vector<moveit_msgs::Constraints> query_goal_constraints = plan_request.goal_constraints;
-	    
-	    if (query_goal_constraints.size() == 1)
-	      {
-		moveit_msgs::Constraints query_goal = query_goal_constraints[0];
-		qfout << "GOAL" << std::endl;
-		qfout << "joint_constraint" << std::endl;
+          qfout << query_names[k] << std::endl;
+          qfout << "START" << std::endl;
 
-		if(query_goal.joint_constraints.size()){
-		  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
-		  for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++){
-		    qfout << iter->joint_name << " = ";
-		    qfout << iter->position << " ";
-		    qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
-		  }
-		  qfout << "." << std::endl;
-		} 
-	      }
-	    
-	  }
-	qfout.close();
+          for (std::size_t p = 0; p < jointState.position.size(); ++p)
+          {
+            qfout << jointState.name[p] << " = ";
+            qfout << jointState.position[p] << std::endl;
+          }
+          qfout << "." << std::endl;
+
+          std::vector<moveit_msgs::Constraints> query_goal_constraints = plan_request.goal_constraints;
+          if (query_goal_constraints.size() == 1)
+          {
+            moveit_msgs::Constraints query_goal = query_goal_constraints[0];
+            qfout << "GOAL" << std::endl;
+            qfout << "joint_constraint" << std::endl;
+
+            if(query_goal.joint_constraints.size())
+            {
+              std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
+              for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
+              {
+                qfout << iter->joint_name << " = ";
+                qfout << iter->position << " ";
+                qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
+              }
+              qfout << "." << std::endl;
+            }
+          }
+        }
+        qfout.close();
       }
     }
   }

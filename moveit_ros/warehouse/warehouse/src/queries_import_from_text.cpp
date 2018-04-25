@@ -53,24 +53,22 @@ void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* 
                 moveit_warehouse::RobotStateStorage* rs, moveit_msgs::RobotState& startState)
 {
   std::map<std::string, double> v;
-  
   std::string joint;
   std::string marker;
   double value;
   in >> joint;
-  
   while (joint != "." && in.good() && !in.eof())
-    {
-      in >> marker;
-      if (marker != "=")
-	joint = ".";
-      else
-	in >> value;
-      v[joint] = value;
-      if (joint != ".")
-	in >> joint;
-    }
-	
+  {
+    in >> marker;
+    if (marker != "=")
+      joint = ".";
+    else
+      in >> value;
+    v[joint] = value;
+    if (joint != ".")
+      in >> joint;
+  }
+
   if (!v.empty())
   {
     robot_state::RobotState st = psm->getPlanningScene()->getCurrentState();
@@ -82,113 +80,107 @@ void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* 
 }
 
 void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-	       moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
+               moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
 {
   std::string joint;
   std::string marker;
   in >> joint;
-  
+
   double pos;
   double tol_above;
   double tol_below;
-  
+
   moveit_msgs::Constraints msg;
   std::vector<moveit_msgs::JointConstraint> joint_constraints;
-  
+
   while (joint != "." && in.good() && !in.eof())
+  {
+    in >> marker;
+    if (marker != "=")
+      joint = ".";
+    else
     {
-      in >> marker;
-      if (marker != "=")
-	joint = ".";
-      else{
-	in >> pos;
-	in >> tol_above;
-	in >> tol_below;
-	moveit_msgs::JointConstraint joint_constraint;
-	joint_constraint.joint_name = joint;
-	joint_constraint.position = pos;
-	joint_constraint.tolerance_above = tol_above;
-	joint_constraint.tolerance_below = tol_below;
-	
-	joint_constraints.push_back(joint_constraint);
-      }
-      if (joint != ".")
-	in >> joint;
+      in >> pos;
+      in >> tol_above;
+      in >> tol_below;
+      moveit_msgs::JointConstraint joint_constraint;
+      joint_constraint.joint_name = joint;
+      joint_constraint.position = pos;
+      joint_constraint.tolerance_above = tol_above;
+      joint_constraint.tolerance_below = tol_below;
+      joint_constraints.push_back(joint_constraint);
     }
+    if (joint != ".")
+      in >> joint;
+  }
   msg.joint_constraints = joint_constraints;
   goalState = msg;
 }
 
 void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-                  moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs, moveit_warehouse::PlanningSceneStorage* pss)
+                  moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs,
+                  moveit_warehouse::PlanningSceneStorage* pss)
 {
   std::string scene_name;
   in >> scene_name;
 
   if(pss->hasPlanningScene(scene_name))
-    {
+  {
     while (in.good() && !in.eof())
+    {
+      std::string query_name;
+      in >> query_name;
+      moveit_msgs::RobotState startState;
+      moveit_msgs::Constraints goalState;
+
+      if (in.good() && !in.eof())
       {
-	std::string query_name;
-	in >> query_name;
-    
-	moveit_msgs::RobotState startState;
-	moveit_msgs::Constraints goalState;
+        std::string type;
+        in >> type;
 
-	if (in.good() && !in.eof())
-	  {
-	
-	    std::string type;
-	    in >> type;
+        // Get the start state of the query
+        if(type == "START" && in.good() && !in.eof())
+        {
+          parseStart(in, psm, rs, startState);
+          in >> type;
+        }
+        else
+          ROS_ERROR("Unknown query type: '%s'", type.c_str());
 
-	    // Get the start state of the query
-	    if(type == "START" && in.good() && !in.eof())
-	      {
-		parseStart(in, psm, rs, startState);
-		in >> type;
-	      }
-	    else
-	      {
-		ROS_ERROR("Unknown query type: '%s'", type.c_str());
-	      }
+        // Get the goal state of the query as a set of joint_constraints
+        if(type == "GOAL" && in.good() && !in.eof())
+        {
+          std::string joint_constraint;
+          in >> joint_constraint;
+          if(joint_constraint == "joint_constraint")
+            parseGoal(in, psm, rs, goalState);
+        }
+        else
+          ROS_ERROR("Unknown query type: '%s'", type.c_str());
 
-	    // Get the goal of the query as a set of joint_constraints
-	    if(type == "GOAL" && in.good() && !in.eof())
-	      {
-		std::string joint_constraint;
-		in >> joint_constraint;
-		if(joint_constraint == "joint_constraint")
-		  parseGoal(in, psm, rs, goalState);
-	      }
-	    else
-	      {
-		ROS_ERROR("Unknown query type: '%s'", type.c_str());
-	      }
+        if(goalState.joint_constraints.size())
+        {
+          // Save the query as Start state + Goal constraint
+          moveit_msgs::MotionPlanRequest planning_query;
+          planning_query.start_state = startState;
+          planning_query.goal_constraints = {goalState};
 
-	    if(goalState.joint_constraints.size()){
-	      // Save the query as Start state + Goal constraint
-	      moveit_msgs::MotionPlanRequest planning_query;
-	      planning_query.start_state = startState;
-	      planning_query.goal_constraints = {goalState};
-	
-	      pss->addPlanningQuery(planning_query, scene_name, query_name);
-	
-	      ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
-	    } else{
-	      ROS_ERROR("Unknown query: ERROR");
-	    }
-	  }
+          pss->addPlanningQuery(planning_query, scene_name, query_name);
+
+          ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
+        }
+        else
+        {
+          ROS_ERROR("Unknown query: ERROR");
+        }
       }
     }
+  }
   else
-    {
-      ROS_ERROR("The scene doesn't exist!");
-    }
+  {
+    ROS_ERROR("The scene doesn't exist!");
+  }
 }
-
-
-
-
 
 int main(int argc, char** argv)
 {
@@ -219,7 +211,7 @@ int main(int argc, char** argv)
 
   ros::AsyncSpinner spinner(1);
   spinner.start();
-  
+
   ros::NodeHandle nh;
   planning_scene_monitor::PlanningSceneMonitor psm(ROBOT_DESCRIPTION);
   if (!psm.getPlanningScene())
@@ -241,7 +233,7 @@ int main(int argc, char** argv)
     psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
     pss.addPlanningScene(psmsg);
   }
-  
+
   if (vm.count("queries"))
   {
     std::ifstream fin(vm["queries"].as<std::string>().c_str());
@@ -249,5 +241,6 @@ int main(int argc, char** argv)
       parseQueries(fin, &psm, &rs, &cs, &pss);
     fin.close();
   }
+
   return 0;
 }

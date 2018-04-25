@@ -101,6 +101,7 @@ BenchmarkExecutor::~BenchmarkExecutor()
 void BenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
 {
   planner_interfaces_.clear();
+
   // Load the planning plugins
   const std::vector<std::string>& classes = planner_plugin_loader_->getDeclaredClasses();
 
@@ -253,6 +254,7 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
 
       writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
+
     return true;
   }
   return false;
@@ -282,8 +284,6 @@ bool BenchmarkExecutor::queriesAndPlannersCompatible(const std::vector<Benchmark
 bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
                                              std::vector<BenchmarkRequest>& requests)
 {
-  // RBRICOUT: What is done here is that "opts" data is used to load what was stored in the database. We might use
-
   if (!plannerConfigurationsExist(opts.getPlannerConfigurations(), opts.getGroupName()))
     return false;
 
@@ -353,7 +353,7 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   opts.getGoalOffsets(goal_offset);
 
   // Create the combinations of BenchmarkRequests
-  
+
   // 1) Create requests for combinations of start states,
   //    goal constraints, and path constraints
   for (std::size_t i = 0; i < goal_constraints.size(); ++i)
@@ -683,6 +683,7 @@ bool BenchmarkExecutor::loadPathConstraints(const std::string& regex, std::vecto
   {
     std::vector<std::string> cnames;
     cs_->getKnownConstraints(regex, cnames);
+
     for (std::size_t i = 0; i < cnames.size(); ++i)
     {
       moveit_warehouse::ConstraintsWithMetadata constr;
