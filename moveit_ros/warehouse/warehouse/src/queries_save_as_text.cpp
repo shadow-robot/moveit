@@ -45,6 +45,7 @@
 #include <moveit/robot_state/conversions.h>
 #include <ros/ros.h>
 
+#include <moveit/move_group_interface/move_group_interface.h>
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
@@ -81,9 +82,10 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-  desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
-                                                                                                        "DB.")(
-      "port", boost::program_options::value<std::size_t>(), "Port for the DB.");
+  desc.add_options()
+    ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
+    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
+    ("end_effector", "Defines queries as start state + end effector position instead of full joints goal state.");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -94,6 +96,7 @@ int main(int argc, char** argv)
     std::cout << desc << std::endl;
     return 1;
   }
+  
   // Set up db
   warehouse_ros::DatabaseConnection::Ptr conn = moveit_warehouse::loadDatabase();
   if (vm.count("host") && vm.count("port"))
@@ -146,60 +149,81 @@ int main(int argc, char** argv)
       pssregex << ".*";
       pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_names[i]);
       
-      if (!(robotStateNames.empty() && constraintNames.empty()))
-      {
-        std::ofstream qfout((scene_names[i] + ".queries").c_str());
-        qfout << scene_names[i] << std::endl;
+      std::ofstream qfout((scene_names[i] + ".queries").c_str());
+      qfout << scene_names[i] << std::endl;
 
-	for (std::size_t k = 0; k < query_names.size(); ++k)
-	  {
-	    moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
-	    try
-	      {
-		pss.getPlanningQuery(planning_query, scene_names[i], query_names[k]);
-	      }
-	    catch (std::exception& ex)
-	      {
-		ROS_ERROR("Error loading motion planning query '%s': %s", query_names[i].c_str(), ex.what());
-		continue;
-	      }
-	    
-	    moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
-	    
-	    moveit_msgs::RobotState startState = plan_request.start_state;
-	    sensor_msgs::JointState jointState = startState.joint_state;
-
-	    qfout << query_names[k] << std::endl;
-	    qfout << "START" << std::endl;
-	    
-	    for (std::size_t p = 0; p < jointState.position.size(); ++p){
-	      qfout << jointState.name[p] << " = ";
-	      qfout << jointState.position[p] << std::endl;
+      for (std::size_t k = 0; k < query_names.size(); ++k)
+	{
+	  moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
+	  try
+	    {
+	      pss.getPlanningQuery(planning_query, scene_names[i], query_names[k]);
 	    }
-	    qfout << "." << std::endl;
-
-	    std::vector<moveit_msgs::Constraints> query_goal_constraints = plan_request.goal_constraints;
+	  catch (std::exception& ex)
+	    {
+	      ROS_ERROR("Error loading motion planning query '%s': %s", query_names[i].c_str(), ex.what());
+	      continue;
+	    }
 	    
-	    if (query_goal_constraints.size() == 1)
-	      {
-		moveit_msgs::Constraints query_goal = query_goal_constraints[0];
-		qfout << "GOAL" << std::endl;
-		qfout << "joint_constraint" << std::endl;
-
-		if(query_goal.joint_constraints.size()){
-		  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
-		  for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++){
-		    qfout << iter->joint_name << " = ";
-		    qfout << iter->position << " ";
-		    qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
-		  }
-		  qfout << "." << std::endl;
-		} 
-	      }
+	  moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
 	    
+	  moveit_msgs::RobotState startState = plan_request.start_state;
+	  sensor_msgs::JointState jointState = startState.joint_state;
+
+	  qfout << query_names[k] << std::endl;
+	  qfout << "START" << std::endl;
+	    
+	  for (std::size_t p = 0; p < jointState.position.size(); ++p){
+	    qfout << jointState.name[p] << " = ";
+	    qfout << jointState.position[p] << std::endl;
 	  }
-	qfout.close();
-      }
+	  qfout << "." << std::endl;
+
+	  std::vector<moveit_msgs::Constraints> query_goal_constraints = plan_request.goal_constraints;
+	    
+	  if (query_goal_constraints.size() == 1)
+	    {
+	      moveit_msgs::Constraints query_goal = query_goal_constraints[0];
+	      qfout << "GOAL" << std::endl;
+
+	      if(vm.count("end_effector"))
+		{
+		  std::string group_name = plan_request.group_name;
+		  qfout << "position_constraint" << std::endl;
+
+		  moveit::planning_interface::MoveGroupInterface group(group_name);
+		  
+		  geometry_msgs::PoseStamped current_pose = group.getCurrentPose();
+		  
+		  qfout << group.getEndEffectorLink() << std::endl;
+		  qfout << current_pose.header.frame_id;
+		  qfout << "Position =";
+		  qfout << " " << current_pose.pose.position.x;
+		  qfout << " " << current_pose.pose.position.y;
+		  qfout << " " << current_pose.pose.position.z << std::endl;
+		  qfout << "Orientation =";
+		  qfout << " " << current_pose.pose.orientation.w;
+		  qfout << " " << current_pose.pose.orientation.x;
+		  qfout << " " << current_pose.pose.orientation.y;
+		  qfout << " " << current_pose.pose.orientation.z << std::endl;
+		  qfout << "." << std::endl;
+		}
+	      else
+		{
+		  qfout << "joint_constraint" << std::endl;
+		  
+		  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
+		  for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
+		    {
+		      qfout << iter->joint_name << " = ";
+		      qfout << iter->position << " ";
+		      qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
+		    }
+		  qfout << "." << std::endl;
+		}
+	    }
+	}
+      qfout.close();
     }
   }
 

@@ -47,9 +47,13 @@
 #include <boost/program_options/variables_map.hpp>
 #include <ros/ros.h>
 
+#include <moveit/planning_interface/planning_response.h>
+#include <moveit/planning_interface/planning_interface.h>
+
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
-void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+
+void parseStartFormat(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
                 moveit_warehouse::RobotStateStorage* rs, moveit_msgs::RobotState& startState)
 {
   std::map<std::string, double> v;
@@ -81,7 +85,8 @@ void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* 
   }
 }
 
-void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+
+void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
 	       moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
 {
   std::string joint;
@@ -109,6 +114,7 @@ void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* p
 	joint_constraint.position = pos;
 	joint_constraint.tolerance_above = tol_above;
 	joint_constraint.tolerance_below = tol_below;
+	joint_constraint.weight = 1.0;  //hard-coded, but it's the default value
 	
 	joint_constraints.push_back(joint_constraint);
       }
@@ -119,7 +125,7 @@ void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* p
   goalState = msg;
 }
 
-void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
                   moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs, moveit_warehouse::PlanningSceneStorage* pss)
 {
   std::string scene_name;
@@ -131,52 +137,57 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
       {
 	std::string query_name;
 	in >> query_name;
-    
+        
 	moveit_msgs::RobotState startState;
 	moveit_msgs::Constraints goalState;
 
 	if (in.good() && !in.eof())
 	  {
 	
-	    std::string type;
-	    in >> type;
+	    std::string start_type;
+	    in >> start_type;
 
 	    // Get the start state of the query
-	    if(type == "START" && in.good() && !in.eof())
+	    if(start_type == "START" && in.good() && !in.eof())
 	      {
-		parseStart(in, psm, rs, startState);
-		in >> type;
+		parseStartFormat(in, psm, rs, startState);
 	      }
 	    else
 	      {
-		ROS_ERROR("Unknown query type: '%s'", type.c_str());
+		ROS_ERROR("Unknown query type: '%s'", start_type.c_str());
 	      }
 
+	    std::string goal_type;
+	    in >> goal_type;
+	    
 	    // Get the goal of the query as a set of joint_constraints
-	    if(type == "GOAL" && in.good() && !in.eof())
+	    if(goal_type == "GOAL" && in.good() && !in.eof())
 	      {
 		std::string joint_constraint;
 		in >> joint_constraint;
 		if(joint_constraint == "joint_constraint")
-		  parseGoal(in, psm, rs, goalState);
+		  parseGoalFormat(in, psm, rs, goalState);
 	      }
 	    else
 	      {
-		ROS_ERROR("Unknown query type: '%s'", type.c_str());
+		ROS_ERROR("Unknown query type: '%s'", goal_type.c_str());
 	      }
 
-	    if(goalState.joint_constraints.size()){
-	      // Save the query as Start state + Goal constraint
-	      moveit_msgs::MotionPlanRequest planning_query;
-	      planning_query.start_state = startState;
-	      planning_query.goal_constraints = {goalState};
-	
-	      pss->addPlanningQuery(planning_query, scene_name, query_name);
-	
-	      ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
-	    } else{
-	      ROS_ERROR("Unknown query: ERROR");
-	    }
+	    if(goalState.joint_constraints.size())
+	      {
+		// Save the query as Start state + Goal joint constraint
+		moveit_msgs::MotionPlanRequest planning_query;
+		planning_query.start_state = startState;
+		planning_query.goal_constraints = {goalState};
+		
+		pss->addPlanningQuery(planning_query, scene_name, query_name);
+		
+		ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
+	      }
+	    else
+	      {
+		ROS_ERROR("Unknown query: ERROR");
+	      }
 	  }
       }
     }
@@ -186,20 +197,19 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
     }
 }
 
-
-
-
-
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "import_from_text_to_warehouse", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-  desc.add_options()("help", "Show help message")("queries", boost::program_options::value<std::string>(),
-                                                  "Name of file containing motion planning queries.")(
-      "scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")(
-      "host", boost::program_options::value<std::string>(),
-      "Host for the DB.")("port", boost::program_options::value<std::size_t>(), "Port for the DB.");
+  desc.add_options()
+    ("help", "Show help message")
+    ("queries", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
+    ("scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")
+    ("host", boost::program_options::value<std::string>(),"Host for the DB.")
+    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
+    ("queries_format", "Load queries in a RViz-compatible format.")
+    ("position", "TEST");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -233,21 +243,65 @@ int main(int argc, char** argv)
   moveit_warehouse::RobotStateStorage rs(conn);
 
   if (vm.count("scene"))
-  {
-    std::ifstream fin(vm["scene"].as<std::string>().c_str());
-    psm.getPlanningScene()->loadGeometryFromStream(fin);
-    fin.close();
-    moveit_msgs::PlanningScene psmsg;
-    psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
-    pss.addPlanningScene(psmsg);
-  }
+    {
+      std::ifstream fin(vm["scene"].as<std::string>().c_str());
+      psm.getPlanningScene()->loadGeometryFromStream(fin);
+      fin.close();
+      moveit_msgs::PlanningScene psmsg;
+      psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
+      pss.addPlanningScene(psmsg);
+    }
   
   if (vm.count("queries"))
-  {
-    std::ifstream fin(vm["queries"].as<std::string>().c_str());
-    if (fin.good() && !fin.eof())
-      parseQueries(fin, &psm, &rs, &cs, &pss);
-    fin.close();
-  }
+    {
+      std::ifstream fin(vm["queries"].as<std::string>().c_str());
+      if (fin.good() && !fin.eof())
+	{
+	  if(vm.count("queries_format"))
+	    parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
+	  else
+	    parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
+	}
+      fin.close();
+    }
+
+
+  // test to define a query from start and position of end effector to avoid impossible queries.
+  // however, queries in RViz are made with end goal so even if no goal is defined, it takes the previously defined goal state.
+  if(vm.count("position"))
+    {
+      
+      moveit_msgs::RobotState startState;
+      moveit_msgs::Constraints goalState;
+
+
+      robot_state::RobotState st = psm.getPlanningScene()->getCurrentState();
+      st.setVariablePositions({0,-0.3,0,0,0,0});
+      moveit_msgs::RobotState msgS;
+      robot_state::robotStateToRobotStateMsg(st, msgS);
+      startState = msgS;
+
+
+      moveit_msgs::MotionPlanRequest req;
+      geometry_msgs::PoseStamped pose;
+      pose.header.frame_id = "ra_base_link";
+      pose.pose.position.x = 0.2366;//0.468;
+      pose.pose.position.y = -0.1335;//0.717;
+      pose.pose.position.z = 1.036;//0.907;
+      pose.pose.orientation.w = 0.4814;
+      pose.pose.orientation.x = -0.3319;
+      pose.pose.orientation.y = 0.7852;
+      pose.pose.orientation.z = 0.2035;
+
+      std::vector<double> tolerance_pose(3, 0.1);
+      std::vector<double> tolerance_angle(3, 0.1);
+      moveit_msgs::Constraints pose_goal = kinematic_constraints::constructGoalConstraints("ra_wrist_3_link", pose, tolerance_pose, tolerance_angle);
+      
+      moveit_msgs::MotionPlanRequest planning_query;
+      planning_query.start_state = startState;
+      planning_query.goal_constraints = {pose_goal};
+      
+      pss.addPlanningQuery(planning_query, "SCENE_TEST", "QUERY_TEST");
+    }
   return 0;
 }
