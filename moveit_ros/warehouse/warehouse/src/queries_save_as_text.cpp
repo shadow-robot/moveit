@@ -46,6 +46,9 @@
 #include <ros/ros.h>
 
 #include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/robot_state/robot_state.h>
+#include <eigen_conversions/eigen_msg.h>
+//#include <moveit/robot_model/joint_model.h>
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
@@ -85,7 +88,7 @@ int main(int argc, char** argv)
   desc.add_options()
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("end_effector", "Defines queries as start state + end effector position instead of full joints goal state.");
+    ("position", "Defines queries as start state + end effector position instead of full joints goal state.");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -169,7 +172,7 @@ int main(int argc, char** argv)
 	    
 	  moveit_msgs::RobotState startState = plan_request.start_state;
 	  sensor_msgs::JointState jointState = startState.joint_state;
-
+	  
 	  qfout << query_names[k] << std::endl;
 	  qfout << "START" << std::endl;
 	    
@@ -186,27 +189,90 @@ int main(int argc, char** argv)
 	      moveit_msgs::Constraints query_goal = query_goal_constraints[0];
 	      qfout << "GOAL" << std::endl;
 
-	      if(vm.count("end_effector"))
+	      if(vm.count("position"))
 		{
-		  std::string group_name = plan_request.group_name;
 		  qfout << "position_constraint" << std::endl;
 
-		  moveit::planning_interface::MoveGroupInterface group(group_name);
+		  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
+		  std::vector<moveit_msgs::PositionConstraint> position_constraints = query_goal.position_constraints;
+		  std::vector<moveit_msgs::OrientationConstraint> orientation_constraints = query_goal.orientation_constraints;
+		  if(joint_constraints.size() != 0)
+		    {
+		      std::vector<double> joint_values = {0, 0, 0, 0, 0, 0};
+		      for(int i = 0; i<joint_values.size(); ++i)
+			{
+			  joint_values[i] = joint_constraints[i].position;
+			}
 		  
-		  geometry_msgs::PoseStamped current_pose = group.getCurrentPose();
+		      moveit::core::RobotState my_state(km);
+
+		      my_state.setJointGroupPositions("right_arm", joint_values); //(plan_request.group_name, joint_values);  problem: plan_request.group_name is not always defined, so this is hard coded for the moment.
+		      
+		      const moveit::core::JointModel* joint_eef = my_state.getJointModel(joint_constraints[joint_constraints.size()-1].joint_name);
+		      std::string link_eef = joint_eef->getChildLinkModel()->getName();
+		      std::string link_header = startState.joint_state.header.frame_id;
+
+		      
+		      const Eigen::Affine3d& link_pose = my_state.getGlobalLinkTransform(link_eef);
+		      geometry_msgs::Transform transform;
+		      tf::transformEigenToMsg(link_pose, transform);
 		  
-		  qfout << group.getEndEffectorLink() << std::endl;
-		  qfout << current_pose.header.frame_id;
-		  qfout << "Position =";
-		  qfout << " " << current_pose.pose.position.x;
-		  qfout << " " << current_pose.pose.position.y;
-		  qfout << " " << current_pose.pose.position.z << std::endl;
-		  qfout << "Orientation =";
-		  qfout << " " << current_pose.pose.orientation.w;
-		  qfout << " " << current_pose.pose.orientation.x;
-		  qfout << " " << current_pose.pose.orientation.y;
-		  qfout << " " << current_pose.pose.orientation.z << std::endl;
-		  qfout << "." << std::endl;
+		      qfout << link_header << std::endl;
+		      qfout << link_eef << std::endl;
+		      
+		      qfout << "Position =";
+		      qfout << " " << transform.translation.x;
+		      qfout << " " << transform.translation.y;
+		      qfout << " " << transform.translation.z << std::endl;
+		      qfout << "Position_tolerance = " << "0.1 0.1 0.1" << std::endl;
+		      qfout << "Orientation =";
+		      qfout << " " << transform.rotation.x;
+		      qfout << " " << transform.rotation.y;
+		      qfout << " " << transform.rotation.z;
+		      qfout << " " << transform.rotation.w << std::endl;
+		      qfout << "Orientation_tolerance = " << "0.1 0.1 0.1" << std::endl;
+		      qfout << "." << std::endl;
+		    }
+		  else if (position_constraints.size() != 0 && orientation_constraints.size() != 0 && position_constraints[0].link_name == orientation_constraints[0].link_name)
+		    {
+		      moveit_msgs::BoundingVolume volume = position_constraints[0].constraint_region;
+
+		      qfout << position_constraints[0].header.frame_id << std::endl;
+		      qfout << position_constraints[0].link_name << std::endl;
+		      
+		      if(volume.primitive_poses.size() != 0)
+			{
+			  qfout << "Position =";
+			  qfout << " " << volume.primitive_poses[0].position.x;
+			  qfout << " " << volume.primitive_poses[0].position.y;
+			  qfout << " " << volume.primitive_poses[0].position.z << std::endl;
+			}
+		      
+		      if(volume.primitives.size() != 0)
+			{
+			  qfout << "Position_tolerance =";
+			  qfout << " " << volume.primitives[0].dimensions[0];
+			  qfout << " " << volume.primitives[0].dimensions[1];
+			  qfout << " " << volume.primitives[0].dimensions[2] << std::endl;
+			}
+		      if(orientation_constraints[0].link_name != "")
+			{
+			  qfout << "Orientation =";
+			  qfout << " " << orientation_constraints[0].orientation.x;
+			  qfout << " " << orientation_constraints[0].orientation.y;
+			  qfout << " " << orientation_constraints[0].orientation.z;
+			  qfout << " " << orientation_constraints[0].orientation.w << std::endl;
+			  qfout << "Orientation_tolerance =";
+			  qfout << " " << orientation_constraints[0].absolute_x_axis_tolerance;
+			  qfout << " " << orientation_constraints[0].absolute_y_axis_tolerance;
+			  qfout << " " << orientation_constraints[0].absolute_z_axis_tolerance << std::endl;
+		        }
+		      qfout << "." << std::endl;
+		    }
+		  else
+		    {
+		      ROS_ERROR("No proper constraint: need joint constraint or position constraint.");
+		    }
 		}
 	      else
 		{

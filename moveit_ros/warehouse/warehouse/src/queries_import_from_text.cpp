@@ -125,6 +125,63 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
   goalState = msg;
 }
 
+void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+	       moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
+{
+  std::string link_eef;
+  std::string link_header;
+  std::string label;
+  std::string marker;
+  in >> link_header;
+  in >> link_eef;
+
+  geometry_msgs::Quaternion orientation;
+  std::vector<double> tolerance_angle = {0,0,0};
+
+  geometry_msgs::Point position;
+  std::vector<double> tolerance_pos = {0,0,0};
+
+  in >> label;
+  in >> marker;
+  if(label == "Position" && marker == "=")
+    {
+      in >> position.x >> position.y >> position.z;
+    }
+  in >> label;
+  in >> marker;
+  if(label == "Position_tolerance" && marker == "=")
+    {
+      in >> tolerance_pos[0] >> tolerance_pos[1] >> tolerance_pos[2];
+    }
+  in >> label;
+  in >> marker;
+  if(label == "Orientation" && marker == "=")
+    {
+      in >> orientation.x >> orientation.y >> orientation.z >> orientation.w;
+    }
+  in >> label;
+  in >> marker;
+  if(label == "Orientation_tolerance" && marker == "=")
+    {
+      in >> tolerance_angle[0] >> tolerance_angle[1] >> tolerance_angle[2];
+    }
+  in >> label;
+  if(label != "."){
+    ROS_ERROR("Parsing failed.");
+  }
+  
+  moveit_msgs::Constraints msg;
+
+  moveit_msgs::MotionPlanRequest req;
+  geometry_msgs::PoseStamped pose;
+  pose.header.frame_id = link_header;
+  pose.pose.position = position;
+  pose.pose.orientation = orientation;
+  
+  msg = kinematic_constraints::constructGoalConstraints(link_eef, pose, tolerance_pos, tolerance_angle);
+  goalState = msg;
+}
+
 void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
                   moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs, moveit_warehouse::PlanningSceneStorage* pss)
 {
@@ -137,7 +194,6 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
       {
 	std::string query_name;
 	in >> query_name;
-        
 	moveit_msgs::RobotState startState;
 	moveit_msgs::Constraints goalState;
 
@@ -167,15 +223,16 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
 		in >> joint_constraint;
 		if(joint_constraint == "joint_constraint")
 		  parseGoalFormat(in, psm, rs, goalState);
+		if(joint_constraint == "position_constraint")
+		  parseGoalFormatPosition(in, psm, rs, goalState);
 	      }
 	    else
 	      {
 		ROS_ERROR("Unknown query type: '%s'", goal_type.c_str());
 	      }
 
-	    if(goalState.joint_constraints.size())
+	    if(goalState.joint_constraints.size() || (goalState.position_constraints.size() && goalState.orientation_constraints.size()))
 	      {
-		// Save the query as Start state + Goal joint constraint
 		moveit_msgs::MotionPlanRequest planning_query;
 		planning_query.start_state = startState;
 		planning_query.goal_constraints = {goalState};
@@ -207,9 +264,7 @@ int main(int argc, char** argv)
     ("queries", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
     ("scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")
     ("host", boost::program_options::value<std::string>(),"Host for the DB.")
-    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("queries_format", "Load queries in a RViz-compatible format.")
-    ("position", "TEST");
+    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -257,51 +312,9 @@ int main(int argc, char** argv)
       std::ifstream fin(vm["queries"].as<std::string>().c_str());
       if (fin.good() && !fin.eof())
 	{
-	  if(vm.count("queries_format"))
-	    parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
-	  else
-	    parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
+	  parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
 	}
       fin.close();
-    }
-
-
-  // test to define a query from start and position of end effector to avoid impossible queries.
-  // however, queries in RViz are made with end goal so even if no goal is defined, it takes the previously defined goal state.
-  if(vm.count("position"))
-    {
-      
-      moveit_msgs::RobotState startState;
-      moveit_msgs::Constraints goalState;
-
-
-      robot_state::RobotState st = psm.getPlanningScene()->getCurrentState();
-      st.setVariablePositions({0,-0.3,0,0,0,0});
-      moveit_msgs::RobotState msgS;
-      robot_state::robotStateToRobotStateMsg(st, msgS);
-      startState = msgS;
-
-
-      moveit_msgs::MotionPlanRequest req;
-      geometry_msgs::PoseStamped pose;
-      pose.header.frame_id = "ra_base_link";
-      pose.pose.position.x = 0.2366;//0.468;
-      pose.pose.position.y = -0.1335;//0.717;
-      pose.pose.position.z = 1.036;//0.907;
-      pose.pose.orientation.w = 0.4814;
-      pose.pose.orientation.x = -0.3319;
-      pose.pose.orientation.y = 0.7852;
-      pose.pose.orientation.z = 0.2035;
-
-      std::vector<double> tolerance_pose(3, 0.1);
-      std::vector<double> tolerance_angle(3, 0.1);
-      moveit_msgs::Constraints pose_goal = kinematic_constraints::constructGoalConstraints("ra_wrist_3_link", pose, tolerance_pose, tolerance_angle);
-      
-      moveit_msgs::MotionPlanRequest planning_query;
-      planning_query.start_state = startState;
-      planning_query.goal_constraints = {pose_goal};
-      
-      pss.addPlanningQuery(planning_query, "SCENE_TEST", "QUERY_TEST");
     }
   return 0;
 }
