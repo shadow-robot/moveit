@@ -114,7 +114,6 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
 	joint_constraint.position = pos;
 	joint_constraint.tolerance_above = tol_above;
 	joint_constraint.tolerance_below = tol_below;
-	joint_constraint.weight = 1.0;  //hard-coded, but it's the default value
 	
 	joint_constraints.push_back(joint_constraint);
       }
@@ -132,7 +131,9 @@ void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningS
   std::string link_header;
   std::string label;
   std::string marker;
+  in >> label;
   in >> link_header;
+  in >> label;
   in >> link_eef;
 
   geometry_msgs::Quaternion orientation;
@@ -187,6 +188,7 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
 {
   std::string scene_name;
   in >> scene_name;
+  std::string group_name;
 
   if(pss->hasPlanningScene(scene_name))
     {
@@ -194,12 +196,12 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
       {
 	std::string query_name;
 	in >> query_name;
+	in >> group_name;
 	moveit_msgs::RobotState startState;
 	moveit_msgs::Constraints goalState;
 
 	if (in.good() && !in.eof())
 	  {
-	
 	    std::string start_type;
 	    in >> start_type;
 
@@ -234,6 +236,8 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
 	    if(goalState.joint_constraints.size() || (goalState.position_constraints.size() && goalState.orientation_constraints.size()))
 	      {
 		moveit_msgs::MotionPlanRequest planning_query;
+
+		planning_query.group_name = group_name; //TODO
 		planning_query.start_state = startState;
 		planning_query.goal_constraints = {goalState};
 		

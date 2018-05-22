@@ -169,11 +169,12 @@ int main(int argc, char** argv)
 	    }
 	    
 	  moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
-	    
+	  
 	  moveit_msgs::RobotState startState = plan_request.start_state;
 	  sensor_msgs::JointState jointState = startState.joint_state;
 	  
 	  qfout << query_names[k] << std::endl;
+	  qfout << plan_request.group_name << std::endl;
 	  qfout << "START" << std::endl;
 	    
 	  for (std::size_t p = 0; p < jointState.position.size(); ++p){
@@ -206,19 +207,18 @@ int main(int argc, char** argv)
 		  
 		      moveit::core::RobotState my_state(km);
 
-		      my_state.setJointGroupPositions("right_arm", joint_values); //(plan_request.group_name, joint_values);  problem: plan_request.group_name is not always defined, so this is hard coded for the moment.
+		      my_state.setJointGroupPositions(plan_request.group_name, joint_values);
 		      
 		      const moveit::core::JointModel* joint_eef = my_state.getJointModel(joint_constraints[joint_constraints.size()-1].joint_name);
 		      std::string link_eef = joint_eef->getChildLinkModel()->getName();
 		      std::string link_header = startState.joint_state.header.frame_id;
 
-		      
 		      const Eigen::Affine3d& link_pose = my_state.getGlobalLinkTransform(link_eef);
 		      geometry_msgs::Transform transform;
 		      tf::transformEigenToMsg(link_pose, transform);
 		  
-		      qfout << link_header << std::endl;
-		      qfout << link_eef << std::endl;
+		      qfout << "Link_header " << link_header << std::endl;
+		      qfout << "Link_end_effector " << link_eef << std::endl;
 		      
 		      qfout << "Position =";
 		      qfout << " " << transform.translation.x;
