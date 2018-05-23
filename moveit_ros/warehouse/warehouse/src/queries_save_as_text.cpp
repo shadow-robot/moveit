@@ -64,13 +64,13 @@ void collectLinkConstraints(const moveit_msgs::Constraints& constraints, LinkCon
     lcp.first = pc.constraint_region.primitive_poses[0].position;
     lcmap[constraints.position_constraints[i].link_name] = lcp;
   }
-
+  
   for (std::size_t i = 0; i < constraints.orientation_constraints.size(); ++i)
   {
     if (lcmap.count(constraints.orientation_constraints[i].link_name))
     {
       lcmap[constraints.orientation_constraints[i].link_name].second =
-          constraints.orientation_constraints[i].orientation;
+	constraints.orientation_constraints[i].orientation;
     }
     else
     {
@@ -83,17 +83,17 @@ void collectLinkConstraints(const moveit_msgs::Constraints& constraints, LinkCon
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
-
+  
   boost::program_options::options_description desc;
   desc.add_options()
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
     ("position", "Defines queries as start state + end effector position instead of full joints goal state.");
-
+  
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
-
+  
   if (vm.count("help"))
   {
     std::cout << desc << std::endl;
@@ -106,12 +106,12 @@ int main(int argc, char** argv)
     conn->setParams(vm["host"].as<std::string>(), vm["port"].as<std::size_t>());
   if (!conn->connect())
     return 1;
-
+  
   ros::AsyncSpinner spinner(1);
   spinner.start();
-
+  
   planning_scene_monitor::PlanningSceneMonitor psm(ROBOT_DESCRIPTION);
-
+  
   moveit_warehouse::PlanningSceneStorage pss(conn);
   moveit_warehouse::RobotStateStorage rss(conn);
   moveit_warehouse::ConstraintsStorage cs(conn);
@@ -145,9 +145,8 @@ int main(int argc, char** argv)
       cs.getKnownConstraints(csregex.str(), constraintNames);
 
 
-      // RBRICOUT
       std::vector<std::string> query_names;
-      
+
       std::stringstream pssregex;
       pssregex << ".*";
       pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_names[i]);
@@ -156,139 +155,143 @@ int main(int argc, char** argv)
       qfout << scene_names[i] << std::endl;
 
       for (std::size_t k = 0; k < query_names.size(); ++k)
+      {
+	moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
+	try
 	{
-	  moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
-	  try
-	    {
-	      pss.getPlanningQuery(planning_query, scene_names[i], query_names[k]);
-	    }
-	  catch (std::exception& ex)
-	    {
-	      ROS_ERROR("Error loading motion planning query '%s': %s", query_names[i].c_str(), ex.what());
-	      continue;
-	    }
+	  pss.getPlanningQuery(planning_query, scene_names[i], query_names[k]);
+	}
+	catch (std::exception& ex)
+	{
+	  ROS_ERROR("Error loading motion planning query '%s': %s", query_names[i].c_str(), ex.what());
+	  continue;
+	}
 	    
-	  moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
+	moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
+	std::vector<moveit_msgs::Constraints> query_goal_constraints = plan_request.goal_constraints;
+
+	
+	if (query_goal_constraints.size() == 1)
+	{
+	  moveit_msgs::Constraints query_goal = query_goal_constraints[0];
 	  
+	  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
+	  std::vector<moveit_msgs::PositionConstraint> position_constraints = query_goal.position_constraints;
+	  std::vector<moveit_msgs::OrientationConstraint> orientation_constraints = query_goal.orientation_constraints;
+	  
+	  if(vm.count("position") && joint_constraints.size() != 0){  //allows to distinguish queries defined by position and by joints
+	    query_names[k] = "position_" + query_names[k];
+	  }
+
 	  moveit_msgs::RobotState startState = plan_request.start_state;
 	  sensor_msgs::JointState jointState = startState.joint_state;
-	  
+
 	  qfout << query_names[k] << std::endl;
-	  qfout << plan_request.group_name << std::endl;
+	  qfout << "Group_name " << plan_request.group_name << std::endl;
+	  
+	  //Save the start State
 	  qfout << "START" << std::endl;
-	    
 	  for (std::size_t p = 0; p < jointState.position.size(); ++p){
 	    qfout << jointState.name[p] << " = ";
 	    qfout << jointState.position[p] << std::endl;
 	  }
 	  qfout << "." << std::endl;
-
-	  std::vector<moveit_msgs::Constraints> query_goal_constraints = plan_request.goal_constraints;
-	    
-	  if (query_goal_constraints.size() == 1)
+        
+	  //Save the goal state
+	  qfout << "GOAL" << std::endl;
+	  if(vm.count("position") || joint_constraints.size() == 0)  //save queries using end-effector position
+	  {
+	    qfout << "position_constraint" << std::endl;
+	    if(joint_constraints.size() != 0)  //query defined with joints constraints (such as RViz-defined queries)
 	    {
-	      moveit_msgs::Constraints query_goal = query_goal_constraints[0];
-	      qfout << "GOAL" << std::endl;
+	      std::vector<double> joint_values = {0, 0, 0, 0, 0, 0};
+	      for(int i = 0; i<joint_values.size(); ++i)
+	      {
+		joint_values[i] = joint_constraints[i].position;
+	      }
+	      
+	      moveit::core::RobotState my_state(km);
+	      
+	      my_state.setJointGroupPositions(plan_request.group_name, joint_values);
+	      const moveit::core::JointModel* joint_eef = my_state.getJointModel(joint_constraints[joint_constraints.size()-1].joint_name);
 
-	      if(vm.count("position"))
-		{
-		  qfout << "position_constraint" << std::endl;
-
-		  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
-		  std::vector<moveit_msgs::PositionConstraint> position_constraints = query_goal.position_constraints;
-		  std::vector<moveit_msgs::OrientationConstraint> orientation_constraints = query_goal.orientation_constraints;
-		  if(joint_constraints.size() != 0)
-		    {
-		      std::vector<double> joint_values = {0, 0, 0, 0, 0, 0};
-		      for(int i = 0; i<joint_values.size(); ++i)
-			{
-			  joint_values[i] = joint_constraints[i].position;
-			}
-		  
-		      moveit::core::RobotState my_state(km);
-
-		      my_state.setJointGroupPositions(plan_request.group_name, joint_values);
-		      
-		      const moveit::core::JointModel* joint_eef = my_state.getJointModel(joint_constraints[joint_constraints.size()-1].joint_name);
-		      std::string link_eef = joint_eef->getChildLinkModel()->getName();
-		      std::string link_header = startState.joint_state.header.frame_id;
-
-		      const Eigen::Affine3d& link_pose = my_state.getGlobalLinkTransform(link_eef);
-		      geometry_msgs::Transform transform;
-		      tf::transformEigenToMsg(link_pose, transform);
-		  
-		      qfout << "Link_header " << link_header << std::endl;
-		      qfout << "Link_end_effector " << link_eef << std::endl;
-		      
-		      qfout << "Position =";
-		      qfout << " " << transform.translation.x;
-		      qfout << " " << transform.translation.y;
-		      qfout << " " << transform.translation.z << std::endl;
-		      qfout << "Position_tolerance = " << "0.1 0.1 0.1" << std::endl;
-		      qfout << "Orientation =";
-		      qfout << " " << transform.rotation.x;
-		      qfout << " " << transform.rotation.y;
-		      qfout << " " << transform.rotation.z;
-		      qfout << " " << transform.rotation.w << std::endl;
-		      qfout << "Orientation_tolerance = " << "0.1 0.1 0.1" << std::endl;
-		      qfout << "." << std::endl;
-		    }
-		  else if (position_constraints.size() != 0 && orientation_constraints.size() != 0 && position_constraints[0].link_name == orientation_constraints[0].link_name)
-		    {
-		      moveit_msgs::BoundingVolume volume = position_constraints[0].constraint_region;
-
-		      qfout << position_constraints[0].header.frame_id << std::endl;
-		      qfout << position_constraints[0].link_name << std::endl;
-		      
-		      if(volume.primitive_poses.size() != 0)
-			{
-			  qfout << "Position =";
-			  qfout << " " << volume.primitive_poses[0].position.x;
-			  qfout << " " << volume.primitive_poses[0].position.y;
-			  qfout << " " << volume.primitive_poses[0].position.z << std::endl;
-			}
-		      
-		      if(volume.primitives.size() != 0)
-			{
-			  qfout << "Position_tolerance =";
-			  qfout << " " << volume.primitives[0].dimensions[0];
-			  qfout << " " << volume.primitives[0].dimensions[1];
-			  qfout << " " << volume.primitives[0].dimensions[2] << std::endl;
-			}
-		      if(orientation_constraints[0].link_name != "")
-			{
-			  qfout << "Orientation =";
-			  qfout << " " << orientation_constraints[0].orientation.x;
-			  qfout << " " << orientation_constraints[0].orientation.y;
-			  qfout << " " << orientation_constraints[0].orientation.z;
-			  qfout << " " << orientation_constraints[0].orientation.w << std::endl;
-			  qfout << "Orientation_tolerance =";
-			  qfout << " " << orientation_constraints[0].absolute_x_axis_tolerance;
-			  qfout << " " << orientation_constraints[0].absolute_y_axis_tolerance;
-			  qfout << " " << orientation_constraints[0].absolute_z_axis_tolerance << std::endl;
-		        }
-		      qfout << "." << std::endl;
-		    }
-		  else
-		    {
-		      ROS_ERROR("No proper constraint: need joint constraint or position constraint.");
-		    }
-		}
-	      else
-		{
-		  qfout << "joint_constraint" << std::endl;
-		  
-		  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
-		  for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
-		    {
-		      qfout << iter->joint_name << " = ";
-		      qfout << iter->position << " ";
-		      qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
-		    }
-		  qfout << "." << std::endl;
-		}
+	      std::string link_eef    = joint_eef->getChildLinkModel()->getName();
+	      std::string link_header = startState.joint_state.header.frame_id;
+	      
+	      const Eigen::Affine3d& link_pose = my_state.getGlobalLinkTransform(link_eef);
+	      geometry_msgs::Transform transform;
+	      tf::transformEigenToMsg(link_pose, transform);
+	      
+	      qfout << "Link_header " << link_header << std::endl;
+	      qfout << "Link_end_effector " << link_eef << std::endl;
+	      qfout << "Position =";
+	      qfout << " " << transform.translation.x;
+	      qfout << " " << transform.translation.y;
+	      qfout << " " << transform.translation.z << std::endl;
+	      qfout << "Position_tolerance = " << "0.1 0.1 0.1" << std::endl;
+	      qfout << "Orientation =";
+	      qfout << " " << transform.rotation.x;
+	      qfout << " " << transform.rotation.y;
+	      qfout << " " << transform.rotation.z;
+	      qfout << " " << transform.rotation.w << std::endl;
+	      qfout << "Orientation_tolerance = " << "0.1 0.1 0.1" << std::endl;
+	      qfout << "." << std::endl;
 	    }
+	    else if (position_constraints.size() != 0 && orientation_constraints.size() != 0)  //based on end-effector-defined queries
+	    {
+	      moveit_msgs::BoundingVolume volume = position_constraints[0].constraint_region;
+
+	      qfout << "Link_header " << position_constraints[0].header.frame_id << std::endl;
+	      qfout << "Link_end_effector " << position_constraints[0].link_name << std::endl;
+	      
+	      if(volume.primitive_poses.size() != 0 && volume.primitives.size() != 0 && position_constraints[0].link_name == orientation_constraints[0].link_name)
+	      {
+		qfout << "Position =";
+		qfout << " " << volume.primitive_poses[0].position.x;
+		qfout << " " << volume.primitive_poses[0].position.y;
+		qfout << " " << volume.primitive_poses[0].position.z << std::endl;
+	        qfout << "Position_tolerance =";
+		qfout << " " << volume.primitives[0].dimensions[0];
+		qfout << " " << volume.primitives[0].dimensions[1];
+		qfout << " " << volume.primitives[0].dimensions[2] << std::endl;
+		qfout << "Orientation =";
+		qfout << " " << orientation_constraints[0].orientation.x;
+		qfout << " " << orientation_constraints[0].orientation.y;
+		qfout << " " << orientation_constraints[0].orientation.z;
+		qfout << " " << orientation_constraints[0].orientation.w << std::endl;
+		qfout << "Orientation_tolerance =";
+		qfout << " " << orientation_constraints[0].absolute_x_axis_tolerance;
+		qfout << " " << orientation_constraints[0].absolute_y_axis_tolerance;
+		qfout << " " << orientation_constraints[0].absolute_z_axis_tolerance << std::endl;
+	      }
+	      else
+	      {
+		ROS_ERROR("Error in definition of end__effector constraint.");	
+	      }
+	      qfout << "." << std::endl;
+	    }
+	    else
+	    {
+	      ROS_ERROR("No proper constraint: need joint constraint or position constraint.");
+	    }
+	  }
+	  else  //save queries using joint constraints
+	  {
+	    qfout << "joint_constraint" << std::endl;
+	    std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
+	    if(joint_constraints.size() != 0)
+	    {
+	      for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
+	      {
+		qfout << iter->joint_name << " = ";
+		qfout << iter->position << " ";
+		qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
+	      }
+	    }
+	    qfout << "." << std::endl;
+	  }
 	}
+      }
       qfout.close();
     }
   }
