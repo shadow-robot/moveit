@@ -150,8 +150,14 @@ int main(int argc, char** argv)
       std::stringstream pssregex;
       pssregex << ".*";
       pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_names[i]);
+
+      std::string prefix = "";
+      if(vm.count("position"))
+      {
+	prefix = "position_";
+      }
       
-      std::ofstream qfout((scene_names[i] + ".queries").c_str());
+      std::ofstream qfout((prefix + scene_names[i] + ".queries").c_str());
       qfout << scene_names[i] << std::endl;
 
       for (std::size_t k = 0; k < query_names.size(); ++k)
@@ -199,7 +205,7 @@ int main(int argc, char** argv)
         
 	  //Save the goal state
 	  qfout << "GOAL" << std::endl;
-	  if(vm.count("position") || joint_constraints.size() == 0)  //save queries using end-effector position
+	  if(vm.count("position"))  //save queries using end-effector position
 	  {
 	    qfout << "position_constraint" << std::endl;
 	    if(joint_constraints.size() != 0)  //query defined with joints constraints (such as RViz-defined queries)
@@ -275,7 +281,7 @@ int main(int argc, char** argv)
 	      ROS_ERROR("No proper constraint: need joint constraint or position constraint.");
 	    }
 	  }
-	  else  //save queries using joint constraints
+	  else if(joint_constraints.size() != 0)  //save queries using joint constraints
 	  {
 	    qfout << "joint_constraint" << std::endl;
 	    std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
