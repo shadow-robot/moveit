@@ -128,20 +128,12 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
 void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
 			     moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
 {
-  std::string link_eef;
-  std::string link_header;
   std::string label;
   std::string marker;
-  
-  in >> label;
-  in >> link_header;
-  in >> label;
-  in >> link_eef;
-
+ 
   geometry_msgs::Quaternion orientation;
-  std::vector<double> tolerance_angle = {0,0,0};
-
   geometry_msgs::Point position;
+  std::vector<double> tolerance_angle = {0,0,0};
   std::vector<double> tolerance_pos = {0,0,0};
 
   in >> label;
@@ -154,34 +146,46 @@ void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningS
   in >> marker;
   if(label == "Position_tolerance" && marker == "=")
   {
-    in >> tolerance_pos[0] >> tolerance_pos[1] >> tolerance_pos[2];
+    in >> tolerance_pos[0];
+    in >> tolerance_pos[1];
+    in >> tolerance_pos[2];
   }
   in >> label;
   in >> marker;
   if(label == "Orientation" && marker == "=")
   {
-    in >> orientation.x >> orientation.y >> orientation.z >> orientation.w;
+    in >> orientation.x;
+    in >> orientation.y;
+    in >> orientation.z;
+    in >> orientation.w;
   }
   in >> label;
   in >> marker;
   if(label == "Orientation_tolerance" && marker == "=")
   {
-    in >> tolerance_angle[0] >> tolerance_angle[1] >> tolerance_angle[2];
+    in >> tolerance_angle[0];
+    in >> tolerance_angle[1];
+    in >> tolerance_angle[2];
   }
   in >> label;
   if(label != "."){
     ROS_ERROR("Parsing failed.");
   }
+
+  robot_model::RobotModelConstPtr km = psm->getRobotModel();
+  
+  const std::vector< std::string > & variable_names = km->getVariableNames();
+  const std::vector< std::string > & id_names = km->getLinkModelNames();
+  const robot_model::JointModel* eef_joint = km->getJointModel(variable_names[variable_names.size()-1]);
+  std::string eef_name = eef_joint->getChildLinkModel()->getName();
+  
+  geometry_msgs::PoseStamped pose;
+  pose.pose.orientation = orientation;
+  pose.pose.position = position;
+  pose.header.frame_id = id_names[0];
   
   moveit_msgs::Constraints msg;
-
-  moveit_msgs::MotionPlanRequest req;
-  geometry_msgs::PoseStamped pose;
-  pose.header.frame_id = link_header;
-  pose.pose.position = position;
-  pose.pose.orientation = orientation;
-  
-  msg = kinematic_constraints::constructGoalConstraints(link_eef, pose, tolerance_pos, tolerance_angle);
+  msg = kinematic_constraints::constructGoalConstraints(eef_name, pose, tolerance_pos, tolerance_angle);
   goalState = msg;
 }
 
@@ -197,18 +201,13 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
     {
       std::string query_name;
       in >> query_name;
-      std::string label;
-      in >> label;
-      std::string group_name;
-      in >> group_name;
 
       moveit_msgs::RobotState startState;
       moveit_msgs::Constraints goalState;
       
       if (in.good() && !in.eof())
       {
-	
-	// Get the start state of the query
+        
 	std::string start_type;
 	in >> start_type;
 	if(start_type == "START" && in.good() && !in.eof())
@@ -220,7 +219,6 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
 	  ROS_ERROR("Unknown query type for start state: '%s'", start_type.c_str());
 	}
 
-	// Get the goal of the query as a set of joint_constraints
 	std::string goal_type;
 	in >> goal_type;
 	if(goal_type == "GOAL" && in.good() && !in.eof())
@@ -240,8 +238,7 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
 	if(goalState.joint_constraints.size() || (goalState.position_constraints.size() && goalState.orientation_constraints.size()))
 	{
 	  moveit_msgs::MotionPlanRequest planning_query;
-
-	  planning_query.group_name = group_name;
+	  
 	  planning_query.start_state = startState;
 	  planning_query.goal_constraints = {goalState};
 		
@@ -306,23 +303,28 @@ int main(int argc, char** argv)
   moveit_warehouse::RobotStateStorage rs(conn);
 
   if (vm.count("scene"))
+  {
+    std::ifstream fin(vm["scene"].as<std::string>().c_str());
+    psm.getPlanningScene()->loadGeometryFromStream(fin);
+    fin.close();
+    moveit_msgs::PlanningScene psmsg;
+    psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
+    pss.addPlanningScene(psmsg);
+  }
+  else if (vm.count("queries"))
+  {
+    std::ifstream fin(vm["queries"].as<std::string>().c_str());
+    if (fin.good() && !fin.eof())
     {
-      std::ifstream fin(vm["scene"].as<std::string>().c_str());
-      psm.getPlanningScene()->loadGeometryFromStream(fin);
-      fin.close();
-      moveit_msgs::PlanningScene psmsg;
-      psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
-      pss.addPlanningScene(psmsg);
+      parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
     }
+    fin.close();
+  }
+  else
+  {
+    std::cout << desc << std::endl;
+    return 1;
+  }
   
-  if (vm.count("queries"))
-    {
-      std::ifstream fin(vm["queries"].as<std::string>().c_str());
-      if (fin.good() && !fin.eof())
-	{
-	  parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
-	}
-      fin.close();
-    }
   return 0;
 }
