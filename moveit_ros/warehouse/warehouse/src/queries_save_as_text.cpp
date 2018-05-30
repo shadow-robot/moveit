@@ -45,9 +45,8 @@
 #include <moveit/robot_state/conversions.h>
 #include <ros/ros.h>
 
-#include <moveit/robot_state/robot_state.h>
+//#include <moveit/robot_state/robot_state.h>
 #include <eigen_conversions/eigen_msg.h>
-//#include <moveit/robot_model/joint_model.h>
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
@@ -179,11 +178,9 @@ int main(int argc, char** argv)
 	      qfout << "position_constraint" << std::endl;
 	      
 	      moveit::core::RobotState goal_state(km);
-	      std::vector<double> joint_values (joint_constraints.size(), 0);
-	      for(int i = 0; i<joint_values.size(); ++i)
+	      for(int i = 0; i<joint_constraints.size(); ++i)
 	      {
-		joint_values[i] = joint_constraints[i].position;
-		goal_state.setJointPositions(joint_constraints[i].joint_name, {joint_values[i]});
+	        goal_state.setJointPositions(joint_constraints[i].joint_name, {joint_constraints[i].position});
 	      }
 	      
 	      const moveit::core::JointModel* joint_eef = goal_state.getJointModel(joint_constraints[joint_constraints.size()-1].joint_name);

@@ -115,6 +115,7 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
       joint_constraint.position = pos;
       joint_constraint.tolerance_above = tol_above;
       joint_constraint.tolerance_below = tol_below;
+      joint_constraint.weight = 1.0;
       
       joint_constraints.push_back(joint_constraint);
     }

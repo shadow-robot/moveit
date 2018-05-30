@@ -63,7 +63,7 @@ int main(int argc, char** argv)
   desc.add_options()
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("position", "Defines queries as start state + end effector position instead of full joints goal state.");
+    ("clear", "Clears all the random queries for a given scene");
   
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -92,7 +92,10 @@ int main(int argc, char** argv)
   moveit_warehouse::ConstraintsStorage cs(conn);
   
   std::string scene_name;
-  int queries_number = 1;
+  int tot_queries_number = 1;
+  int cur_queries_number = 0;
+  int fail_queries_bound = 10000;  //allows the while loop to end
+  int fail_queries_cur = 0;
   
   if(argc >= 2)
   {
@@ -101,77 +104,113 @@ int main(int argc, char** argv)
 
   if(argc >= 3)
   {
-    queries_number = atoi(argv[2]);
+    tot_queries_number = atoi(argv[2]);
   }
+
+  if(vm.count("clear"))
+  {
+    std::vector<std::string> query_names;
+    std::stringstream pssregex;
+    pssregex << ".*";
+    pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_name);
+    for(int i = 0; i<query_names.size(); ++i)
+    {
+      if(query_names[i].find("RANDOM") != std::string::npos){
+	pss.removePlanningQuery(scene_name, query_names[i]);
+	ROS_INFO("Query '%s' removed", query_names[i].c_str());
+      }
+    }
+    ROS_INFO("Cleaning done");
+    return 0;
+  }
+  
 
   moveit_warehouse::PlanningSceneWithMetadata pswm;
 
-
-  
   if (pss.getPlanningScene(pswm, scene_name))
   {
     srand (static_cast <unsigned> (time(0)));
-
-    for(int i = 0; i<queries_number; ++i)
-    {
-      psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
     
+    psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
+    while(cur_queries_number < tot_queries_number && fail_queries_cur < fail_queries_bound)
+    {
       robot_model::RobotModelConstPtr km = psm.getRobotModel();
       planning_scene::PlanningScenePtr planning_scene = psm.getPlanningScene();
+      
+      moveit::core::RobotState coll_start_state(km);
+      moveit::core::RobotState coll_goal_state (km);
 
-      moveit::core::RobotState my_state(km);
-      std::vector<double> joints = {};
-      for(int i = 0; i<my_state.getVariableCount(); ++i)
+      std::vector<std::string> names = coll_start_state.getVariableNames();
+      std::map<std::string, double> var_start;
+      std::vector<double> goal_joints  = {};
+
+      //creation of random joint values
+      for(int i = 0; i<names.size(); ++i)
       {
-	double k = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/6.28) - 3.14;
-	joints.push_back(k);
+	double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/6.28) - 3.14;
+	double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/6.28) - 3.14;
+        coll_start_state.setJointPositions(names[i], {j1});
+        coll_goal_state.setJointPositions (names[i], {j2});
+	var_start[names[i]] = j1;
+        goal_joints.push_back(j2);
       }
-      my_state.setJointGroupPositions("right_arm", joints);
       
       collision_detection::CollisionRequest collision_request;
-      collision_detection::CollisionResult  collision_result;
+      collision_detection::CollisionResult  collision_result_start;
+      collision_detection::CollisionResult  collision_result_goal;
       
-      collision_result.clear();
-      planning_scene->checkCollision(collision_request, collision_result, my_state);
-      
-      if(!collision_result.collision)
+      moveit_msgs::RobotState  msg_start_state;
+      moveit_msgs::Constraints msg_goal_state;
+
+      //check start state collision
+      planning_scene->checkCollision(collision_request, collision_result_start, coll_start_state);
+      if(!collision_result_start.collision)
       {
-	robot_state::RobotState st = psm.getPlanningScene()->getCurrentState();
-	std::vector<std::string> names = st.getVariableNames();
-	
-	moveit_msgs::RobotState startState;
-	moveit_msgs::Constraints goalState;
-	
-	std::map<std::string, double> v;
+	robot_state::RobotState st = planning_scene->getCurrentState();
+	st.setVariablePositions(var_start);
+	robot_state::robotStateToRobotStateMsg(st, msg_start_state);
+      }
+
+      //check goal state collision
+      planning_scene->checkCollision(collision_request, collision_result_goal, coll_goal_state);
+      if(!collision_result_goal.collision)
+      {
 	std::vector<moveit_msgs::JointConstraint> joint_constraints;
-	
-	for(int i = 0; i<names.size(); ++i){
-	  v[names[i]] = joints[i];
+        for(int i = 0; i<names.size(); ++i)
+	{
 	  moveit_msgs::JointConstraint joint_constraint;
 	  joint_constraint.joint_name = names[i];
-	  joint_constraint.position = joints[i];
+	  joint_constraint.position = goal_joints[i];
 	  joint_constraint.tolerance_above = 0.1;
 	  joint_constraint.tolerance_below = 0.1;
+	  joint_constraint.weight = 1.0;
 	  
 	  joint_constraints.push_back(joint_constraint);
 	}
-	goalState.joint_constraints = joint_constraints;
-	
-	st.setVariablePositions(v);
-	robot_state::robotStateToRobotStateMsg(st, startState);
-	
+	msg_goal_state.joint_constraints = joint_constraints;	
+      }
+      
+      if(!collision_result_start.collision && !collision_result_goal.collision)
+      {
 	moveit_msgs::MotionPlanRequest planning_query;
-	planning_query.start_state = startState;
-	planning_query.goal_constraints = {goalState};
+	planning_query.start_state = msg_start_state;
+	planning_query.goal_constraints = {msg_goal_state};
+
+	std::string query_name = "RANDOM_pose" + std::to_string(cur_queries_number);
+	pss.addPlanningQuery(planning_query, scene_name, query_name);
 	
-	pss.addPlanningQuery(planning_query, scene_name, "TEST_" + std::to_string(i));
-	
-	ROS_INFO("Random query number '%d' sucessfully added", i);
+	cur_queries_number ++;
+	ROS_INFO("Random query '%s' sucessfully added after %d fails", query_name.c_str(), fail_queries_cur);
+	fail_queries_cur = 0;
       }
       else
       {
-	ROS_INFO("FAIL: Random query number '%d' was not valid", i);
+	fail_queries_cur ++;
       }
+    }
+    if(fail_queries_cur >= fail_queries_bound)
+    {
+      ROS_ERROR("FAIL: '%d' consecutive random queries failed, exiting the while loop", fail_queries_bound);
     }
   }
   return 0;
