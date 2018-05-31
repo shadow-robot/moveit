@@ -48,7 +48,6 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/robot_state/robot_state.h>
 #include <eigen_conversions/eigen_msg.h>
-//#include <moveit/robot_model/joint_model.h>
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
@@ -144,12 +143,14 @@ int main(int argc, char** argv)
       std::map<std::string, double> var_start;
       std::vector<double> goal_joints  = {};
 
-      //creation of random joint values
+      //generation of random joint values
       for(int i = 0; i<names.size(); ++i)
       {
-	double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/6.28) - 3.14;
-	double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/6.28) - 3.14;
-        coll_start_state.setJointPositions(names[i], {j1});
+        float bound_up   = km->getVariableBounds(names[i]).max_position_;
+	float bound_down = km->getVariableBounds(names[i]).min_position_;
+        double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
+	double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
+	coll_start_state.setJointPositions(names[i], {j1});
         coll_goal_state.setJointPositions (names[i], {j2});
 	var_start[names[i]] = j1;
         goal_joints.push_back(j2);
