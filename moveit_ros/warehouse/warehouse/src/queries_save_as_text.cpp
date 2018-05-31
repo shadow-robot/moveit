@@ -58,7 +58,7 @@ int main(int argc, char** argv)
   desc.add_options()
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("position", "Defines queries as start state + end effector position instead of full joints goal state.");
+    ("cartesian", "Defines queries as start state + end effector position instead of full joints goal state.");
   
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -122,9 +122,9 @@ int main(int argc, char** argv)
       pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_names[i]);
 
       std::string prefix = "";
-      if(vm.count("position"))
+      if(vm.count("cartesian"))
       {
-	prefix = "position_";
+	prefix = "cartesian_";
       }
       
       std::ofstream qfout((prefix + scene_names[i] + ".queries").c_str());
@@ -158,8 +158,8 @@ int main(int argc, char** argv)
 
 	  if(joint_constraints.size() != 0)  //save only joint_defined queries
 	  {
-	    if(vm.count("position")){  //allows to distinguish queries defined by position and by joints
-	      query_names[k] = "position_" + query_names[k];
+	    if(vm.count("cartesian")){  //allows to distinguish queries defined by position and by joints
+	      query_names[k] = "cartesian_" + query_names[k];
 	    }
 	    qfout << query_names[k] << std::endl;
 
@@ -173,7 +173,7 @@ int main(int argc, char** argv)
 
 	    //Save the goal state
 	    qfout << "GOAL" << std::endl;
-	    if(vm.count("position"))  //save queries using end-effector position
+	    if(vm.count("cartesian"))  //save queries using end-effector position
 	    {
 	      qfout << "position_constraint" << std::endl;
 	      
