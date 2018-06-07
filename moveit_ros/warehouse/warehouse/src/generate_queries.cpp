@@ -45,10 +45,6 @@
 #include <moveit/robot_state/conversions.h>
 #include <ros/ros.h>
 
-#include <moveit/move_group_interface/move_group_interface.h>
-#include <moveit/robot_state/robot_state.h>
-#include <eigen_conversions/eigen_msg.h>
-
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
 typedef std::pair<geometry_msgs::Point, geometry_msgs::Quaternion> LinkConstraintPair;
@@ -148,6 +144,8 @@ int main(int argc, char** argv)
       {
         float bound_up   = km->getVariableBounds(names[i]).max_position_;
 	float bound_down = km->getVariableBounds(names[i]).min_position_;
+	bound_up = 3.14;
+	bound_down = -3.14;
         double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
 	double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
 	coll_start_state.setJointPositions(names[i], {j1});
@@ -182,8 +180,8 @@ int main(int argc, char** argv)
 	  moveit_msgs::JointConstraint joint_constraint;
 	  joint_constraint.joint_name = names[i];
 	  joint_constraint.position = goal_joints[i];
-	  joint_constraint.tolerance_above = 0.1;
-	  joint_constraint.tolerance_below = 0.1;
+	  joint_constraint.tolerance_above = 1.0e-15;
+	  joint_constraint.tolerance_below = 1.0e-15;
 	  joint_constraint.weight = 1.0;
 	  
 	  joint_constraints.push_back(joint_constraint);
@@ -201,7 +199,7 @@ int main(int argc, char** argv)
 	pss.addPlanningQuery(planning_query, scene_name, query_name);
 	
 	cur_queries_number ++;
-	ROS_INFO("Random query '%s' sucessfully added after %d fails", query_name.c_str(), fail_queries_cur);
+	ROS_INFO("Random query '%s' sucessfully added after %d fail(s)", query_name.c_str(), fail_queries_cur);
 	fail_queries_cur = 0;
       }
       else
