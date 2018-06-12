@@ -871,46 +871,45 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p)
     tf::transformEigenToMsg(link_pose, transforms[i]);
   }
 
+  int n = p.getWayPointCount()-1;
   double eef_dist = 0.0;
   double eef_rot  = 0.0;
   
-  for(size_t i = 0; i<p.getWayPointCount()-1; ++i)
+  for(size_t i = 0; i<n; ++i)
   {
+    geometry_msgs::Quaternion q2 = transforms[i+1].rotation;
+    geometry_msgs::Quaternion q1 = transforms[i  ].rotation;
     double x, y, z, w;
-    
     x = fabs(transforms[i+1].translation.x - transforms[i].translation.x);
     y = fabs(transforms[i+1].translation.y - transforms[i].translation.y);
     z = fabs(transforms[i+1].translation.z - transforms[i].translation.z);
+    w = -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w;
     eef_dist += sqrt(x*x+y*y+z*z);
-    
-    x = fabs(transforms[i+1].rotation.x - transforms[i].rotation.x);
-    y = fabs(transforms[i+1].rotation.y - transforms[i].rotation.y);
-    z = fabs(transforms[i+1].rotation.z - transforms[i].rotation.z);
-    w = fabs(transforms[i+1].rotation.w - transforms[i].rotation.w);
-    eef_rot += sqrt(x*x+y*y+z*z+w*w);
+    eef_rot += 2*acos(w);
   }
 
+  geometry_msgs::Quaternion qn = transforms[n].rotation;
+  geometry_msgs::Quaternion q0 = transforms[0].rotation;
   double x_t, y_t, z_t, w_t;
   double tot_dist, tot_rot;
-  int n = p.getWayPointCount()-1;
   x_t = fabs(transforms[n].translation.x - transforms[0].translation.x);
   y_t = fabs(transforms[n].translation.y - transforms[0].translation.y);
   z_t = fabs(transforms[n].translation.z - transforms[0].translation.z);
+  w_t = -qn.x * q0.x - qn.y * q0.y - qn.z * q0.z + qn.w * q0.w;
   tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
+  tot_rot = 2*acos(w_t);
   
-  x_t = fabs(transforms[n].rotation.x - transforms[0].rotation.x);
-  y_t = fabs(transforms[n].rotation.y - transforms[0].rotation.y);
-  z_t = fabs(transforms[n].rotation.z - transforms[0].rotation.z);
-  w_t = fabs(transforms[n].rotation.w - transforms[0].rotation.w);
-  tot_rot = sqrt(x_t*x_t+y_t*y_t+z_t*z_t+w_t*w_t);
-
   double quality = 0.0;
-  if(tot_dist > 0.01)
+  if(tot_dist > 0.001)
     quality += eef_dist/tot_dist;
-  if(tot_rot  > 0.01)
+  else
+    quality += 1;
+  if(tot_rot  > 0.001)
     quality += eef_rot/tot_rot;
+  else
+    quality += 1;
   
-  return quality;
+  return quality/2;
 }
 
 void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
