@@ -108,13 +108,11 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
       joint = ".";
     else{
       in >> pos;
-      in >> tol_above;
-      in >> tol_below;
+      //in >> tol_above;
+      //in >> tol_below;
       moveit_msgs::JointConstraint joint_constraint;
       joint_constraint.joint_name = joint;
       joint_constraint.position = pos;
-      joint_constraint.tolerance_above = tol_above;
-      joint_constraint.tolerance_below = tol_below;
       joint_constraint.weight = 1.0;
       
       joint_constraints.push_back(joint_constraint);
@@ -134,8 +132,6 @@ void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningS
  
   geometry_msgs::Quaternion orientation;
   geometry_msgs::Point position;
-  std::vector<double> tolerance_angle = {0,0,0};
-  std::vector<double> tolerance_pos = {0,0,0};
 
   in >> label;
   in >> marker;
@@ -145,28 +141,12 @@ void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningS
   }
   in >> label;
   in >> marker;
-  if(label == "Position_tolerance" && marker == "=")
-  {
-    in >> tolerance_pos[0];
-    in >> tolerance_pos[1];
-    in >> tolerance_pos[2];
-  }
-  in >> label;
-  in >> marker;
   if(label == "Orientation" && marker == "=")
   {
     in >> orientation.x;
     in >> orientation.y;
     in >> orientation.z;
     in >> orientation.w;
-  }
-  in >> label;
-  in >> marker;
-  if(label == "Orientation_tolerance" && marker == "=")
-  {
-    in >> tolerance_angle[0];
-    in >> tolerance_angle[1];
-    in >> tolerance_angle[2];
   }
   in >> label;
   if(label != "."){
@@ -186,7 +166,7 @@ void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningS
   pose.header.frame_id = id_names[0];
   
   moveit_msgs::Constraints msg;
-  msg = kinematic_constraints::constructGoalConstraints(eef_name, pose, tolerance_pos, tolerance_angle);
+  msg = kinematic_constraints::constructGoalConstraints(eef_name, pose);
   goalState = msg;
 }
 
@@ -312,9 +292,9 @@ int main(int argc, char** argv)
     psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
     pss.addPlanningScene(psmsg);
   }
-  else if (vm.count("queries"))
+  else if (argc == 2)// if (vm.count("queries"))
   {
-    std::ifstream fin(vm["queries"].as<std::string>().c_str());
+    std::ifstream fin(argv[1]);//vm["queries"].as<std::string>().c_str());
     if (fin.good() && !fin.eof())
     {
       parseQueriesFormat(fin, &psm, &rs, &cs, &pss);

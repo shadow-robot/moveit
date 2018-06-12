@@ -861,8 +861,6 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p)
 
 double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p)
 {
-  double eef_dist = 0.0;
-  
   std::vector<geometry_msgs::Transform> transforms (p.getWayPointCount());
   for (size_t i = 0 ; i < p.getWayPointCount(); ++i)
   {
@@ -872,37 +870,47 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p)
     const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
     tf::transformEigenToMsg(link_pose, transforms[i]);
   }
+
+  double eef_dist = 0.0;
+  double eef_rot  = 0.0;
   
   for(size_t i = 0; i<p.getWayPointCount()-1; ++i)
   {
-    double translationDelta;
-    double orientationDelta;
     double x, y, z, w;
     
     x = fabs(transforms[i+1].translation.x - transforms[i].translation.x);
     y = fabs(transforms[i+1].translation.y - transforms[i].translation.y);
     z = fabs(transforms[i+1].translation.z - transforms[i].translation.z);
-    translationDelta = sqrt(x*x+y*y+z*z);
+    eef_dist += sqrt(x*x+y*y+z*z);
     
     x = fabs(transforms[i+1].rotation.x - transforms[i].rotation.x);
     y = fabs(transforms[i+1].rotation.y - transforms[i].rotation.y);
     z = fabs(transforms[i+1].rotation.z - transforms[i].rotation.z);
     w = fabs(transforms[i+1].rotation.w - transforms[i].rotation.w);
-    //orientationDelta = sqrt(x*x+y*y+z*z+w*w);
-
-    eef_dist += translationDelta;
-    //eef_dist += orientationDelta;
+    eef_rot += sqrt(x*x+y*y+z*z+w*w);
   }
 
-  double x_t, y_t, z_t, tot_dist;
+  double x_t, y_t, z_t, w_t;
+  double tot_dist, tot_rot;
   int n = p.getWayPointCount()-1;
   x_t = fabs(transforms[n].translation.x - transforms[0].translation.x);
   y_t = fabs(transforms[n].translation.y - transforms[0].translation.y);
   z_t = fabs(transforms[n].translation.z - transforms[0].translation.z);
   tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
-  //std::cout << "Res: " << plan_quality / dist << "\n";
   
-  return eef_dist/tot_dist;
+  x_t = fabs(transforms[n].rotation.x - transforms[0].rotation.x);
+  y_t = fabs(transforms[n].rotation.y - transforms[0].rotation.y);
+  z_t = fabs(transforms[n].rotation.z - transforms[0].rotation.z);
+  w_t = fabs(transforms[n].rotation.w - transforms[0].rotation.w);
+  tot_rot = sqrt(x_t*x_t+y_t*y_t+z_t*z_t+w_t*w_t);
+
+  double quality = 0.0;
+  if(tot_dist > 0.01)
+    quality += eef_dist/tot_dist;
+  if(tot_rot  > 0.01)
+    quality += eef_rot/tot_rot;
+  
+  return quality;
 }
 
 void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,

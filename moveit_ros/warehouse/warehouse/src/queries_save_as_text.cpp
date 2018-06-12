@@ -203,14 +203,12 @@ int main(int argc, char** argv)
 		qfout << " " << transform.translation.x;
 		qfout << " " << transform.translation.y;
 		qfout << " " << transform.translation.z << std::endl;
-		qfout << "Position_tolerance = " << "1.0e-5 1.0e-5 1.0e-5" << std::endl;
-		qfout << "Orientation =";
+	        qfout << "Orientation =";
 		qfout << " " << transform.rotation.x;
 		qfout << " " << transform.rotation.y;
 		qfout << " " << transform.rotation.z;
 		qfout << " " << transform.rotation.w << std::endl;
-		qfout << "Orientation_tolerance = " << "1.0e-5 1.0e-5 1.0e-5" << std::endl;
-		qfout << "." << std::endl;
+	        qfout << "." << std::endl;
 	      }
 	      else  //save queries using joint constraints
 	      {
@@ -221,8 +219,7 @@ int main(int argc, char** argv)
 		  for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
 		  {
 		    qfout << iter->joint_name << " = ";
-		    qfout << iter->position << " ";
-		    qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
+		    qfout << iter->position << std::endl;//" ";
 		  }
 		}
 		qfout << "." << std::endl;
