@@ -144,8 +144,6 @@ int main(int argc, char** argv)
       {
         float bound_up   = km->getVariableBounds(names[i]).max_position_;
 	float bound_down = km->getVariableBounds(names[i]).min_position_;
-	bound_up = 3.14;
-	bound_down = -3.14;
         double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
 	double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
 	coll_start_state.setJointPositions(names[i], {j1});
