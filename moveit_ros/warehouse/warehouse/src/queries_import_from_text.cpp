@@ -124,8 +124,8 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
   goalState = msg;
 }
 
-void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-			     moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
+void parseGoalFormatCartesian(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+			      moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState, std::string eef_name = "")
 {
   std::string label;
   std::string marker;
@@ -158,7 +158,9 @@ void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningS
   const std::vector< std::string > & variable_names = km->getVariableNames();
   const std::vector< std::string > & id_names = km->getLinkModelNames();
   const robot_model::JointModel* eef_joint = km->getJointModel(variable_names[variable_names.size()-1]);
-  std::string eef_name = eef_joint->getChildLinkModel()->getName();
+
+  if(eef_name == "")
+    eef_name = eef_joint->getChildLinkModel()->getName();
   
   geometry_msgs::PoseStamped pose;
   pose.pose.orientation = orientation;
@@ -171,7 +173,7 @@ void parseGoalFormatPosition(std::istream& in, planning_scene_monitor::PlanningS
 }
 
 void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-			moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs, moveit_warehouse::PlanningSceneStorage* pss)
+			moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs, moveit_warehouse::PlanningSceneStorage* pss, std::string eef_name = "")
 {
   std::string scene_name;
   in >> scene_name;
@@ -209,7 +211,7 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
 	  if(joint_constraint == "joint_constraint")
 	    parseGoalFormat(in, psm, rs, goalState);
 	  if(joint_constraint == "position_constraint")
-	    parseGoalFormatPosition(in, psm, rs, goalState);
+	    parseGoalFormatCartesian(in, psm, rs, goalState, eef_name);
 	}
 	else
 	{
@@ -247,16 +249,27 @@ int main(int argc, char** argv)
   boost::program_options::options_description desc;
   desc.add_options()
     ("help", "Show help message")
-    ("queries", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
+    ("file", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
     ("scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")
     ("host", boost::program_options::value<std::string>(),"Host for the DB.")
-    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.");
-
+    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
+    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.");
+  
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
 
-  if (vm.count("help") || argc == 1)  // show help if no parameters passed
+  std::string eef_name = "";
+  if (vm.count("eef"))
+  {
+    eef_name = vm["eef"].as<std::string>();
+  }
+  else
+  {
+    ROS_INFO("If you have a problem with a composite robot, try to use the prefix option.");
+  }
+  
+  if (vm.count("help"))  // show help if no parameters passed
   {
     std::cout << desc << std::endl;
     return 1;
@@ -292,12 +305,12 @@ int main(int argc, char** argv)
     psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
     pss.addPlanningScene(psmsg);
   }
-  else if (argc == 2)// if (vm.count("queries"))
+  else if (argc >= 2)// if (vm.count("queries"))
   {
-    std::ifstream fin(argv[1]);//vm["queries"].as<std::string>().c_str());
+    std::ifstream fin(vm["file"].as<std::string>().c_str());
     if (fin.good() && !fin.eof())
     {
-      parseQueriesFormat(fin, &psm, &rs, &cs, &pss);
+      parseQueriesFormat(fin, &psm, &rs, &cs, &pss, eef_name);
     }
     fin.close();
   }

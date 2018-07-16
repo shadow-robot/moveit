@@ -45,6 +45,10 @@
 #include <moveit/robot_state/conversions.h>
 #include <ros/ros.h>
 
+#include <moveit/move_group_interface/move_group_interface.h>
+
+#include <eigen_conversions/eigen_msg.h>
+
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
 typedef std::pair<geometry_msgs::Point, geometry_msgs::Quaternion> LinkConstraintPair;
@@ -58,11 +62,23 @@ int main(int argc, char** argv)
   desc.add_options()
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("clear", "Clears all the random queries for a given scene");
-  
+    ("clear", "Clears all the random queries for a given scene")
+    ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.");
+    
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
+
+
+  std::string prefix = "";
+  if (vm.count("prefix"))
+  {
+    prefix = vm["prefix"].as<std::string>();
+  }
+  else
+  {
+    ROS_INFO("If you have a problem with a composite robot, try to use the prefix option.");
+  }
   
   if (vm.count("help"))
   {
@@ -89,7 +105,7 @@ int main(int argc, char** argv)
   std::string scene_name;
   int tot_queries_number = 1;
   int cur_queries_number = 0;
-  int fail_queries_bound = 10000;  //allows the while loop to end
+  int fail_queries_bound = 1000000;  //allows the while loop to end
   int fail_queries_cur = 0;
   
   if(argc >= 2)
@@ -101,7 +117,7 @@ int main(int argc, char** argv)
   {
     tot_queries_number = atoi(argv[2]);
   }
-
+  
   if(vm.count("clear"))
   {
     std::vector<std::string> query_names;
@@ -138,20 +154,29 @@ int main(int argc, char** argv)
       std::vector<std::string> names = coll_start_state.getVariableNames();
       std::map<std::string, double> var_start;
       std::vector<double> goal_joints  = {};
-
+      
       //generation of random joint values
       for(int i = 0; i<names.size(); ++i)
       {
-        float bound_up   = km->getVariableBounds(names[i]).max_position_;
-	float bound_down = km->getVariableBounds(names[i]).min_position_;
-        double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
-	double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
-	coll_start_state.setJointPositions(names[i], {j1});
-        coll_goal_state.setJointPositions (names[i], {j2});
-	var_start[names[i]] = j1;
-        goal_joints.push_back(j2);
+	if(names[i].compare(0, prefix.length(), prefix) == 0)
+	{
+          float bound_up   = km->getVariableBounds(names[i]).max_position_;
+	  float bound_down = km->getVariableBounds(names[i]).min_position_;
+	  double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
+	  double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
+	  coll_start_state.setJointPositions(names[i], {j1});
+	  coll_goal_state.setJointPositions (names[i], {j2});
+	  var_start[names[i]] = j1;
+	  goal_joints.push_back(j2);
+	}
+	else
+	{
+	  coll_start_state.setJointPositions(names[i], {0.0});
+	  coll_goal_state.setJointPositions (names[i], {0.0});
+	  var_start[names[i]] = 0;
+	  goal_joints.push_back(0);
+	}
       }
-      
       collision_detection::CollisionRequest collision_request;
       collision_detection::CollisionResult  collision_result_start;
       collision_detection::CollisionResult  collision_result_goal;
@@ -165,7 +190,7 @@ int main(int argc, char** argv)
       {
 	robot_state::RobotState st = planning_scene->getCurrentState();
 	st.setVariablePositions(var_start);
-	robot_state::robotStateToRobotStateMsg(st, msg_start_state);
+        robot_state::robotStateToRobotStateMsg(st, msg_start_state);
       }
 
       //check goal state collision
@@ -178,8 +203,8 @@ int main(int argc, char** argv)
 	  moveit_msgs::JointConstraint joint_constraint;
 	  joint_constraint.joint_name = names[i];
 	  joint_constraint.position = goal_joints[i];
-	  joint_constraint.tolerance_above = 1.0e-15;
-	  joint_constraint.tolerance_below = 1.0e-15;
+	  joint_constraint.tolerance_above = 1.0e-6;
+	  joint_constraint.tolerance_below = 1.0e-6;
 	  joint_constraint.weight = 1.0;
 	  
 	  joint_constraints.push_back(joint_constraint);

@@ -59,11 +59,22 @@ int main(int argc, char** argv)
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
     ("cartesian", "Save queries defined queries as start state + end effector position instead of full joints goal state.")
-    ("scene", "Saves the scene.");
+    ("scene", "Saves the scene.")
+    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.");
   
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
+
+  std::string link_eef = "";
+  if (vm.count("eef"))
+  {
+    link_eef = vm["eef"].as<std::string>();
+  }
+  else
+  {
+    ROS_INFO("If you have a problem with a composite robot, try to use the prefix option.");
+  }
   
   if (vm.count("help"))
   {
@@ -193,7 +204,9 @@ int main(int argc, char** argv)
 		
 		const moveit::core::JointModel* joint_eef = goal_state.getJointModel(joint_constraints[joint_constraints.size()-1].joint_name);
 		
-		std::string link_eef  = joint_eef->getChildLinkModel()->getName();
+		if(link_eef == "")
+		  link_eef = joint_eef->getChildLinkModel()->getName();
+
 		const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
 		
 		geometry_msgs::Transform transform;
