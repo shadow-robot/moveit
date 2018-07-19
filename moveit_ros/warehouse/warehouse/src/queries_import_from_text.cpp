@@ -249,7 +249,7 @@ int main(int argc, char** argv)
   boost::program_options::options_description desc;
   desc.add_options()
     ("help", "Show help message")
-    ("file", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
+    ("queries", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
     ("scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")
     ("host", boost::program_options::value<std::string>(),"Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
@@ -305,11 +305,12 @@ int main(int argc, char** argv)
     psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
     pss.addPlanningScene(psmsg);
   }
-  else if (argc >= 2)// if (vm.count("queries"))
+  else if (argc >= 0)// if (vm.count("queries"))
   {
-    std::ifstream fin(vm["file"].as<std::string>().c_str());
+    std::ifstream fin(vm["queries"].as<std::string>().c_str());
     if (fin.good() && !fin.eof())
     {
+      std::cout << "OKOK\n\n\n";
       parseQueriesFormat(fin, &psm, &rs, &cs, &pss, eef_name);
     }
     fin.close();

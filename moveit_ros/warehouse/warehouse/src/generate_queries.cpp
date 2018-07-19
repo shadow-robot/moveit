@@ -63,6 +63,7 @@ int main(int argc, char** argv)
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
     ("clear", "Clears all the random queries for a given scene")
+    ("limited_joints", "Limit joints from -pi to pi to avoid a lot of impossible queries.")
     ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.");
     
   boost::program_options::variables_map vm;
@@ -162,6 +163,10 @@ int main(int argc, char** argv)
 	{
           float bound_up   = km->getVariableBounds(names[i]).max_position_;
 	  float bound_down = km->getVariableBounds(names[i]).min_position_;
+	  if(vm.count("limited_joints")){
+	    bound_up = 3.14;
+	    bound_down = -3.14;
+	  }
 	  double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
 	  double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
 	  coll_start_state.setJointPositions(names[i], {j1});
