@@ -48,6 +48,7 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 
 #include <eigen_conversions/eigen_msg.h>
+#include <moveit/kinematic_constraints/utils.h>
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
@@ -63,13 +64,20 @@ int main(int argc, char** argv)
     ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
     ("clear", "Clears all the random queries for a given scene")
+    ("cartesian", "Generate the cartesian equivalent as well.")
     ("limited_joints", "Limit joints from -pi to pi to avoid a lot of impossible queries.")
-    ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.");
+    ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.")
+    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link. Only nedded for cartesian queries");
     
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
 
+  std::string eef_name = "";
+  if (vm.count("eef"))
+  {
+    eef_name = vm["eef"].as<std::string>();
+  }
 
   std::string prefix = "";
   if (vm.count("prefix"))
@@ -127,7 +135,13 @@ int main(int argc, char** argv)
     pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_name);
     for(int i = 0; i<query_names.size(); ++i)
     {
-      if(query_names[i].find("RANDOM") != std::string::npos){
+      if(query_names[i].find("RANDOM") != std::string::npos)
+      {
+	pss.removePlanningQuery(scene_name, query_names[i]);
+	ROS_INFO("Query '%s' removed", query_names[i].c_str());
+      }
+      if(query_names[i].find("cartesian") != std::string::npos)
+      {
 	pss.removePlanningQuery(scene_name, query_names[i]);
 	ROS_INFO("Query '%s' removed", query_names[i].c_str());
       }
@@ -226,8 +240,30 @@ int main(int argc, char** argv)
 	std::string query_name = "RANDOM_pose" + std::to_string(cur_queries_number);
 	pss.addPlanningQuery(planning_query, scene_name, query_name);
 	
-	cur_queries_number ++;
 	ROS_INFO("Random query '%s' sucessfully added after %d fail(s)", query_name.c_str(), fail_queries_cur);
+
+	if (vm.count("cartesian"))
+	{
+	  const std::vector< std::string > & id_names = km->getLinkModelNames();
+	  const Eigen::Affine3d& link_pose = coll_goal_state.getGlobalLinkTransform(eef_name);
+	  geometry_msgs::Transform transform;
+	  geometry_msgs::PoseStamped pose;
+	  moveit_msgs::Constraints msg_goal_cart;
+	  std::string query_name = "cartesian_RANDOM_pose" + std::to_string(cur_queries_number);
+	  tf::transformEigenToMsg(link_pose, transform);
+	  pose.pose.orientation = transform.rotation;
+	  pose.pose.position.x = transform.translation.x;
+	  pose.pose.position.y = transform.translation.y;
+	  pose.pose.position.z = transform.translation.z;
+	  pose.header.frame_id = id_names[0];
+
+	  msg_goal_cart = kinematic_constraints::constructGoalConstraints(eef_name, pose);
+	  planning_query.goal_constraints = {msg_goal_cart};
+	  pss.addPlanningQuery(planning_query, scene_name, query_name);
+	  ROS_INFO("Random query '%s' sucessfully added as well", query_name.c_str());
+	}
+	
+	cur_queries_number ++;
 	fail_queries_cur = 0;
       }
       else
