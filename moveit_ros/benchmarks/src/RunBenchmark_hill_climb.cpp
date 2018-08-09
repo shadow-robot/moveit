@@ -38,7 +38,9 @@
 #include <string>
 
 #include <moveit/benchmarks/BenchmarkOptions.h>
-#include <moveit/benchmarks/BenchmarkExecutor.h>
+//#include <moveit/benchmarks/BenchmarkExecutor.h>
+#include <moveit/benchmarks/BenchmarkExecutor_hill_climb.h>
+
 
 int main(int argc, char** argv)
 {
@@ -49,16 +51,35 @@ int main(int argc, char** argv)
   // Read benchmark options from param server
   moveit_ros_benchmarks::BenchmarkOptions opts(ros::this_node::getName());
   // Setup benchmark server
-  moveit_ros_benchmarks::BenchmarkExecutor server;
-
-
+  moveit_ros_benchmarks::BenchmarkExecutor_hill_climb server;
+  
+  double v_up = 10.0;
+  double r_up;
+  double v_down = 0.0;
+  double r_down;
+  
   std::vector<std::string> plugins;
   opts.getPlannerPluginList(plugins);
-  server.initialize(plugins);
+  
+  server.initialize(plugins, v_up);
+  r_up = server.runBenchmarks(opts, v_up);
 
-  // Running benchmarks
-  if(!server.runBenchmarks(opts))
-  {
-    ROS_ERROR("Failed to run all benchmarks");
+  server.initialize(plugins, v_down);
+  r_down = server.runBenchmarks(opts, v_down);
+  
+  for(int i = 0; i<10; ++i){
+    std::cout << "R_UP : " << r_up << " and R_DOWN : " << r_down << "\n\n";
+    if(r_up < r_down)
+    {
+      v_down = (v_up+v_down)/2;
+      server.initialize(plugins, v_down);
+      r_down = server.runBenchmarks(opts, v_down);
+    }
+    else
+    {
+      v_up = (v_up+v_down)/2;
+      server.initialize(plugins, v_up);
+      r_up = server.runBenchmarks(opts, v_up);
+    }
   }
 }
