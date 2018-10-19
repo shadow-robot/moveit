@@ -38,7 +38,6 @@
 
 from sys import argv, exit
 from os.path import basename, splitext
-import os
 import sqlite3
 import datetime
 import matplotlib
@@ -396,7 +395,6 @@ each planner."""
     else:
         plt.clf()
 
-
 def plotStatistics(dbname, fname):
     """Create a PDF file with box plots for all attributes."""
     print("Generating plots...")
@@ -404,16 +402,17 @@ def plotStatistics(dbname, fname):
     c = conn.cursor()
     c.execute('PRAGMA FOREIGN_KEYS = ON')
     c.execute('SELECT id, name FROM plannerConfigs')
-    planners = [(t[0], t[1].replace('geometric_', '').replace('control_', ''))
+    planners = [(t[0],t[1].replace('geometric_','').replace('control_',''))
         for t in c.fetchall()]
     c.execute('PRAGMA table_info(runs)')
     colInfo = c.fetchall()[3:]
+
     pp = PdfPages(fname)
     for col in colInfo:
         if col[2] == 'BOOLEAN' or col[2] == 'ENUM' or \
-                col[2] == 'INTEGER' or col[2] == 'REAL':
-            plotAttribute(c, planners, col[1], col[2])
-            pp.savefig(plt.gcf())
+           col[2] == 'INTEGER' or col[2] == 'REAL':
+           plotAttribute(c, planners, col[1], col[2])
+           pp.savefig(plt.gcf())
 
     c.execute('PRAGMA table_info(progress)')
     colInfo = c.fetchall()[2:]
@@ -427,14 +426,15 @@ def plotStatistics(dbname, fname):
     c.execute("""SELECT id, name, timelimit, memorylimit FROM experiments""")
     experiments = c.fetchall()
     for experiment in experiments:
-        c.execute("""SELECT count(*) FROM runs WHERE runs.experimentid = %d GROUP BY runs.plannerid""" % experiment[0])
+        c.execute("""SELECT count(*) FROM runs WHERE runs.experimentid = %d
+            GROUP BY runs.plannerid""" % experiment[0])
         numRuns = [run[0] for run in c.fetchall()]
-        numRuns = numRuns[0] if len(set(numRuns)) == 1 else min(numRuns) #','.join(numRuns)
+        numRuns = numRuns[0] if len(set(numRuns)) == 1 else ','.join(numRuns)
 
         plt.figtext(pagex, pagey, 'Experiment "%s"' % experiment[1])
-        plt.figtext(pagex, pagey - 0.05, 'Number of averaged runs: %d' % numRuns)
-        plt.figtext(pagex, pagey - 0.10, "Time limit per run: %g seconds" % experiment[2])
-        plt.figtext(pagex, pagey - 0.15, "Memory limit per run: %g MB" % experiment[3])
+        plt.figtext(pagex, pagey-0.05, 'Number of averaged runs: %d' % numRuns)
+        plt.figtext(pagex, pagey-0.10, "Time limit per run: %g seconds" % experiment[2])
+        plt.figtext(pagex, pagey-0.15, "Memory limit per run: %g MB" % experiment[3])
         pagey -= 0.22
     plt.show()
     pp.savefig(plt.gcf())
@@ -538,28 +538,10 @@ if __name__ == "__main__":
         help="Create a PDF of plots with the filename provided")
     parser.add_option("-m", "--mysql", dest="mysqldb", default=None,
         help="Save SQLite3 database as a MySQL dump file")
-    parser.add_option("-q", "--queries", action="store_true", dest="queries", default=False,
-        help="Plot all queries in the current folder")
     (options, args) = parser.parse_args()
 
-    if options.queries:
-        files = [f for f in os.listdir('.') if os.path.isfile(f)]
-        for f in files:
-            if f.endswith(".log"):
-                if "easy" in f:
-                    readBenchmarkLog("easy_" + options.dbname, [f])
-                if "medium" in f:
-                    readBenchmarkLog("medium_" + options.dbname, [f])
-                if "hard" in f:
-                    readBenchmarkLog("hard_" + options.dbname, [f])
-        if options.plot:
-            print(options.plot)
-            plotStatistics("easy_" + options.dbname, "easy_" + options.plot)
-            plotStatistics("medium_" + options.dbname, "medium_" + options.plot)
-            plotStatistics("hard_" + options.dbname, "hard_" + options.plot)
-
     if len(args) == 0:
-        parser.error("No arguments were provided. Please provide full path of log file")
+	parser.error("No arguments were provided. Please provide full path of log file")
 
     if len(args) == 1:
         readBenchmarkLog(options.dbname, args)

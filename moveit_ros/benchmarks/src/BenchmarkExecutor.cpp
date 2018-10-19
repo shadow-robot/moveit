@@ -45,8 +45,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <unistd.h>
 
-#include <math.h>
-
 using namespace moveit_ros_benchmarks;
 
 static std::string getHostname()
@@ -103,6 +101,7 @@ BenchmarkExecutor::~BenchmarkExecutor()
 void BenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
 {
   planner_interfaces_.clear();
+
   // Load the planning plugins
   const std::vector<std::string>& classes = planner_plugin_loader_->getDeclaredClasses();
 
@@ -254,6 +253,7 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
 
       writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
+
     return true;
   }
   return false;
@@ -350,7 +350,7 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   opts.getGoalOffsets(goal_offset);
 
   // Create the combinations of BenchmarkRequests
-  
+
   // 1) Create requests for combinations of start states,
   //    goal constraints, and path constraints
   for (std::size_t i = 0; i < goal_constraints.size(); ++i)
@@ -686,6 +686,7 @@ bool BenchmarkExecutor::loadPathConstraints(const std::string& regex, std::vecto
   {
     std::vector<std::string> cnames;
     cs_->getKnownConstraints(regex, cnames);
+
     for (std::size_t i = 0; i < cnames.size(); ++i)
     {
       moveit_warehouse::ConstraintsWithMetadata constr;
@@ -789,7 +790,7 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
         // Solve problem
         planning_interface::MotionPlanDetailedResponse mp_res;
         ros::WallTime start = ros::WallTime::now();
-	bool solved = context->solve(mp_res);
+        bool solved = context->solve(mp_res);
         double total_time = (ros::WallTime::now() - start).toSec();
 
         // Collect data
@@ -814,107 +815,6 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
   }
 }
 
-
-double evaluate_plan(const robot_trajectory::RobotTrajectory& p)
-{
-  int num_of_joints = p.getWayPoint(0).getVariableCount();
-  
-  std::vector<int> weights(num_of_joints, 0);
-  for(int k = 0; k<num_of_joints; k++){
-    weights[k] = num_of_joints - k;
-  }
-  
-  std::vector<std::vector <double> > plan_array (p.getWayPointCount(), std::vector<double>(num_of_joints));
-  for (size_t i = 0 ; i < p.getWayPointCount() ; ++i){
-    for (size_t j = 0 ; j < num_of_joints ; ++j){
-      plan_array[i][j] = p.getWayPoint(i).getVariablePositions()[j];
-    }
-  }
-
-  std::vector<std::vector <double> > deltas (p.getWayPointCount()-1, std::vector<double>(num_of_joints));
-  for (size_t i = 0 ; i < p.getWayPointCount()-1 ; ++i){
-    for (size_t j = 0 ; j < num_of_joints ; ++j){
-      deltas[i][j] = plan_array[i+1][j] - plan_array[i][j];
-      if(deltas[i][j] < 0)                                      // abs() only works for integers. We can also use fabs() from math.h
-	deltas[i][j] = - deltas[i][j];
-    }
-  }
-
-  std::vector<double> sum_deltas(num_of_joints, 0);
-  for (size_t i = 0 ; i < p.getWayPointCount()-1 ; ++i){
-    for (size_t j = 0 ; j < num_of_joints ; ++j){
-      sum_deltas[j] += deltas[i][j];
-    }
-  }
-
-  std::vector<double> sum_deltas_weighted(num_of_joints, 0);
-  for (size_t j = 0 ; j < num_of_joints ; ++j){
-    sum_deltas_weighted[j] = sum_deltas[j] * weights[j];
-  }
-
-  double plan_quality = 0.0;
-  for (auto it = sum_deltas_weighted.begin() ; it != sum_deltas_weighted.end(); ++it){
-    plan_quality += *it;
-  }
-  
-  return plan_quality;
-}
-
-
-
-double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p)
-{
-  std::vector<geometry_msgs::Transform> transforms (p.getWayPointCount());
-  for (size_t i = 0 ; i < p.getWayPointCount(); ++i)
-  {
-    moveit::core::RobotState goal_state = p.getWayPoint(i);
-    const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]);
-    std::string link_eef  = joint_eef->getChildLinkModel()->getName();
-    const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
-    tf::transformEigenToMsg(link_pose, transforms[i]);
-  }
-
-  int n = p.getWayPointCount()-1;
-  double eef_dist = 0.0;
-  double eef_rot  = 0.0;
-  
-  for(size_t i = 0; i<n; ++i)
-  {
-    geometry_msgs::Quaternion q2 = transforms[i+1].rotation;
-    geometry_msgs::Quaternion q1 = transforms[i  ].rotation;
-    double x, y, z, w;
-    x = fabs(transforms[i+1].translation.x - transforms[i].translation.x);
-    y = fabs(transforms[i+1].translation.y - transforms[i].translation.y);
-    z = fabs(transforms[i+1].translation.z - transforms[i].translation.z);
-    w = -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w;
-    eef_dist += sqrt(x*x+y*y+z*z);
-    eef_rot += 2*acos(w);
-  }
-
-  geometry_msgs::Quaternion qn = transforms[n].rotation;
-  geometry_msgs::Quaternion q0 = transforms[0].rotation;
-  double x_t, y_t, z_t, w_t;
-  double tot_dist, tot_rot;
-  x_t = fabs(transforms[n].translation.x - transforms[0].translation.x);
-  y_t = fabs(transforms[n].translation.y - transforms[0].translation.y);
-  z_t = fabs(transforms[n].translation.z - transforms[0].translation.z);
-  w_t = -qn.x * q0.x - qn.y * q0.y - qn.z * q0.z + qn.w * q0.w;
-  tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
-  tot_rot = 2*acos(w_t);
-  
-  double quality = 0.0;
-  if(tot_dist > 0.001)
-    quality += eef_dist/tot_dist;
-  else
-    quality += 1;
-  if(tot_rot  > 0.001)
-    quality += eef_rot/tot_rot;
-  else
-    quality += 1;
-  
-  return quality/2;
-}
-
 void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
                                        const planning_interface::MotionPlanDetailedResponse& mp_res, bool solved,
                                        double total_time)
@@ -929,8 +829,6 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
     double clearance = 0.0;   // trajectory clearance (average)
     double smoothness = 0.0;  // trajectory smoothness (average)
     bool correct = true;      // entire trajectory collision free and in bounds
-    double planQuality = 0.0; // trajectory quality (added attribute)
-    double planQualityCart = 0.0;
 
     double process_time = total_time;
     for (std::size_t j = 0; j < mp_res.trajectory_.size(); ++j)
@@ -941,10 +839,6 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       smoothness = 0.0;
       const robot_trajectory::RobotTrajectory& p = *mp_res.trajectory_[j];
 
-      // compute plan quality
-      planQuality = evaluate_plan(p);
-      planQualityCart = evaluate_plan_cart(p);
-      
       // compute path length
       for (std::size_t k = 1; k < p.getWayPointCount(); ++k)
         L += p.getWayPoint(k - 1).distance(p.getWayPoint(k));
@@ -1000,8 +894,6 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       metrics["path_" + mp_res.description_[j] + "_correct BOOLEAN"] = boost::lexical_cast<std::string>(correct);
       metrics["path_" + mp_res.description_[j] + "_length REAL"] = boost::lexical_cast<std::string>(L);
       metrics["path_" + mp_res.description_[j] + "_clearance REAL"] = boost::lexical_cast<std::string>(clearance);
-      metrics["path_" + mp_res.description_[j] + "_plan_quality REAL"] = boost::lexical_cast<std::string>(planQuality);
-      metrics["path_" + mp_res.description_[j] + "_plan_quality_cartesian REAL"] = boost::lexical_cast<std::string>(planQualityCart);
       metrics["path_" + mp_res.description_[j] + "_smoothness REAL"] = boost::lexical_cast<std::string>(smoothness);
       metrics["path_" + mp_res.description_[j] + "_time REAL"] =
           boost::lexical_cast<std::string>(mp_res.processing_time_[j]);

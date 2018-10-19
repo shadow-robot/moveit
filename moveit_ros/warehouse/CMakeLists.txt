@@ -15,16 +15,16 @@ find_package(catkin REQUIRED COMPONENTS
   rosconsole
   warehouse_ros
   tf
-  )
+)
 
 catkin_package(
   LIBRARIES
-  moveit_warehouse
+    moveit_warehouse
   INCLUDE_DIRS
-  warehouse/include
+    warehouse/include
   CATKIN_DEPENDS
-  moveit_ros_planning
-  warehouse_ros)
+    moveit_ros_planning
+    warehouse_ros)
 
 include_directories(warehouse/include)
 include_directories(${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
