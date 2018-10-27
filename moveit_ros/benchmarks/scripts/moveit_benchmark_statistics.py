@@ -541,7 +541,7 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     if len(args) == 0:
-	parser.error("No arguments were provided. Please provide full path of log file")
+        parser.error("No arguments were provided. Please provide full path of log file")
 
     if len(args) == 1:
         readBenchmarkLog(options.dbname, args)
@@ -556,4 +556,3 @@ if __name__ == "__main__":
 
     if options.mysqldb:
         saveAsMysql(options.dbname, options.mysqldb)
-

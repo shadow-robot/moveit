@@ -48,34 +48,6 @@
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
-typedef std::pair<geometry_msgs::Point, geometry_msgs::Quaternion> LinkConstraintPair;
-typedef std::map<std::string, LinkConstraintPair> LinkConstraintMap;
-
-void collectLinkConstraints(const moveit_msgs::Constraints& constraints, LinkConstraintMap& lcmap)
-{
-  for (std::size_t i = 0; i < constraints.position_constraints.size(); ++i)
-  {
-    LinkConstraintPair lcp;
-    const moveit_msgs::PositionConstraint& pc = constraints.position_constraints[i];
-    lcp.first = pc.constraint_region.primitive_poses[0].position;
-    lcmap[constraints.position_constraints[i].link_name] = lcp;
-  }
-
-  for (std::size_t i = 0; i < constraints.orientation_constraints.size(); ++i)
-  {
-    if (lcmap.count(constraints.orientation_constraints[i].link_name))
-    {
-      lcmap[constraints.orientation_constraints[i].link_name].second =
-          constraints.orientation_constraints[i].orientation;
-    }
-    else
-    {
-      ROS_WARN("Orientation constraint for %s has no matching position constraint",
-               constraints.orientation_constraints[i].link_name.c_str());
-    }
-  }
-}
-
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
@@ -236,7 +208,6 @@ int main(int argc, char** argv)
                 {
                   link_eef = joint_eef->getChildLinkModel()->getName();
                 }
-                ROS_INFO("**********************link eef '%s'", link_eef.c_str());
                 const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
 
                 geometry_msgs::Transform transform;
@@ -263,62 +234,11 @@ int main(int argc, char** argv)
                   for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
                   {
                     qfout << iter->joint_name << " = ";
-                    qfout << iter->position << " ";
-                    qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
+                    qfout << iter->position << std::endl;
                   }
                 }
                 qfout << "." << std::endl;
               }
-            }
-          }
-        }
-
-        if (!(robotStateNames.empty() && constraintNames.empty()))
-        {
-          //std::ofstream qfout((scene_names[i] + ".queries").c_str());
-          //qfout << scene_names[i] << std::endl;
-          if (robotStateNames.size())
-          {
-            qfout << "start" << std::endl;
-            qfout << robotStateNames.size() << std::endl;
-            for (std::size_t k = 0; k < robotStateNames.size(); ++k)
-            {
-              ROS_INFO("Saving start state %s for scene %s", robotStateNames[k].c_str(), scene_names[i].c_str());
-              qfout << robotStateNames[k] << std::endl;
-              moveit_warehouse::RobotStateWithMetadata robotState;
-              rss.getRobotState(robotState, robotStateNames[k]);
-              robot_state::RobotState ks(km);
-              robot_state::robotStateMsgToRobotState(*robotState, ks, false);
-              ks.printStateInfo(qfout);
-              qfout << "." << std::endl;
-            }
-          }
-
-          if (constraintNames.size())
-          {
-            qfout << "goal" << std::endl;
-            qfout << constraintNames.size() << std::endl;
-            for (std::size_t k = 0; k < constraintNames.size(); ++k)
-            {
-              ROS_INFO("Saving goal %s for scene %s", constraintNames[k].c_str(), scene_names[i].c_str());
-              qfout << "link_constraint" << std::endl;
-              qfout << constraintNames[k] << std::endl;
-              moveit_warehouse::ConstraintsWithMetadata constraints;
-              cs.getConstraints(constraints, constraintNames[k]);
-
-              LinkConstraintMap lcmap;
-              collectLinkConstraints(*constraints, lcmap);
-              for (LinkConstraintMap::iterator iter = lcmap.begin(); iter != lcmap.end(); iter++)
-              {
-                std::string link_name = iter->first;
-                LinkConstraintPair lcp = iter->second;
-                qfout << link_name << std::endl;
-                qfout << "xyz " << lcp.first.x << " " << lcp.first.y << " " << lcp.first.z << std::endl;
-                Eigen::Quaterniond orientation(lcp.second.w, lcp.second.x, lcp.second.y, lcp.second.z);
-                Eigen::Vector3d rpy = orientation.matrix().eulerAngles(0, 1, 2);
-                qfout << "rpy " << rpy[0] << " " << rpy[1] << " " << rpy[2] << std::endl;
-              }
-              qfout << "." << std::endl;
             }
           }
         }
