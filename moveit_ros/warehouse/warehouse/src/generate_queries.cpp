@@ -68,7 +68,7 @@ int main(int argc, char** argv)
     ("cartesian", "Generate the cartesian equivalent as well.")
     ("limited_joints", "Limit joints from -pi to pi to avoid a lot of impossible queries.")
     ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.")
-    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link. Only nedded for cartesian queries");
+    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link. Only needed for cartesian queries");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -259,9 +259,8 @@ int main(int argc, char** argv)
           msg_goal_cart = kinematic_constraints::constructGoalConstraints(eef_name, pose);
           planning_query.goal_constraints = {msg_goal_cart};
           pss.addPlanningQuery(planning_query, scene_name, query_name);
-          ROS_INFO("Random query '%s' sucessfully added as well", query_name.c_str());
+          ROS_INFO("Random query '%s' sucessfully added", query_name.c_str());
         }
-
 	    cur_queries_number ++;
 	    fail_queries_cur = 0;
       }

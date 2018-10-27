@@ -221,7 +221,6 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
 	if(goalState.joint_constraints.size() || (goalState.position_constraints.size() && goalState.orientation_constraints.size()))
 	{
 	  moveit_msgs::MotionPlanRequest planning_query;
-
 	  planning_query.start_state = startState;
 	  planning_query.goal_constraints = {goalState};
 
@@ -310,7 +309,6 @@ int main(int argc, char** argv)
     std::ifstream fin(vm["queries"].as<std::string>().c_str());
     if (fin.good() && !fin.eof())
     {
-      std::cout << "OKOK\n\n\n";
       parseQueriesFormat(fin, &psm, &rs, &cs, &pss, eef_name);
     }
     fin.close();
