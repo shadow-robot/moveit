@@ -36,13 +36,13 @@
 
 #include <moveit/benchmarks/BenchmarkExecutor.h>
 #include <moveit/version.h>
-#include <eigen_conversions/eigen_msg.h>
+#include <eigen_conversions/eigen_msg.h> // Abstract transformations, such as rotations (represented by angle and axis or by a quaternion), translations, scalings
 
-#include <boost/regex.hpp>
+#include <boost/regex.hpp> // To search for letters or words
 #include <boost/progress.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp> // seconds since January 1st of 1970
 #include <unistd.h>
 
 #include <math.h>
@@ -812,9 +812,10 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
 }
 
 
-double evaluate_plan(const robot_trajectory::RobotTrajectory& p)
+double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energy consumption
 {
   int num_of_joints = p.getWayPoint(0).getVariableCount();
+  const double pi = boost::math::constants::pi<double>();
   
   std::vector<int> weights(num_of_joints, 0);
   for(int k = 0; k<num_of_joints; k++){
@@ -849,23 +850,45 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p)
     sum_deltas_weighted[j] = sum_deltas[j] * weights[j];
   }
 
-  double plan_quality = 0.0;
+  double denominator = 0.0;
   for (auto it = sum_deltas_weighted.begin() ; it != sum_deltas_weighted.end(); ++it){
-    plan_quality += *it;
+    denominator += *it;
   }
+
+  // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+  std::vector<double> shortest_diff_goal_start_confs(num_of_joints, 0);
+  for (size_t j = 0 ; j < num_of_joints ; ++j){
+    shortest_diff_goal_start_confs[j] = ; // but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi, which is not the shortest move if one colors the area! Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
+    if (shortest_diff_goal_start_confs[j] > pi)
+      shortest_diff_goal_start_confs[j] -= 2*pi;
+    if (shortest_diff_goal_start_confs[j] < -pi)
+      shortest_diff_goal_start_confs[j] += 2*pi;
+  }
+
+  std::vector<double> shortest_diff_weighted(num_of_joints, 0);
+  for (size_t j = 0 ; j < num_of_joints ; ++j){
+    shortest_diff_weighted[j] = shortest_diff_goal_start_confs[j] * weights[j];
+  }
+
+  // the 1-norm
+  double numerator = 0.0;
+  for (auto it = shortest_diff_weighted.begin() ; it != shortest_diff_weighted.end(); ++it){
+    numerator += fabs(*it);
+  }
+
+  double plan_quality = numerator/denominator;
   
   return plan_quality;
 }
 
 
-
-double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p)
+double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof how far the actual trajectory is from the end-effector shortest trajectory
 {
   std::vector<geometry_msgs::Transform> transforms (p.getWayPointCount());
   for (size_t i = 0 ; i < p.getWayPointCount(); ++i)
   {
     moveit::core::RobotState goal_state = p.getWayPoint(i);
-    const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]);
+    const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]); // pos vel accel of the goal
     std::string link_eef  = joint_eef->getChildLinkModel()->getName();
     const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
     tf::transformEigenToMsg(link_pose, transforms[i]);
@@ -877,12 +900,12 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p)
   
   for(size_t i = 0; i<n; ++i)
   {
+    double x, y, z, w;
+    x = transforms[i+1].translation.x - transforms[i].translation.x;
+    y = transforms[i+1].translation.y - transforms[i].translation.y;
+    z = transforms[i+1].translation.z - transforms[i].translation.z;
     geometry_msgs::Quaternion q2 = transforms[i+1].rotation;
     geometry_msgs::Quaternion q1 = transforms[i  ].rotation;
-    double x, y, z, w;
-    x = fabs(transforms[i+1].translation.x - transforms[i].translation.x);
-    y = fabs(transforms[i+1].translation.y - transforms[i].translation.y);
-    z = fabs(transforms[i+1].translation.z - transforms[i].translation.z);
     w = -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w;
     eef_dist += sqrt(x*x+y*y+z*z);
     eef_rot += 2*acos(w);
