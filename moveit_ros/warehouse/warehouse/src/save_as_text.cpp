@@ -51,6 +51,7 @@ static const std::string ROBOT_DESCRIPTION = "robot_description";
 typedef std::pair<geometry_msgs::Point, geometry_msgs::Quaternion> LinkConstraintPair;
 typedef std::map<std::string, LinkConstraintPair> LinkConstraintMap;
 
+
 void collectLinkConstraints(const moveit_msgs::Constraints& constraints, LinkConstraintMap& lcmap)
 {
   for (std::size_t i = 0; i < constraints.position_constraints.size(); ++i)
@@ -87,7 +88,9 @@ int main(int argc, char** argv)
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
     ("cartesian", "Save queries in cartesian space (start and end pose of eef)")
     ("scene", "Saves the scene.")
-    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.");
+    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.")
+    ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.")
+    ("output_directory", boost::program_options::value<std::string>(), "Directory to save files");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -101,6 +104,34 @@ int main(int argc, char** argv)
   else
   {
     ROS_INFO("If you have a problem with a composite robot, try to define the eef.");
+  }
+
+  std::string output_dir = "";
+  if (vm.count("output_directory"))
+  {
+    output_dir = vm["output_directory"].as<std::string>();
+    ROS_INFO(" *** output_dir '%s'", output_dir.c_str());
+    if (output_dir.size() && output_dir[output_dir.size() - 1] != '/')
+        output_dir.append("/");
+
+    ROS_INFO("output_dir '%s'", output_dir.c_str());
+
+    // Ensure directories exist
+    boost::filesystem::create_directories(output_dir);
+  }
+  else
+  {
+    ROS_INFO("Specify output_directory to save the files in a specific directory");
+  }
+
+  std::string group_prefix = "";
+  if (vm.count("group_prefix"))
+  {
+    group_prefix = vm["prefix"].as<std::string>();
+  }
+  else
+  {
+    ROS_INFO("If you have a problem with a composite robot, try to use the prefix option to specify the prefix of the group you want to save the queries");
   }
 
   if (vm.count("help"))
@@ -127,6 +158,8 @@ int main(int argc, char** argv)
   std::vector<std::string> scene_names;
   pss.getPlanningSceneNames(scene_names);
 
+  std::string scene_filename;
+  std::string queries_filename;
   for (std::size_t i = 0; i < scene_names.size(); ++i)
   {
     moveit_warehouse::PlanningSceneWithMetadata pswm;
@@ -135,8 +168,10 @@ int main(int argc, char** argv)
       psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
       if(vm.count("scene"))
       {
-        ROS_INFO("Saving scene '%s'", scene_names[i].c_str());
-        std::ofstream fout((scene_names[i] + ".scene").c_str());
+        scene_filename = output_dir + (scene_names[i] + ".scene").c_str();
+        ROS_INFO("Saving scene '%s'", scene_filename.c_str());
+
+        std::ofstream fout(scene_filename);
         psm.getPlanningScene()->saveGeometryToStream(fout);
         fout.close();
       }
@@ -169,7 +204,8 @@ int main(int argc, char** argv)
           prefix = "cartesian_";
         }
 
-        std::ofstream qfout((prefix + scene_names[i] + ".queries").c_str());
+        queries_filename = output_dir + (prefix + scene_names[i] + ".queries").c_str();
+        std::ofstream qfout(queries_filename);
         qfout << scene_names[i] << std::endl;
 
         for (std::size_t k = 0; k < query_names.size(); ++k)
@@ -211,8 +247,14 @@ int main(int argc, char** argv)
               qfout << "START" << std::endl;
               for (std::size_t p = 0; p < jointState.position.size(); ++p)
               {
-                qfout << jointState.name[p] << " = ";
-                qfout << jointState.position[p] << std::endl;
+                ROS_INFO("group_prefix '%s'", group_prefix.c_str());
+                ROS_INFO("jointState.name[p] '%s'", jointState.name[p].c_str());
+                ROS_INFO("compare '%d'", jointState.name[p].compare(0, group_prefix.length(), group_prefix));
+                if(jointState.name[p].compare(0, group_prefix.length(), group_prefix) == 0)
+	            {
+                  qfout << jointState.name[p] << " = ";
+                  qfout << jointState.position[p] << std::endl;
+                }
               }
               qfout << "." << std::endl;
 
@@ -236,7 +278,7 @@ int main(int argc, char** argv)
                 {
                   link_eef = joint_eef->getChildLinkModel()->getName();
                 }
-                ROS_INFO("**********************link eef '%s'", link_eef.c_str());
+                ROS_INFO("link eef '%s'", link_eef.c_str());
                 const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
 
                 geometry_msgs::Transform transform;
@@ -275,7 +317,7 @@ int main(int argc, char** argv)
 
         if (!(robotStateNames.empty() && constraintNames.empty()))
         {
-          //std::ofstream qfout((scene_names[i] + ".queries").c_str());
+          //std::ofstream qfout(output_dir + (scene_names[i] + ".queries").c_str());
           //qfout << scene_names[i] << std::endl;
           if (robotStateNames.size())
           {
