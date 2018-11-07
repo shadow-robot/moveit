@@ -141,7 +141,7 @@ void planning_scene_monitor::CurrentStateMonitor::startStateMonitor(const std::s
     if (joint_states_topic.empty())
       ROS_ERROR("The joint states topic cannot be an empty string");
     else
-      joint_state_subscriber_ = nh_.subscribe(joint_states_topic, 25, &CurrentStateMonitor::jointStateCallback, this);
+      joint_state_subscriber_ = nh_.subscribe(joint_states_topic, 25, &CurrentStateMonitor::jointStateCallback, this, ros::TransportHints().tcpNoDelay());
     if (tf_ && robot_model_->getMultiDOFJointModels().size() > 0)
     {
       tf_connection_.reset(
@@ -281,6 +281,7 @@ bool planning_scene_monitor::CurrentStateMonitor::waitForCurrentState(const ros:
   {
     state_update_condition_.wait_for(lock, boost::chrono::nanoseconds((timeout - elapsed).toNSec()));
     elapsed = ros::WallTime::now() - start;
+    std::cout<<"ELAPSED TIME: "<<elapsed<<std::endl;
     if (elapsed > timeout)
     {
       ROS_INFO_STREAM("Didn't received robot state (joint angles) with recent timestamp within "
