@@ -817,6 +817,7 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
   int num_of_joints = p.getWayPoint(0).getVariableCount();
   const double pi = boost::math::constants::pi<double>();
   
+  // Joints near the shoulder consume more than those near the EE
   std::vector<int> weights(num_of_joints, 0);
   for(int k = 0; k<num_of_joints; k++){
     weights[k] = num_of_joints - k;
@@ -833,7 +834,7 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
   for (size_t i = 0 ; i < p.getWayPointCount()-1 ; ++i){
     for (size_t j = 0 ; j < num_of_joints ; ++j){
       deltas[i][j] = plan_array[i+1][j] - plan_array[i][j];
-      if(deltas[i][j] < 0)                                      // abs() only works for integers. We can also use fabs() from math.h
+      if(deltas[i][j] < 0) // abs() only works for integers. We can also use fabs() from math.h
 	deltas[i][j] = - deltas[i][j];
     }
   }
@@ -856,12 +857,12 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
   }
 
   // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
-  std::vector<double> shortest_diff_goal_start_confs(num_of_joints, 0);
+  std::vector<double> shortest_diff_goal_start_confs(num_of_joints, 0); // in fact assuming no obstacle that comes modify the shortest trajectory
   for (size_t j = 0 ; j < num_of_joints ; ++j){
-    shortest_diff_goal_start_confs[j] = ; // but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi, which is not the shortest move if one colors the area! Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
+    shortest_diff_goal_start_confs[j] = plan_array[p.getWayPointCount()][j]-plan_array[0][j]; // but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi, which is not the shortest move if one colors the area! Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
     if (shortest_diff_goal_start_confs[j] > pi)
       shortest_diff_goal_start_confs[j] -= 2*pi;
-    if (shortest_diff_goal_start_confs[j] < -pi)
+    if (shortest_diff_goal_start_confs[j] <= -pi)
       shortest_diff_goal_start_confs[j] += 2*pi;
   }
 
@@ -887,11 +888,13 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
   std::vector<geometry_msgs::Transform> transforms (p.getWayPointCount());
   for (size_t i = 0 ; i < p.getWayPointCount(); ++i)
   {
-    moveit::core::RobotState goal_state = p.getWayPoint(i);
-    const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]); // pos vel accel of the goal
-    std::string link_eef  = joint_eef->getChildLinkModel()->getName();
-    const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
-    tf::transformEigenToMsg(link_pose, transforms[i]);
+    moveit::core::RobotState goal_state = p.getWayPoint(i); // pos vel accel and effort on the end effector
+    const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]); // parent child jointType value
+    std::string link_eef = joint_eef->getChildLinkModel()->getName();
+    const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef); // matrix 4x4
+    tf::transformEigenToMsg(link_pose, transforms[i]); // http://docs.ros.org/kinetic/api/eigen_conversions/html/eigen__msg_8cpp_source.html#l00093 their if() occurs when theta>pi or theta<-pi, because then cos(theta/2) becomes <0 (draw a circle to convince yourself). This means that QUATERNION ROTATIONS ARE COMPRISED ONLY BETWEEN [-PI;PI] ! This allows then the use of 2*atan2(scalar part) to find back an associated rotation angle, because it is known that atan2 has an output comprised only between [-pi/2;pi/2] !
+// atan2 is better than acos because, if quaternion rotations are in [-pi;pi], their scalar component belongs to [0;1] only, and hence 2acos(this component) belongs to 2[0;pi]=[0;2pi], while 2acos(this component) should belong to [-pi;pi] to respect the convention Eigen:: used!
+// But to use atan2 the vector part of the quaternion must be normalized https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation (leading btw the whole quaternion to be normalized as well). I am STILL NOT SURE how Eigen constructs a quaternion from a 3x3 rotation matrix, but I assume it uses this algorithm https://arc.aiaa.org/doi/pdf/10.2514/2.4654, in which we can read (1st page) : <<  we are looking for that quaternion q of unit length >>.
   }
 
   int n = p.getWayPointCount()-1;
@@ -900,35 +903,64 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
   
   for(size_t i = 0; i<n; ++i)
   {
-    double x, y, z, w;
+    double x, y, z;//, w;
     x = transforms[i+1].translation.x - transforms[i].translation.x;
     y = transforms[i+1].translation.y - transforms[i].translation.y;
     z = transforms[i+1].translation.z - transforms[i].translation.z;
-    geometry_msgs::Quaternion q2 = transforms[i+1].rotation;
-    geometry_msgs::Quaternion q1 = transforms[i  ].rotation;
-    w = -q1.x * q2.x - q1.y * q2.y - q1.z * q2.z + q1.w * q2.w;
+    geometry_msgs::Quaternion q2 = transforms[i+1].rotation; // rotation from an initial frame0 to a frame2
+    tf2::Quaternion q2test;
+    tf2::fromMsg(q2,q2test); // http://docs.ros.org/kinetic/api/tf2_geometry_msgs/html/c++/namespacetf2.html#a2fdf91676912e510c0002aa66dde2800
+    geometry_msgs::Quaternion q1 = transforms[i  ].rotation; // other rotation from the same initial frame0 to another frame1
+// Then the rotation qRelative that transforms frame1 into frame2 is such that (thinking the way matrices work by multiplication) q2 = qR*q1, hence qR = q2*inv(q1)
+    geometry_msgs::Quaternion qR, q1inv;
+// Assuming that a rotation quaternion is a unit quaternion, inv(q1) simply equals conj(q1)
+    q1 *= 1/sqrt(q1.x*q1.x+q1.y*q1.y+q1.z*q1.z+q1.w*q1.w); // normalize()
+// geometry_msgs:: does not have any methods for computing whereas tf2:: have some. I did not convert the quaternions into tf2::Quaternions though because their hamilton product returns a tf2Scalar which is different than doubles.
+    q2 /= sqrt(q2.x*q2.x+q2.y*q2.y+q2.z*q2.z+q2.w*q2.w);
+    q1inv.x = -q1.x; // conjugate() or inverse()
+    q1inv.y = -q1.y;
+    q1inv.z = -q1.z;
+    q1inv.w = q1.w;
+    qR.w = q2.w*q1inv.w - q2.x*q1inv.x - q2.y*q1inv.y - q2.z*q1inv.z; //  q2*q1inv
+    qR.x = q2.w*q1inv.x + q2.x*q1inv.w + q2.y*q1inv.z - q2.z*q1inv.y;
+    qR.y = q2.w*q1inv.y - q2.x*q1inv.z + q2.y*q1inv.w + q2.z*q1inv.x;
+    qR.z = q2.w*q1inv.z + q2.x*q1inv.y - q2.y*q1inv.x + q2.z*q1inv.w;
+// And we actually only need the scalar part w of qR in order to get the relative rotation angle
+    ////w = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w; // scal(qR):=scal(q2)*scal(q1)-(vec(q2)*vec(conj(q1)))=scal(q2)*scal(q1)-(vec(q2)*(-vec(q1)))=scal(q2)*scal(q1)+vec(q2)*vec(q1)=q1*q2
     eef_dist += sqrt(x*x+y*y+z*z);
-    eef_rot += 2*acos(w);
+    eef_rot += 2*atan2(sqrt(qR.x*qR.x+qR.y*qR.y+qR.z*qR.z),qR.w); // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation
   }
 
   geometry_msgs::Quaternion qn = transforms[n].rotation;
   geometry_msgs::Quaternion q0 = transforms[0].rotation;
+  geometry_msgs::Quaternion qR_t, q0inv;
   double x_t, y_t, z_t, w_t;
   double tot_dist, tot_rot;
-  x_t = fabs(transforms[n].translation.x - transforms[0].translation.x);
-  y_t = fabs(transforms[n].translation.y - transforms[0].translation.y);
-  z_t = fabs(transforms[n].translation.z - transforms[0].translation.z);
-  w_t = -qn.x * q0.x - qn.y * q0.y - qn.z * q0.z + qn.w * q0.w;
+  x_t = transforms[n].translation.x - transforms[0].translation.x;
+  y_t = transforms[n].translation.y - transforms[0].translation.y;
+  z_t = transforms[n].translation.z - transforms[0].translation.z;
+  qn /= sqrt(qn.x*qn.x+qn.y*qn.y+qn.z*qn.z+qn.w*qn.w);
+  q0 /= sqrt(q0.x*q0.x+q0.y*q0.y+q0.z*q0.z+q0.w*q0.w);
+  q0inv.x = -q0.x; // conjugate() or inverse()
+  q0inv.y = -q0.y;
+  q0inv.z = -q0.z;
+  q0inv.w = q0.w;
+  qR_t.w = qn.w*q0inv.w - qn.x*q0inv.x - qn.y*q0inv.y - qn.z*q0inv.z; //  qn*q0inv
+  qR_t.x = qn.w*q0inv.x + qn.x*q0inv.w + qn.y*q0inv.z - qn.z*q0inv.y;
+  qR_t.y = qn.w*q0inv.y - qn.x*q0inv.z + qn.y*q0inv.w + qn.z*q0inv.x;
+  qR_t.z = qn.w*q0inv.z + qn.x*q0inv.y - qn.y*q0inv.x + qn.z*q0inv.w;
+  ////w_t = -qn.x * q0.x - qn.y * q0.y - qn.z * q0.z + qn.w * q0.w;
+  
   tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
-  tot_rot = 2*acos(w_t);
+  tot_rot = 2*atan2(sqrt(qR_t.x*qR_t.x+qR_t.y*qR_t.y+qR_t.z*qR_t.z),qR_t.w);
   
   double quality = 0.0;
-  if(tot_dist > 0.001)
-    quality += eef_dist/tot_dist;
+  if(eef_dist > 0.001)
+    quality += tot_dist/eef_dist;
   else
     quality += 1;
   if(tot_rot  > 0.001)
-    quality += eef_rot/tot_rot;
+    quality += tot_rot/eef_rot;
   else
     quality += 1;
   
