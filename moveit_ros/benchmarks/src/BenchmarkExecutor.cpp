@@ -47,6 +47,10 @@
 
 #include <math.h>
 
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2/LinearMath/Quaternion.h>
+
+
 using namespace moveit_ros_benchmarks;
 
 static std::string getHostname()
@@ -885,8 +889,9 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
 
 double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof how far the actual trajectory is from the end-effector shortest trajectory
 {
-  std::vector<geometry_msgs::Transform> transforms (p.getWayPointCount());
-  for (size_t i = 0 ; i < p.getWayPointCount(); ++i)
+  int n = p.getWayPointCount();
+  std::vector<geometry_msgs::Transform> transforms (n);
+  for (size_t i = 0 ; i < n; ++i)
   {
     moveit::core::RobotState goal_state = p.getWayPoint(i); // pos vel accel and effort on the end effector
     const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]); // parent child jointType value
@@ -897,62 +902,45 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
 // But to use atan2 the vector part of the quaternion must be normalized https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation (leading btw the whole quaternion to be normalized as well). I am STILL NOT SURE how Eigen constructs a quaternion from a 3x3 rotation matrix, but I assume it uses this algorithm https://arc.aiaa.org/doi/pdf/10.2514/2.4654, in which we can read (1st page) : <<  we are looking for that quaternion q of unit length >>.
   }
 
-  int n = p.getWayPointCount()-1;
+  int m = n-1;
   double eef_dist = 0.0;
   double eef_rot  = 0.0;
   
-  for(size_t i = 0; i<n; ++i)
+  for(size_t i = 0; i<m; ++i)
   {
     double x, y, z;//, w;
+    tf2::Quaternion q1, q2, q1inv, qR;
     x = transforms[i+1].translation.x - transforms[i].translation.x;
     y = transforms[i+1].translation.y - transforms[i].translation.y;
     z = transforms[i+1].translation.z - transforms[i].translation.z;
-    geometry_msgs::Quaternion q2 = transforms[i+1].rotation; // rotation from an initial frame0 to a frame2
-    tf2::Quaternion q2test;
-    tf2::fromMsg(q2,q2test); // http://docs.ros.org/kinetic/api/tf2_geometry_msgs/html/c++/namespacetf2.html#a2fdf91676912e510c0002aa66dde2800
-    geometry_msgs::Quaternion q1 = transforms[i  ].rotation; // other rotation from the same initial frame0 to another frame1
+    tf2::fromMsg(transforms[i+1].rotation,q2); // http://docs.ros.org/kinetic/api/tf2_geometry_msgs/html/c++/namespacetf2.html#a2fdf91676912e510c0002aa66dde2800 (q2 = rotation from an initial frame0 to a frame2)
+    tf2::fromMsg(transforms[i  ].rotation,q1); // q1 = other rotation from the same initial frame0 to another frame1
 // Then the rotation qRelative that transforms frame1 into frame2 is such that (thinking the way matrices work by multiplication) q2 = qR*q1, hence qR = q2*inv(q1)
-    geometry_msgs::Quaternion qR, q1inv;
 // Assuming that a rotation quaternion is a unit quaternion, inv(q1) simply equals conj(q1)
-    q1 *= 1/sqrt(q1.x*q1.x+q1.y*q1.y+q1.z*q1.z+q1.w*q1.w); // normalize()
-// geometry_msgs:: does not have any methods for computing whereas tf2:: have some. I did not convert the quaternions into tf2::Quaternions though because their hamilton product returns a tf2Scalar which is different than doubles.
-    q2 /= sqrt(q2.x*q2.x+q2.y*q2.y+q2.z*q2.z+q2.w*q2.w);
-    q1inv.x = -q1.x; // conjugate() or inverse()
-    q1inv.y = -q1.y;
-    q1inv.z = -q1.z;
-    q1inv.w = q1.w;
-    qR.w = q2.w*q1inv.w - q2.x*q1inv.x - q2.y*q1inv.y - q2.z*q1inv.z; //  q2*q1inv
-    qR.x = q2.w*q1inv.x + q2.x*q1inv.w + q2.y*q1inv.z - q2.z*q1inv.y;
-    qR.y = q2.w*q1inv.y - q2.x*q1inv.z + q2.y*q1inv.w + q2.z*q1inv.x;
-    qR.z = q2.w*q1inv.z + q2.x*q1inv.y - q2.y*q1inv.x + q2.z*q1inv.w;
-// And we actually only need the scalar part w of qR in order to get the relative rotation angle
-    ////w = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w; // scal(qR):=scal(q2)*scal(q1)-(vec(q2)*vec(conj(q1)))=scal(q2)*scal(q1)-(vec(q2)*(-vec(q1)))=scal(q2)*scal(q1)+vec(q2)*vec(q1)=q1*q2
+// By the way tf2:: seems aware of this property and the source code of inv() behaves like a conj so perhaps that all the quaternions in tf2 are already normalized, but just to be sure :
+    q1.normalize();
+    q2.normalize();
+    q1inv = q1.inverse();
+    qR = q2*q1inv;
     eef_dist += sqrt(x*x+y*y+z*z);
-    eef_rot += 2*atan2(sqrt(qR.x*qR.x+qR.y*qR.y+qR.z*qR.z),qR.w); // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation
+    eef_rot += 2*atan2(sqrt(pow(qR.x(),2)+pow(qR.y(),2)+pow(qR.z(),2)),qR.w()); // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation
   }
 
-  geometry_msgs::Quaternion qn = transforms[n].rotation;
-  geometry_msgs::Quaternion q0 = transforms[0].rotation;
-  geometry_msgs::Quaternion qR_t, q0inv;
   double x_t, y_t, z_t, w_t;
   double tot_dist, tot_rot;
+  tf2::Quaternion qn, q0, q0inv, qRtot;
   x_t = transforms[n].translation.x - transforms[0].translation.x;
   y_t = transforms[n].translation.y - transforms[0].translation.y;
   z_t = transforms[n].translation.z - transforms[0].translation.z;
-  qn /= sqrt(qn.x*qn.x+qn.y*qn.y+qn.z*qn.z+qn.w*qn.w);
-  q0 /= sqrt(q0.x*q0.x+q0.y*q0.y+q0.z*q0.z+q0.w*q0.w);
-  q0inv.x = -q0.x; // conjugate() or inverse()
-  q0inv.y = -q0.y;
-  q0inv.z = -q0.z;
-  q0inv.w = q0.w;
-  qR_t.w = qn.w*q0inv.w - qn.x*q0inv.x - qn.y*q0inv.y - qn.z*q0inv.z; //  qn*q0inv
-  qR_t.x = qn.w*q0inv.x + qn.x*q0inv.w + qn.y*q0inv.z - qn.z*q0inv.y;
-  qR_t.y = qn.w*q0inv.y - qn.x*q0inv.z + qn.y*q0inv.w + qn.z*q0inv.x;
-  qR_t.z = qn.w*q0inv.z + qn.x*q0inv.y - qn.y*q0inv.x + qn.z*q0inv.w;
-  ////w_t = -qn.x * q0.x - qn.y * q0.y - qn.z * q0.z + qn.w * q0.w;
+  tf2::fromMsg(transforms[n].rotation,qn);
+  tf2::fromMsg(transforms[0].rotation,q0);
+  qn.normalize();
+  q0.normalize();
+  q0inv = q0.inverse();
+  qRtot = qn*q0inv;
   
   tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
-  tot_rot = 2*atan2(sqrt(qR_t.x*qR_t.x+qR_t.y*qR_t.y+qR_t.z*qR_t.z),qR_t.w);
+  tot_rot = 2*atan2(sqrt(pow(qRtot.x(),2)+pow(qRtot.y(),2)+pow(qRtot.z(),2)),qRtot.w());
   
   double quality = 0.0;
   if(eef_dist > 0.001)
