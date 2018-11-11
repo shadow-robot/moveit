@@ -38,6 +38,8 @@
 #include <moveit/warehouse/constraints_storage.h>
 #include <moveit/warehouse/state_storage.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
+#include <moveit/planning_interface/planning_response.h>
+#include <moveit/planning_interface/planning_interface.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit/robot_state/conversions.h>
 #include <eigen_conversions/eigen_msg.h>
@@ -46,9 +48,6 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <ros/ros.h>
-
-#include <moveit/planning_interface/planning_response.h>
-#include <moveit/planning_interface/planning_interface.h>
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
 
@@ -72,7 +71,6 @@ void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* 
     if (joint != ".")
       in >> joint;
   }
-
   if (!v.empty())
   {
     robot_state::RobotState st = psm->getPlanningScene()->getCurrentState();
@@ -323,17 +321,7 @@ int main(int argc, char** argv)
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
 
-  std::string eef_name = "";
-  if (vm.count("eef"))
-  {
-    eef_name = vm["eef"].as<std::string>();
-  }
-  else
-  {
-    ROS_INFO("If you have a problem with a composite robot, try to use the prefix option.");
-  }
-
-  if (vm.count("help"))  // show help if no parameters passed
+  if (vm.count("help") || argc == 1)  // show help if no parameters passed
   {
     std::cout << desc << std::endl;
     return 1;
@@ -368,6 +356,12 @@ int main(int argc, char** argv)
     moveit_msgs::PlanningScene psmsg;
     psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
     pss.addPlanningScene(psmsg);
+  }
+
+  std::string eef_name = "";
+  if (vm.count("eef"))
+  {
+    eef_name = vm["eef"].as<std::string>();
   }
 
   if (vm.count("queries"))
