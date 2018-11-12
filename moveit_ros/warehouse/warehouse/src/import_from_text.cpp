@@ -162,13 +162,13 @@ void parseJointConstraint(std::istream& in, planning_scene_monitor::PlanningScen
     else
     {
       in >> pos;
-      //in >> tol_above;
-      //in >> tol_below;
+      // in >> tol_above;
+      // in >> tol_below;
       moveit_msgs::JointConstraint joint_constraint;
       joint_constraint.joint_name = joint;
       joint_constraint.position = pos;
-      //joint_constraint.tolerance_above = tol_above;
-      //joint_constraint.tolerance_below = tol_below;
+      // joint_constraint.tolerance_above = tol_above;
+      // joint_constraint.tolerance_below = tol_below;
       joint_constraint.weight = 1.0;
       joint_constraints.push_back(joint_constraint);
     }
@@ -180,7 +180,8 @@ void parseJointConstraint(std::istream& in, planning_scene_monitor::PlanningScen
 }
 
 void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-			                 moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState, std::string eef_name = "")
+                             moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState,
+                             std::string eef_name = "")
 {
   std::string label;
   std::string marker;
@@ -190,13 +191,13 @@ void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningS
 
   in >> label;
   in >> marker;
-  if(label == "Position" && marker == "=")
+  if (label == "Position" && marker == "=")
   {
     in >> position.x >> position.y >> position.z;
   }
   in >> label;
   in >> marker;
-  if(label == "Orientation" && marker == "=")
+  if (label == "Orientation" && marker == "=")
   {
     in >> orientation.x;
     in >> orientation.y;
@@ -204,17 +205,18 @@ void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningS
     in >> orientation.w;
   }
   in >> label;
-  if(label != "."){
+  if (label != ".")
+  {
     ROS_ERROR("Parsing failed.");
   }
 
   robot_model::RobotModelConstPtr km = psm->getRobotModel();
 
-  const std::vector< std::string > & variable_names = km->getVariableNames();
-  const std::vector< std::string > & id_names = km->getLinkModelNames();
-  const robot_model::JointModel* eef_joint = km->getJointModel(variable_names[variable_names.size()-1]);
+  const std::vector<std::string>& variable_names = km->getVariableNames();
+  const std::vector<std::string>& id_names = km->getLinkModelNames();
+  const robot_model::JointModel* eef_joint = km->getJointModel(variable_names[variable_names.size() - 1]);
 
-  if(eef_name == "")
+  if (eef_name == "")
     eef_name = eef_joint->getChildLinkModel()->getName();
 
   geometry_msgs::PoseStamped pose;
@@ -234,9 +236,9 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
   std::string scene_name;
   in >> scene_name;
 
-  if(pss->hasPlanningScene(scene_name))
+  if (pss->hasPlanningScene(scene_name))
   {
-    while(in.good() && !in.eof())
+    while (in.good() && !in.eof())
     {
       std::string query_name;
       in >> query_name;
@@ -267,24 +269,25 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
         {
           std::string joint_constraint;
           in >> joint_constraint;
-          if(joint_constraint == "joint_constraint")
+          if (joint_constraint == "joint_constraint")
             parseJointConstraint(in, psm, rs, goalState);
-          if(joint_constraint == "position_constraint")
-	        parsePositionConstraint(in, psm, rs, goalState, eef_name);
-	      if(joint_constraint == "link_constraint")
-	        parseLinkConstraint(in, psm, cs);
+          if (joint_constraint == "position_constraint")
+            parsePositionConstraint(in, psm, rs, goalState, eef_name);
+          if (joint_constraint == "link_constraint")
+            parseLinkConstraint(in, psm, cs);
         }
         else
         {
           ROS_ERROR("Unknown query type: '%s'", goal_type.c_str());
         }
 
-        if(goalState.joint_constraints.size() || (goalState.position_constraints.size() && goalState.orientation_constraints.size()))
+        if (goalState.joint_constraints.size() ||
+            (goalState.position_constraints.size() && goalState.orientation_constraints.size()))
         {
           // Save the query
           moveit_msgs::MotionPlanRequest planning_query;
           planning_query.start_state = startState;
-          planning_query.goal_constraints = {goalState};
+          planning_query.goal_constraints = { goalState };
           pss->addPlanningQuery(planning_query, scene_name, query_name);
           ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
         }
@@ -302,13 +305,12 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "import_from_text_to_warehouse", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-  desc.add_options()
-    ("help", "Show help message")
-    ("queries", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
-    ("scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")
-    ("host", boost::program_options::value<std::string>(), "Host for the DB.")
-    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.");
+  desc.add_options()("help", "Show help message")("queries", boost::program_options::value<std::string>(),
+                                                  "Name of file containing motion planning queries.")(
+      "scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")(
+      "host", boost::program_options::value<std::string>(),
+      "Host for the DB.")("port", boost::program_options::value<std::size_t>(), "Port for the DB.")(
+      "eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
