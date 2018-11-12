@@ -191,7 +191,6 @@ void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningS
   {
     in >> eef_name;
   }
-  ROS_ERROR("eef_name: '%s'", eef_name.c_str());
 
   in >> label;
   in >> marker;
@@ -220,8 +219,6 @@ void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningS
   const std::vector<std::string>& id_names = km->getLinkModelNames();
   const robot_model::JointModel* eef_joint = km->getJointModel(variable_names[variable_names.size() - 1]);
 
-  eef_name = eef_joint->getChildLinkModel()->getName();
-  ROS_ERROR("eef_name: '%s'", eef_name.c_str());
   geometry_msgs::PoseStamped pose;
   pose.pose.orientation = orientation;
   pose.pose.position = position;

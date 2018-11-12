@@ -242,9 +242,6 @@ int main(int argc, char** argv)
               qfout << "START" << std::endl;
               for (std::size_t p = 0; p < jointState.position.size(); ++p)
               {
-                ROS_INFO("group_prefix '%s'", group_prefix.c_str());
-                ROS_INFO("jointState.name[p] '%s'", jointState.name[p].c_str());
-                ROS_INFO("compare %d", jointState.name[p].compare(0, group_prefix.length(), group_prefix));
                 if (jointState.name[p].compare(0, group_prefix.length(), group_prefix) == 0)
                 {
                   qfout << jointState.name[p] << " = ";
@@ -274,7 +271,6 @@ int main(int argc, char** argv)
                 {
                   link_eef = joint_eef->getChildLinkModel()->getName();
                 }
-                ROS_INFO("link eef '%s'", link_eef.c_str());
                 const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef);
 
                 geometry_msgs::Transform transform;
@@ -301,8 +297,7 @@ int main(int argc, char** argv)
                   for (auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
                   {
                     qfout << iter->joint_name << " = ";
-                    qfout << iter->position << " ";
-                    qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
+                    qfout << iter->position << std::endl;
                   }
                 }
                 qfout << "." << std::endl;

@@ -63,10 +63,10 @@ int main(int argc, char** argv)
   boost::program_options::options_description desc;
   desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
                                                                                                         "DB.")(
-      "port", boost::program_options::value<std::size_t>(), "Port for the DB.")(
-      "clear", "Clears all the random queries for a given scene")("cartesian", "Generate the cartesian equivalent as "
-                                                                               "well.")(
-      "limited_joints", "Limit joints from -pi to pi to avoid a lot of impossible queries.")(
+      "port", boost::program_options::value<std::size_t>(), "Port for the DB.")("clear", "Clears all the random "
+                                                                                         "queries for a given scene")(
+      "cartesian", "Generate the cartesian equivalent as "
+                   "well.")("limited_joints", "Limit joints from -pi to pi to avoid a lot of impossible queries.")(
       "group_prefix", boost::program_options::value<std::string>(),
       "Specify the group_prefix you'd like to plan with.")("eef", boost::program_options::value<std::string>(),
                                                            "Specify the end effector. Default: last link. Only needed "
