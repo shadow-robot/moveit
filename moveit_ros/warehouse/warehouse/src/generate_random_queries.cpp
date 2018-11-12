@@ -61,14 +61,16 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-  desc.add_options()
-    ("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the DB.")
-    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("clear", "Clears all the random queries for a given scene")
-    ("cartesian", "Generate the cartesian equivalent as well.")
-    ("limited_joints", "Limit joints from -pi to pi to avoid a lot of impossible queries.")
-    ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.")
-    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link. Only needed for cartesian queries");
+  desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
+                                                                                                        "DB.")(
+      "port", boost::program_options::value<std::size_t>(), "Port for the DB.")(
+      "clear", "Clears all the random queries for a given scene")("cartesian", "Generate the cartesian equivalent as "
+                                                                               "well.")(
+      "limited_joints", "Limit joints from -pi to pi to avoid a lot of impossible queries.")(
+      "group_prefix", boost::program_options::value<std::string>(),
+      "Specify the group_prefix you'd like to plan with.")("eef", boost::program_options::value<std::string>(),
+                                                           "Specify the end effector. Default: last link. Only needed "
+                                                           "for cartesian queries");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -80,14 +82,14 @@ int main(int argc, char** argv)
     eef_name = vm["eef"].as<std::string>();
   }
 
-  std::string prefix = "";
-  if (vm.count("prefix"))
+  std::string group_prefix = "";
+  if (vm.count("group_prefix"))
   {
-    prefix = vm["prefix"].as<std::string>();
+    group_prefix = vm["group_prefix"].as<std::string>();
   }
   else
   {
-    ROS_INFO("If you have a problem with a composite robot, try to use the prefix option.");
+    ROS_INFO("If you have a problem with a composite robot, try to use the group_prefix option.");
   }
 
   if (vm.count("help"))
@@ -118,33 +120,33 @@ int main(int argc, char** argv)
   int fail_queries_bound = 1000000;
   int fail_queries_cur = 0;
 
-  if(argc >= 2)
+  if (argc >= 2)
   {
     scene_name = argv[1];
   }
 
-  if(argc >= 3)
+  if (argc >= 3)
   {
     tot_queries_number = atoi(argv[2]);
   }
 
-  if(vm.count("clear"))
+  if (vm.count("clear"))
   {
     std::vector<std::string> query_names;
     std::stringstream pssregex;
     pssregex << ".*";
     pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_name);
-    for(int i = 0; i<query_names.size(); ++i)
+    for (int i = 0; i < query_names.size(); ++i)
     {
-      if(query_names[i].find("RANDOM") != std::string::npos)
+      if (query_names[i].find("RANDOM") != std::string::npos)
       {
-	    pss.removePlanningQuery(scene_name, query_names[i]);
-	    ROS_INFO("Query '%s' removed", query_names[i].c_str());
+        pss.removePlanningQuery(scene_name, query_names[i]);
+        ROS_INFO("Query '%s' removed", query_names[i].c_str());
       }
-      if(query_names[i].find("cartesian") != std::string::npos)
+      if (query_names[i].find("cartesian") != std::string::npos)
       {
-	    pss.removePlanningQuery(scene_name, query_names[i]);
-	    ROS_INFO("Query '%s' removed", query_names[i].c_str());
+        pss.removePlanningQuery(scene_name, query_names[i]);
+        ROS_INFO("Query '%s' removed", query_names[i].c_str());
       }
     }
     ROS_INFO("Cleaning done");
@@ -155,86 +157,89 @@ int main(int argc, char** argv)
 
   if (pss.getPlanningScene(pswm, scene_name))
   {
-    srand (static_cast <unsigned> (time(0)));
+    srand(static_cast<unsigned>(time(0)));
 
     psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
-    while(cur_queries_number < tot_queries_number && fail_queries_cur < fail_queries_bound)
+    while (cur_queries_number < tot_queries_number && fail_queries_cur < fail_queries_bound)
     {
       robot_model::RobotModelConstPtr km = psm.getRobotModel();
       planning_scene::PlanningScenePtr planning_scene = psm.getPlanningScene();
 
       moveit::core::RobotState coll_start_state(km);
-      moveit::core::RobotState coll_goal_state (km);
+      moveit::core::RobotState coll_goal_state(km);
 
       std::vector<std::string> names = coll_start_state.getVariableNames();
       std::map<std::string, double> var_start;
-      std::vector<double> goal_joints  = {};
+      std::vector<double> goal_joints = {};
 
-      //generation of random joint values
-      for(int i = 0; i<names.size(); ++i)
+      // generation of random joint values
+      for (int i = 0; i < names.size(); ++i)
       {
-	    if(names[i].compare(0, prefix.length(), prefix) == 0)
-	    {
-          float bound_up   = km->getVariableBounds(names[i]).max_position_;
+        if (names[i].compare(0, group_prefix.length(), group_prefix) == 0)
+        {
+          float bound_up = km->getVariableBounds(names[i]).max_position_;
           float bound_down = km->getVariableBounds(names[i]).min_position_;
-          if(vm.count("limited_joints")){
+          if (vm.count("limited_joints"))
+          {
             bound_up = 3.14;
             bound_down = -3.14;
           }
-          double j1 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
-          double j2 = static_cast <double> (rand()) / static_cast <double> (RAND_MAX/(bound_up-bound_down)) + bound_down;
-          coll_start_state.setJointPositions(names[i], {j1});
-          coll_goal_state.setJointPositions (names[i], {j2});
+          double j1 =
+              static_cast<double>(rand()) / static_cast<double>(RAND_MAX / (bound_up - bound_down)) + bound_down;
+          double j2 =
+              static_cast<double>(rand()) / static_cast<double>(RAND_MAX / (bound_up - bound_down)) + bound_down;
+          coll_start_state.setJointPositions(names[i], { j1 });
+          coll_goal_state.setJointPositions(names[i], { j2 });
           var_start[names[i]] = j1;
           goal_joints.push_back(j2);
-	    }
-	    else
+        }
+        else
         {
-          coll_start_state.setJointPositions(names[i], {0.0});
-          coll_goal_state.setJointPositions (names[i], {0.0});
+          coll_start_state.setJointPositions(names[i], { 0.0 });
+          coll_goal_state.setJointPositions(names[i], { 0.0 });
           var_start[names[i]] = 0;
           goal_joints.push_back(0);
         }
       }
       collision_detection::CollisionRequest collision_request;
-      collision_detection::CollisionResult  collision_result_start;
-      collision_detection::CollisionResult  collision_result_goal;
+      collision_detection::CollisionResult collision_result_start;
+      collision_detection::CollisionResult collision_result_goal;
 
-      moveit_msgs::RobotState  msg_start_state;
+      moveit_msgs::RobotState msg_start_state;
       moveit_msgs::Constraints msg_goal_state;
 
-      //check start state collision
+      // check start state collision
       planning_scene->checkCollision(collision_request, collision_result_start, coll_start_state);
-      if(!collision_result_start.collision)
+      if (!collision_result_start.collision)
       {
-	    robot_state::RobotState st = planning_scene->getCurrentState();
-	    st.setVariablePositions(var_start);
+        robot_state::RobotState st = planning_scene->getCurrentState();
+        st.setVariablePositions(var_start);
         robot_state::robotStateToRobotStateMsg(st, msg_start_state);
       }
 
-      //check goal state collision
+      // check goal state collision
       planning_scene->checkCollision(collision_request, collision_result_goal, coll_goal_state);
-      if(!collision_result_goal.collision)
+      if (!collision_result_goal.collision)
       {
-	    std::vector<moveit_msgs::JointConstraint> joint_constraints;
-        for(int i = 0; i<names.size(); ++i)
-	    {
-	      moveit_msgs::JointConstraint joint_constraint;
-	      joint_constraint.joint_name = names[i];
-	      joint_constraint.position = goal_joints[i];
-	      joint_constraint.tolerance_above = 1.0e-6;
-	      joint_constraint.tolerance_below = 1.0e-6;
-	      joint_constraint.weight = 1.0;
-	  	  joint_constraints.push_back(joint_constraint);
-	    }
-	    msg_goal_state.joint_constraints = joint_constraints;
+        std::vector<moveit_msgs::JointConstraint> joint_constraints;
+        for (int i = 0; i < names.size(); ++i)
+        {
+          moveit_msgs::JointConstraint joint_constraint;
+          joint_constraint.joint_name = names[i];
+          joint_constraint.position = goal_joints[i];
+          joint_constraint.tolerance_above = 1.0e-6;
+          joint_constraint.tolerance_below = 1.0e-6;
+          joint_constraint.weight = 1.0;
+          joint_constraints.push_back(joint_constraint);
+        }
+        msg_goal_state.joint_constraints = joint_constraints;
       }
 
-      if(!collision_result_start.collision && !collision_result_goal.collision)
+      if (!collision_result_start.collision && !collision_result_goal.collision)
       {
-	    moveit_msgs::MotionPlanRequest planning_query;
-	    planning_query.start_state = msg_start_state;
-	    planning_query.goal_constraints = {msg_goal_state};
+        moveit_msgs::MotionPlanRequest planning_query;
+        planning_query.start_state = msg_start_state;
+        planning_query.goal_constraints = { msg_goal_state };
 
         std::string query_name = "RANDOM_pose" + std::to_string(cur_queries_number);
         pss.addPlanningQuery(planning_query, scene_name, query_name);
@@ -243,7 +248,7 @@ int main(int argc, char** argv)
 
         if (vm.count("cartesian"))
         {
-          const std::vector< std::string > & id_names = km->getLinkModelNames();
+          const std::vector<std::string>& id_names = km->getLinkModelNames();
           const Eigen::Affine3d& link_pose = coll_goal_state.getGlobalLinkTransform(eef_name);
           geometry_msgs::Transform transform;
           geometry_msgs::PoseStamped pose;
@@ -257,19 +262,19 @@ int main(int argc, char** argv)
           pose.header.frame_id = id_names[0];
 
           msg_goal_cart = kinematic_constraints::constructGoalConstraints(eef_name, pose);
-          planning_query.goal_constraints = {msg_goal_cart};
+          planning_query.goal_constraints = { msg_goal_cart };
           pss.addPlanningQuery(planning_query, scene_name, query_name);
           ROS_INFO("Random query '%s' sucessfully added", query_name.c_str());
         }
-	    cur_queries_number ++;
-	    fail_queries_cur = 0;
+        cur_queries_number++;
+        fail_queries_cur = 0;
       }
       else
       {
-	    fail_queries_cur ++;
+        fail_queries_cur++;
       }
     }
-    if(fail_queries_cur >= fail_queries_bound)
+    if (fail_queries_cur >= fail_queries_bound)
     {
       ROS_ERROR("FAIL: '%d' consecutive random queries failed, exiting the while loop", fail_queries_bound);
     }

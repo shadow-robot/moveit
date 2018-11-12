@@ -51,7 +51,6 @@ static const std::string ROBOT_DESCRIPTION = "robot_description";
 typedef std::pair<geometry_msgs::Point, geometry_msgs::Quaternion> LinkConstraintPair;
 typedef std::map<std::string, LinkConstraintPair> LinkConstraintMap;
 
-
 void collectLinkConstraints(const moveit_msgs::Constraints& constraints, LinkConstraintMap& lcmap)
 {
   for (std::size_t i = 0; i < constraints.position_constraints.size(); ++i)
@@ -82,19 +81,24 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-  desc.add_options()
-    ("help", "Show help message")
-    ("host", boost::program_options::value<std::string>(), "Host for the DB.")
-    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("cartesian", "Save queries in cartesian space (start and end pose of eef)")
-    ("scene", "Saves the scene.")
-    ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.")
-    ("prefix", boost::program_options::value<std::string>(), "Specify the prefix you'd like to plan with.")
-    ("output_directory", boost::program_options::value<std::string>(), "Directory to save files");
+  desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
+                                                                                                        "DB.")(
+      "port", boost::program_options::value<std::size_t>(), "Port for the DB.")(
+      "cartesian", "Save queries in cartesian space (start and end pose of eef)")("scene", "Saves the scene.")(
+      "eef", boost::program_options::value<std::string>(),
+      "Specify the end effector. Default: last link.")("group_prefix", boost::program_options::value<std::string>(),
+                                                       "Specify the group prefix you'd like to plan with.")(
+      "output_directory", boost::program_options::value<std::string>(), "Directory to save files");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
+
+  std::string cartesian_prefix = "";
+  if (vm.count("cartesian"))
+  {
+    cartesian_prefix = "cartesian_";
+  }
 
   std::string link_eef = "";
   if (vm.count("eef"))
@@ -103,18 +107,15 @@ int main(int argc, char** argv)
   }
   else
   {
-    ROS_INFO("If you have a problem with a composite robot, try to define the eef.");
+    ROS_INFO("If you want to export the queries in cartesian space, you can specify the eef.");
   }
 
   std::string output_dir = "";
   if (vm.count("output_directory"))
   {
     output_dir = vm["output_directory"].as<std::string>();
-    ROS_INFO(" *** output_dir '%s'", output_dir.c_str());
     if (output_dir.size() && output_dir[output_dir.size() - 1] != '/')
-        output_dir.append("/");
-
-    ROS_INFO("output_dir '%s'", output_dir.c_str());
+      output_dir.append("/");
 
     // Ensure directories exist
     boost::filesystem::create_directories(output_dir);
@@ -127,11 +128,13 @@ int main(int argc, char** argv)
   std::string group_prefix = "";
   if (vm.count("group_prefix"))
   {
-    group_prefix = vm["prefix"].as<std::string>();
+    group_prefix = vm["group_prefix"].as<std::string>();
   }
   else
   {
-    ROS_INFO("If you have a problem with a composite robot, try to use the prefix option to specify the prefix of the group you want to save the queries");
+    ROS_INFO(
+        "If you have a problem with a composite robot, try to use the group_prefix option to specify the prefix of the "
+        "group you want to save the queries");
   }
 
   if (vm.count("help"))
@@ -166,7 +169,7 @@ int main(int argc, char** argv)
     if (pss.getPlanningScene(pswm, scene_names[i]))
     {
       psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
-      if(vm.count("scene"))
+      if (vm.count("scene"))
       {
         scene_filename = output_dir + (scene_names[i] + ".scene").c_str();
         ROS_INFO("Saving scene '%s'", scene_filename.c_str());
@@ -191,20 +194,12 @@ int main(int argc, char** argv)
         csregex << ".*" << scene_names[i] << ".*";
         cs.getKnownConstraints(csregex.str(), constraintNames);
 
-
         std::vector<std::string> query_names;
-
         std::stringstream pssregex;
         pssregex << ".*";
         pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_names[i]);
 
-        std::string prefix = "";
-        if(vm.count("cartesian"))
-        {
-          prefix = "cartesian_";
-        }
-
-        queries_filename = output_dir + (prefix + scene_names[i] + ".queries").c_str();
+        queries_filename = output_dir + (cartesian_prefix + scene_names[i] + ".queries").c_str();
         std::ofstream qfout(queries_filename);
         qfout << scene_names[i] << std::endl;
 
@@ -231,50 +226,51 @@ int main(int argc, char** argv)
 
             std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
             std::vector<moveit_msgs::PositionConstraint> position_constraints = query_goal.position_constraints;
-            std::vector<moveit_msgs::OrientationConstraint> orientation_constraints = query_goal.orientation_constraints;
+            std::vector<moveit_msgs::OrientationConstraint> orientation_constraints =
+                query_goal.orientation_constraints;
 
             // Save queries defined in joint space
-            if(joint_constraints.size() != 0)
+            if (joint_constraints.size() != 0)
             {
-              if(vm.count("cartesian"))
+              if (vm.count("cartesian"))
               {
-                // Allows to distinguish queries defined in cartesian or joint space
                 query_names[k] = "cartesian_" + query_names[k];
               }
               qfout << query_names[k] << std::endl;
 
-              //Save the start State
+              // Save the start State
               qfout << "START" << std::endl;
               for (std::size_t p = 0; p < jointState.position.size(); ++p)
               {
                 ROS_INFO("group_prefix '%s'", group_prefix.c_str());
                 ROS_INFO("jointState.name[p] '%s'", jointState.name[p].c_str());
-                ROS_INFO("compare '%d'", jointState.name[p].compare(0, group_prefix.length(), group_prefix));
-                if(jointState.name[p].compare(0, group_prefix.length(), group_prefix) == 0)
-	            {
+                ROS_INFO("compare %d", jointState.name[p].compare(0, group_prefix.length(), group_prefix));
+                if (jointState.name[p].compare(0, group_prefix.length(), group_prefix) == 0)
+                {
                   qfout << jointState.name[p] << " = ";
                   qfout << jointState.position[p] << std::endl;
                 }
               }
               qfout << "." << std::endl;
 
-              //Save the goal state
+              // Save the goal state
               qfout << "GOAL" << std::endl;
 
-              //save queries using end-effector position
-              if(vm.count("cartesian"))
+              // save queries using end-effector position
+              if (vm.count("cartesian"))
               {
                 qfout << "position_constraint" << std::endl;
 
                 moveit::core::RobotState goal_state(km);
-                for(int i = 0; i<joint_constraints.size(); ++i)
+                for (int i = 0; i < joint_constraints.size(); ++i)
                 {
-                  goal_state.setJointPositions(joint_constraints[i].joint_name, {joint_constraints[i].position});
+                  goal_state.setJointPositions(joint_constraints[i].joint_name, { joint_constraints[i].position });
                 }
 
-                const moveit::core::JointModel* joint_eef = goal_state.getJointModel(joint_constraints[joint_constraints.size()-1].joint_name);
+                const moveit::core::JointModel* joint_eef =
+                    goal_state.getJointModel(joint_constraints[joint_constraints.size() - 1].joint_name);
 
-                if(link_eef == "")
+                if (link_eef == "")
                 {
                   link_eef = joint_eef->getChildLinkModel()->getName();
                 }
@@ -283,7 +279,7 @@ int main(int argc, char** argv)
 
                 geometry_msgs::Transform transform;
                 tf::transformEigenToMsg(link_pose, transform);
-
+                qfout << "End_effector = " << link_eef << std::endl;
                 qfout << "Position =";
                 qfout << " " << transform.translation.x;
                 qfout << " " << transform.translation.y;
@@ -295,14 +291,14 @@ int main(int argc, char** argv)
                 qfout << " " << transform.rotation.w << std::endl;
                 qfout << "." << std::endl;
               }
-              //save queries using joint constraints
+              // save queries using joint constraints
               else
               {
                 qfout << "joint_constraint" << std::endl;
                 std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
-                if(joint_constraints.size() != 0)
+                if (joint_constraints.size() != 0)
                 {
-                  for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
+                  for (auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++)
                   {
                     qfout << iter->joint_name << " = ";
                     qfout << iter->position << " ";
@@ -315,10 +311,9 @@ int main(int argc, char** argv)
           }
         }
 
+        // Saving link constaints
         if (!(robotStateNames.empty() && constraintNames.empty()))
         {
-          //std::ofstream qfout(output_dir + (scene_names[i] + ".queries").c_str());
-          //qfout << scene_names[i] << std::endl;
           if (robotStateNames.size())
           {
             qfout << "start" << std::endl;

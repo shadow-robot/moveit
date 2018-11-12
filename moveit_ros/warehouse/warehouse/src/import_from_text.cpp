@@ -162,13 +162,9 @@ void parseJointConstraint(std::istream& in, planning_scene_monitor::PlanningScen
     else
     {
       in >> pos;
-      // in >> tol_above;
-      // in >> tol_below;
       moveit_msgs::JointConstraint joint_constraint;
       joint_constraint.joint_name = joint;
       joint_constraint.position = pos;
-      // joint_constraint.tolerance_above = tol_above;
-      // joint_constraint.tolerance_below = tol_below;
       joint_constraint.weight = 1.0;
       joint_constraints.push_back(joint_constraint);
     }
@@ -180,14 +176,22 @@ void parseJointConstraint(std::istream& in, planning_scene_monitor::PlanningScen
 }
 
 void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-                             moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState,
-                             std::string eef_name = "")
+                             moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
 {
   std::string label;
   std::string marker;
 
   geometry_msgs::Quaternion orientation;
   geometry_msgs::Point position;
+  std::string eef_name = "";
+
+  in >> label;
+  in >> marker;
+  if (label == "End_effector" && marker == "=")
+  {
+    in >> eef_name;
+  }
+  ROS_ERROR("eef_name: '%s'", eef_name.c_str());
 
   in >> label;
   in >> marker;
@@ -216,9 +220,8 @@ void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningS
   const std::vector<std::string>& id_names = km->getLinkModelNames();
   const robot_model::JointModel* eef_joint = km->getJointModel(variable_names[variable_names.size() - 1]);
 
-  if (eef_name == "")
-    eef_name = eef_joint->getChildLinkModel()->getName();
-
+  eef_name = eef_joint->getChildLinkModel()->getName();
+  ROS_ERROR("eef_name: '%s'", eef_name.c_str());
   geometry_msgs::PoseStamped pose;
   pose.pose.orientation = orientation;
   pose.pose.position = position;
@@ -231,7 +234,7 @@ void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningS
 
 void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
                   moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs,
-                  moveit_warehouse::PlanningSceneStorage* pss, std::string eef_name = "")
+                  moveit_warehouse::PlanningSceneStorage* pss)
 {
   std::string scene_name;
   in >> scene_name;
@@ -272,7 +275,7 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
           if (joint_constraint == "joint_constraint")
             parseJointConstraint(in, psm, rs, goalState);
           if (joint_constraint == "position_constraint")
-            parsePositionConstraint(in, psm, rs, goalState, eef_name);
+            parsePositionConstraint(in, psm, rs, goalState);
           if (joint_constraint == "link_constraint")
             parseLinkConstraint(in, psm, cs);
         }
@@ -309,8 +312,7 @@ int main(int argc, char** argv)
                                                   "Name of file containing motion planning queries.")(
       "scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")(
       "host", boost::program_options::value<std::string>(),
-      "Host for the DB.")("port", boost::program_options::value<std::size_t>(), "Port for the DB.")(
-      "eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.");
+      "Host for the DB.")("port", boost::program_options::value<std::size_t>(), "Port for the DB.");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -353,18 +355,12 @@ int main(int argc, char** argv)
     pss.addPlanningScene(psmsg);
   }
 
-  std::string eef_name = "";
-  if (vm.count("eef"))
-  {
-    eef_name = vm["eef"].as<std::string>();
-  }
-
   if (vm.count("queries"))
   {
     std::ifstream fin(vm["queries"].as<std::string>().c_str());
     if (fin.good() && !fin.eof())
     {
-      parseQueries(fin, &psm, &rs, &cs, &pss, eef_name);
+      parseQueries(fin, &psm, &rs, &cs, &pss);
     }
     fin.close();
   }
