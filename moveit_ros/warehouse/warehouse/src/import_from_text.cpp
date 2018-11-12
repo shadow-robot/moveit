@@ -47,6 +47,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <ros/ros.h>
 
 static const std::string ROBOT_DESCRIPTION = "robot_description";
@@ -55,7 +56,6 @@ void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* 
                 moveit_warehouse::RobotStateStorage* rs, moveit_msgs::RobotState& startState)
 {
   std::map<std::string, double> v;
-
   std::string joint;
   std::string marker;
   double value;
@@ -139,8 +139,8 @@ void parseLinkConstraint(std::istream& in, planning_scene_monitor::PlanningScene
   }
 }
 
-void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-               moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
+void parseJointConstraint(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+                          moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
 {
   std::string joint;
   std::string marker;
@@ -179,8 +179,8 @@ void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* p
   goalState = msg;
 }
 
-void parseGoalCartesian(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
-			            moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState, std::string eef_name = "")
+void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+			                 moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState, std::string eef_name = "")
 {
   std::string label;
   std::string marker;
@@ -236,7 +236,7 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
 
   if(pss->hasPlanningScene(scene_name))
   {
-    while (in.good() && !in.eof())
+    while(in.good() && !in.eof())
     {
       std::string query_name;
       in >> query_name;
@@ -246,12 +246,11 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
 
       if (in.good() && !in.eof())
       {
-
         std::string start_type;
         in >> start_type;
 
         // Get the start state of the query
-        if(start_type == "START" && in.good() && !in.eof())
+        if (boost::iequals(start_type, "start") && in.good() && !in.eof())
         {
           parseStart(in, psm, rs, startState);
         }
@@ -263,15 +262,15 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
         std::string goal_type;
         in >> goal_type;
 
-        // Get the goal of the query as a set of joint_constraints
-        if(goal_type == "GOAL" && in.good() && !in.eof())
+        // Get the goal of the query
+        if (boost::iequals(goal_type, "goal") && in.good() && !in.eof())
         {
           std::string joint_constraint;
           in >> joint_constraint;
           if(joint_constraint == "joint_constraint")
-            parseGoal(in, psm, rs, goalState);
+            parseJointConstraint(in, psm, rs, goalState);
           if(joint_constraint == "position_constraint")
-	        parseGoalCartesian(in, psm, rs, goalState, eef_name);
+	        parsePositionConstraint(in, psm, rs, goalState, eef_name);
 	      if(joint_constraint == "link_constraint")
 	        parseLinkConstraint(in, psm, cs);
         }
@@ -282,18 +281,12 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
 
         if(goalState.joint_constraints.size() || (goalState.position_constraints.size() && goalState.orientation_constraints.size()))
         {
-          // Save the query as Start state + Goal joint constraint
+          // Save the query
           moveit_msgs::MotionPlanRequest planning_query;
           planning_query.start_state = startState;
           planning_query.goal_constraints = {goalState};
-
           pss->addPlanningQuery(planning_query, scene_name, query_name);
-
           ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
-        }
-        else
-        {
-          ROS_ERROR("Unknown query: ERROR");
         }
       }
     }
