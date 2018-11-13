@@ -761,7 +761,7 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
        ++it)
     num_planners += it->second.size();
 
-  boost::progress_display progress(num_planners * runs, std::cout);
+  boost::progress_display progress(num_planners * runs, std::cout); // 0% to 100%
 
   // Iterate through all planner plugins
   for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); it != planners.end();
@@ -799,9 +799,10 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
           post_event_fns_[k](request, mp_res, planner_data[j]);
+
         collectMetrics(planner_data[j], mp_res, solved, total_time);
         double metrics_time = (ros::WallTime::now() - start).toSec();
-        ROS_DEBUG("Spent %lf seconds collecting metrics", metrics_time);
+        ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
 
         ++progress;
       }
@@ -820,7 +821,7 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
 {
   int num_of_joints = p.getWayPoint(0).getVariableCount();
   const double pi = boost::math::constants::pi<double>();
-  
+
   // Joints near the shoulder consume more than those near the EE
   std::vector<int> weights(num_of_joints, 0);
   for(int k = 0; k<num_of_joints; k++){
@@ -863,7 +864,7 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
   // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
   std::vector<double> shortest_diff_goal_start_confs(num_of_joints, 0); // in fact assuming no obstacle that comes modify the shortest trajectory
   for (size_t j = 0 ; j < num_of_joints ; ++j){
-    shortest_diff_goal_start_confs[j] = plan_array[p.getWayPointCount()][j]-plan_array[0][j]; // but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi, which is not the shortest move if one colors the area! Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
+    shortest_diff_goal_start_confs[j] = plan_array[p.getWayPointCount()-1][j]-plan_array[0][j]; // but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi, which is not the shortest move if one colors the area! Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
     if (shortest_diff_goal_start_confs[j] > pi)
       shortest_diff_goal_start_confs[j] -= 2*pi;
     if (shortest_diff_goal_start_confs[j] <= -pi)
@@ -882,7 +883,7 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
   }
 
   double plan_quality = numerator/denominator;
-  
+
   return plan_quality;
 }
 
@@ -890,19 +891,26 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
 double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof how far the actual trajectory is from the end-effector shortest trajectory
 {
   int n = p.getWayPointCount();
+
   std::vector<geometry_msgs::Transform> transforms (n);
   for (size_t i = 0 ; i < n; ++i)
   {
     moveit::core::RobotState goal_state = p.getWayPoint(i); // pos vel accel and effort on the end effector
+
     const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]); // parent child jointType value
+
     std::string link_eef = joint_eef->getChildLinkModel()->getName();
+
     const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef); // matrix 4x4
+
     tf::transformEigenToMsg(link_pose, transforms[i]); // http://docs.ros.org/kinetic/api/eigen_conversions/html/eigen__msg_8cpp_source.html#l00093 their if() occurs when theta>pi or theta<-pi, because then cos(theta/2) becomes <0 (draw a circle to convince yourself). This means that QUATERNION ROTATIONS ARE COMPRISED ONLY BETWEEN [-PI;PI] ! This allows then the use of 2*atan2(scalar part) to find back an associated rotation angle, because it is known that atan2 has an output comprised only between [-pi/2;pi/2] !
 // atan2 is better than acos because, if quaternion rotations are in [-pi;pi], their scalar component belongs to [0;1] only, and hence 2acos(this component) belongs to 2[0;pi]=[0;2pi], while 2acos(this component) should belong to [-pi;pi] to respect the convention Eigen:: used!
 // But to use atan2 the vector part of the quaternion must be normalized https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation (leading btw the whole quaternion to be normalized as well). I am STILL NOT SURE how Eigen constructs a quaternion from a 3x3 rotation matrix, but I assume it uses this algorithm https://arc.aiaa.org/doi/pdf/10.2514/2.4654, in which we can read (1st page) : <<  we are looking for that quaternion q of unit length >>.
+
   }
 
   int m = n-1;
+
   double eef_dist = 0.0;
   double eef_rot  = 0.0;
   
@@ -924,6 +932,7 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
     qR = q2*q1inv;
     eef_dist += sqrt(x*x+y*y+z*z);
     eef_rot += 2*atan2(sqrt(pow(qR.x(),2)+pow(qR.y(),2)+pow(qR.z(),2)),qR.w()); // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation
+
   }
 
   double x_t, y_t, z_t, w_t;
@@ -942,17 +951,22 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
   tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
   tot_rot = 2*atan2(sqrt(pow(qRtot.x(),2)+pow(qRtot.y(),2)+pow(qRtot.z(),2)),qRtot.w());
   
-  double quality = 0.0;
+  double quality = 0.0, quality_cart;
+
   if(eef_dist > 0.001)
     quality += tot_dist/eef_dist;
   else
     quality += 1;
+
   if(tot_rot  > 0.001)
     quality += tot_rot/eef_rot;
   else
     quality += 1;
   
-  return quality/2;
+  quality_cart = quality/2;
+  
+  return quality_cart;
+
 }
 
 void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
