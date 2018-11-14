@@ -931,7 +931,7 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
     q1inv = q1.inverse();
     qR = q2*q1inv;
     eef_dist += sqrt(x*x+y*y+z*z);
-    eef_rot += 2*atan2(sqrt(pow(qR.x(),2)+pow(qR.y(),2)+pow(qR.z(),2)),qR.w()); // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation
+    eef_rot += fabs(2*atan2(sqrt(pow(qR.x(),2)+pow(qR.y(),2)+pow(qR.z(),2)),qR.w())); // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation
 
   }
 
@@ -949,7 +949,7 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
   qRtot = qLast*q0inv;
   
   tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
-  tot_rot = 2*atan2(sqrt(pow(qRtot.x(),2)+pow(qRtot.y(),2)+pow(qRtot.z(),2)),qRtot.w());
+  tot_rot = fabs(2*atan2(sqrt(pow(qRtot.x(),2)+pow(qRtot.y(),2)+pow(qRtot.z(),2)),qRtot.w()));
   
   double quality = 0.0, quality_cart;
 
