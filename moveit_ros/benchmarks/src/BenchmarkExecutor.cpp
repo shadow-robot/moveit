@@ -937,16 +937,16 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
 
   double x_t, y_t, z_t, w_t;
   double tot_dist, tot_rot;
-  tf2::Quaternion qn, q0, q0inv, qRtot;
-  x_t = transforms[n].translation.x - transforms[0].translation.x;
-  y_t = transforms[n].translation.y - transforms[0].translation.y;
-  z_t = transforms[n].translation.z - transforms[0].translation.z;
-  tf2::fromMsg(transforms[n].rotation,qn);
+  tf2::Quaternion qLast, q0, q0inv, qRtot;
+  x_t = transforms[m].translation.x - transforms[0].translation.x;
+  y_t = transforms[m].translation.y - transforms[0].translation.y;
+  z_t = transforms[m].translation.z - transforms[0].translation.z;
+  tf2::fromMsg(transforms[m].rotation,qLast);
   tf2::fromMsg(transforms[0].rotation,q0);
-  qn.normalize();
+  qLast.normalize();
   q0.normalize();
   q0inv = q0.inverse();
-  qRtot = qn*q0inv;
+  qRtot = qLast*q0inv;
   
   tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
   tot_rot = 2*atan2(sqrt(pow(qRtot.x(),2)+pow(qRtot.y(),2)+pow(qRtot.z(),2)),qRtot.w());
