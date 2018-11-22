@@ -164,9 +164,13 @@ void parseJointConstraint(std::istream& in, planning_scene_monitor::PlanningScen
     else
     {
       in >> pos;
+      in >> tol_above;
+      in >> tol_below;
       moveit_msgs::JointConstraint joint_constraint;
       joint_constraint.joint_name = joint;
       joint_constraint.position = pos;
+      joint_constraint.tolerance_above = tol_above;
+      joint_constraint.tolerance_below = tol_below;
       joint_constraint.weight = 1.0;
       joint_constraints.push_back(joint_constraint);
     }
