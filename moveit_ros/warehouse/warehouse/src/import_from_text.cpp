@@ -231,7 +231,7 @@ void parsePositionConstraint(std::istream& in, planning_scene_monitor::PlanningS
   goalState = msg;
 }
 
-void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+void parseQueries(std::ifstream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
                   moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs,
                   moveit_warehouse::PlanningSceneStorage* pss)
 {
@@ -254,20 +254,22 @@ void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor
         in >> start_type;
 
         // Get the start state of the query
-        if (boost::iequals(start_type, "start") && in.good() && !in.eof())
+        if (boost::iequals(start_type, "START") && in.good() && !in.eof())
         {
           parseStart(in, psm, rs, startState);
         }
         else
         {
+	  int current_pos = in.tellg();
           ROS_ERROR("Unknown query type: '%s'", start_type.c_str());
+	  ROS_ERROR("(At character number '%d'.", current_pos);
         }
 
         std::string goal_type;
         in >> goal_type;
 
         // Get the goal of the query
-        if (boost::iequals(goal_type, "goal") && in.good() && !in.eof())
+        if (boost::iequals(goal_type, "GOAL") && in.good() && !in.eof())
         {
           std::string joint_constraint;
           in >> joint_constraint;
