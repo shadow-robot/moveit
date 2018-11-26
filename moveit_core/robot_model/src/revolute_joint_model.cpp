@@ -168,9 +168,10 @@ double RevoluteJointModel::distance(const double* values1, const double* values2
 
 bool RevoluteJointModel::satisfiesPositionBounds(const double* values, const Bounds& bounds, double margin) const
 {
-  if (values[0] < bounds[0].min_position_ - margin || values[0] > bounds[0].max_position_ + margin)
-    return false;
-  return true;
+  if (continuous_)
+    return true;
+  else
+    return !(values[0] < bounds[0].min_position_ - margin || values[0] > bounds[0].max_position_ + margin);
 }
 
 bool RevoluteJointModel::enforcePositionBounds(double* values, const Bounds& bounds) const
@@ -245,7 +246,7 @@ void RevoluteJointModel::computeTransform(const double* joint_values, Eigen::Aff
 
 void RevoluteJointModel::computeVariablePositions(const Eigen::Affine3d& transf, double* joint_values) const
 {
-  Eigen::Quaterniond q(transf.rotation());
+  Eigen::Quaterniond q(transf.linear());
   q.normalize();
   size_t maxIdx;
   axis_.array().abs().maxCoeff(&maxIdx);

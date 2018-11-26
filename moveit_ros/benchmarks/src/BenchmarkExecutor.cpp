@@ -35,6 +35,7 @@
 /* Author: Ryan Luna */
 
 #include <moveit/benchmarks/BenchmarkExecutor.h>
+#include <moveit/utils/lexical_casts.h>
 #include <moveit/version.h>
 #include <eigen_conversions/eigen_msg.h> // Abstract transformations, such as rotations (represented by angle and axis or by a quaternion), translations, scalings
 
@@ -75,7 +76,7 @@ BenchmarkExecutor::BenchmarkExecutor(const std::string& robot_description_param)
   cs_ = NULL;
   tcs_ = NULL;
   psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
-  planning_scene_ = psm_->getPlanningScene();
+  planning_scene_ = psm_->getPlanningScene(); // pointer
 
   // Initialize the class loader for planner plugins
   try
@@ -124,8 +125,7 @@ void BenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classe
       planning_interface::PlannerManagerPtr p = planner_plugin_loader_->createUniqueInstance(plugin_classes[i]);
       p->initialize(planning_scene_->getRobotModel(), "");
 
-      const planning_interface::PlannerConfigurationMap& config_map = p->getPlannerConfigurations();
-
+      p->getPlannerConfigurations();
       planner_interfaces_[plugin_classes[i]] = p;
     }
     catch (pluginlib::PluginlibException& ex)
@@ -243,23 +243,28 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
         planning_scene_->processPlanningSceneWorldMsg(scene_msg.world);
       }
       else
-        planning_scene_->usePlanningSceneMsg(scene_msg);
+        planning_scene_->usePlanningSceneMsg(scene_msg); //Apply changes to this planning scene, e.g the robot state is overwritten
 
-      // Calling query start events
+      // Calling query start events // QUITE DONT UNDERSTAND  for what index j stands.. nb runs??
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
 
       ROS_INFO("Benchmarking query '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size());
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns());
-      double duration = (ros::WallTime::now() - start_time).toSec();
+      double duration = (ros::WallTime::now() - start_time).toSec(); //useless maybe, we want the duration of 1 run, not of the stack of runs
 
       for (std::size_t j = 0; j < query_end_fns_.size(); ++j)
         query_end_fns_[j](queries[i].request, planning_scene_);
 
       writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
+<<<<<<< HEAD
     return true;
+=======
+
+    return true; //All has gone well //Be careful here well =1, different from return 0 (issues)!!
+>>>>>>> trying_to_use_once_for_all_the_50random_queries_set
   }
   return false;
 }
@@ -320,8 +325,6 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   std::vector<PathConstraints> goal_constraints;
   std::vector<TrajectoryConstraints> traj_constraints;
   std::vector<BenchmarkRequest> queries;
-
-  const std::string& group_name = opts.getGroupName();
 
   bool ok = loadPlanningScene(opts.getSceneName(), scene_msg) && loadStates(opts.getStartStateRegex(), start_states) &&
             loadPathConstraints(opts.getGoalConstraintRegex(), goal_constraints) &&
@@ -535,6 +538,12 @@ bool BenchmarkExecutor::plannerConfigurationsExist(const std::map<std::string, s
   {
     planning_interface::PlannerManagerPtr pm = planner_interfaces_[it->first];
     const planning_interface::PlannerConfigurationMap& config_map = pm->getPlannerConfigurations();
+
+    // if the planner is chomp or stomp skip this function and return true for checking planner configurations for the
+    // planning group otherwise an error occurs, because for OMPL a specific planning algorithm needs to be defined for
+    // a planning group, whereas with STOMP and CHOMP this is not necessary
+    if (pm->getDescription().compare("stomp") || pm->getDescription().compare("chomp"))
+      continue;
 
     for (std::size_t i = 0; i < it->second.size(); ++i)
     {
@@ -973,7 +982,7 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
                                        const planning_interface::MotionPlanDetailedResponse& mp_res, bool solved,
                                        double total_time)
 {
-  metrics["time REAL"] = boost::lexical_cast<std::string>(total_time);
+  metrics["time REAL"] = moveit::core::toString(total_time);
   metrics["solved BOOLEAN"] = boost::lexical_cast<std::string>(solved);
 
   if (solved)
@@ -1052,6 +1061,7 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
         smoothness /= (double)p.getWayPointCount();
       }
       metrics["path_" + mp_res.description_[j] + "_correct BOOLEAN"] = boost::lexical_cast<std::string>(correct);
+<<<<<<< HEAD
       metrics["path_" + mp_res.description_[j] + "_length REAL"] = boost::lexical_cast<std::string>(L);
       metrics["path_" + mp_res.description_[j] + "_clearance REAL"] = boost::lexical_cast<std::string>(clearance);
       metrics["path_" + mp_res.description_[j] + "_plan_quality REAL"] = boost::lexical_cast<std::string>(planQuality);
@@ -1059,11 +1069,17 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       metrics["path_" + mp_res.description_[j] + "_smoothness REAL"] = boost::lexical_cast<std::string>(smoothness);
       metrics["path_" + mp_res.description_[j] + "_time REAL"] =
           boost::lexical_cast<std::string>(mp_res.processing_time_[j]);
+=======
+      metrics["path_" + mp_res.description_[j] + "_length REAL"] = moveit::core::toString(L);
+      metrics["path_" + mp_res.description_[j] + "_clearance REAL"] = moveit::core::toString(clearance);
+      metrics["path_" + mp_res.description_[j] + "_smoothness REAL"] = moveit::core::toString(smoothness);
+      metrics["path_" + mp_res.description_[j] + "_time REAL"] = moveit::core::toString(mp_res.processing_time_[j]);
+>>>>>>> trying_to_use_once_for_all_the_50random_queries_set
       process_time -= mp_res.processing_time_[j];
     }
     if (process_time <= 0.0)
       process_time = 0.0;
-    metrics["process_time REAL"] = boost::lexical_cast<std::string>(process_time);
+    metrics["process_time REAL"] = moveit::core::toString(process_time);
   }
 }
 
