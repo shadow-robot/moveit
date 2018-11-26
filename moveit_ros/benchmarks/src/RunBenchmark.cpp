@@ -47,7 +47,7 @@ int main(int argc, char** argv)
   spinner.start();
 
   // Read benchmark options from param server
-  moveit_ros_benchmarks::BenchmarkOptions opts(ros::this_node::getName());
+  moveit_ros_benchmarks::BenchmarkOptions opts(ros::this_node::getName()); //(readBenchmarkOptions(ros_namespace))
   // Setup benchmark server
   moveit_ros_benchmarks::BenchmarkExecutor server;
 
