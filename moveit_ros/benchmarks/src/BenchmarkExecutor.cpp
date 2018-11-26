@@ -259,12 +259,8 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
 
       writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
-<<<<<<< HEAD
-    return true;
-=======
 
     return true; //All has gone well //Be careful here well =1, different from return 0 (issues)!!
->>>>>>> trying_to_use_once_for_all_the_50random_queries_set
   }
   return false;
 }
@@ -1061,7 +1057,6 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
         smoothness /= (double)p.getWayPointCount();
       }
       metrics["path_" + mp_res.description_[j] + "_correct BOOLEAN"] = boost::lexical_cast<std::string>(correct);
-<<<<<<< HEAD
       metrics["path_" + mp_res.description_[j] + "_length REAL"] = boost::lexical_cast<std::string>(L);
       metrics["path_" + mp_res.description_[j] + "_clearance REAL"] = boost::lexical_cast<std::string>(clearance);
       metrics["path_" + mp_res.description_[j] + "_plan_quality REAL"] = boost::lexical_cast<std::string>(planQuality);
@@ -1069,12 +1064,6 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       metrics["path_" + mp_res.description_[j] + "_smoothness REAL"] = boost::lexical_cast<std::string>(smoothness);
       metrics["path_" + mp_res.description_[j] + "_time REAL"] =
           boost::lexical_cast<std::string>(mp_res.processing_time_[j]);
-=======
-      metrics["path_" + mp_res.description_[j] + "_length REAL"] = moveit::core::toString(L);
-      metrics["path_" + mp_res.description_[j] + "_clearance REAL"] = moveit::core::toString(clearance);
-      metrics["path_" + mp_res.description_[j] + "_smoothness REAL"] = moveit::core::toString(smoothness);
-      metrics["path_" + mp_res.description_[j] + "_time REAL"] = moveit::core::toString(mp_res.processing_time_[j]);
->>>>>>> trying_to_use_once_for_all_the_50random_queries_set
       process_time -= mp_res.processing_time_[j];
     }
     if (process_time <= 0.0)
