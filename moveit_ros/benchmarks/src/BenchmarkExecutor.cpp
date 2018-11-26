@@ -70,7 +70,7 @@ BenchmarkExecutor::BenchmarkExecutor(const std::string& robot_description_param)
   cs_ = NULL;
   tcs_ = NULL;
   psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
-  planning_scene_ = psm_->getPlanningScene();
+  planning_scene_ = psm_->getPlanningScene(); // pointer
 
   // Initialize the class loader for planner plugins
   try
@@ -238,16 +238,16 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
         planning_scene_->processPlanningSceneWorldMsg(scene_msg.world);
       }
       else
-        planning_scene_->usePlanningSceneMsg(scene_msg);
+        planning_scene_->usePlanningSceneMsg(scene_msg); //Apply changes to this planning scene, e.g the robot state is overwritten
 
-      // Calling query start events
+      // Calling query start events // QUITE DONT UNDERSTAND  for what index j stands.. nb runs??
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
 
       ROS_INFO("Benchmarking query '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size());
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns());
-      double duration = (ros::WallTime::now() - start_time).toSec();
+      double duration = (ros::WallTime::now() - start_time).toSec(); //useless maybe, we want the duration of 1 run, not of the stack of runs
 
       for (std::size_t j = 0; j < query_end_fns_.size(); ++j)
         query_end_fns_[j](queries[i].request, planning_scene_);
@@ -255,7 +255,7 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
       writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
 
-    return true;
+    return true; //All has gone well //Be careful here well =1, different from return 0 (issues)!!
   }
   return false;
 }
