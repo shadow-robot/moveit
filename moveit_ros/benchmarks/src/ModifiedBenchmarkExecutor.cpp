@@ -761,6 +761,9 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
 {
   benchmark_data_.clear();
 
+  double countdown = request.request.allowed_planning_time;
+  ROS_INFO("I ensure that countdown is in seconds -- countdown = '%lf'", countdown);
+
   unsigned int num_planners = 0;
   for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); it != planners.end();
        ++it)
@@ -790,24 +793,44 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
         for (std::size_t k = 0; k < pre_event_fns_.size(); ++k)
           pre_event_fns_[k](request);
 
-        // Solve problem
-        planning_interface::MotionPlanDetailedResponse mp_res;
-        ros::WallTime start = ros::WallTime::now();
-	bool solved = context->solve(mp_res);
-	// I can't find the source file for the .solve() method ...
-	// http://docs.ros.org/jade/api/moveit_core/html/classplanning__interface_1_1PlanningContext.html#af3d95dd741609c58847bd312b8b033e0
-	// http://docs.ros.org/kinetic/api/moveit_core/html/structplanning__interface_1_1MotionPlanDetailedResponse.html
-	// http://docs.ros.org/kinetic/api/moveit_core/html/classplanning__interface_1_1PlanningContext.html
-        double total_time = (ros::WallTime::now() - start).toSec();
+      	// Modification of the initial code : addition of a while countdown not exceeded -- tweak.
+      	planning_interface::MotionPlanDetailedResponse mp_res;
+      	planning_interface::MotionPlanDetailedResponse mp_res_before_exceeding;
+      	ros::WallTime start = ros::WallTime::now();
+      	double total_time = 0.;
+      	bool solved = TRUE; //In case the last mp_res before exceed is not solved but a previous is
+      	int solved_proof = 0;
+      	bool finally_solved = FALSE;
+      	do
+      	{
+      	  if (solved)
+      	    mp_res_before_exceeding = mp_res;
+      	  // Solve problem
+      	  solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
+      	  if (solved)
+      	  {
+      	    solved_proof +=1;
+      	    // Compare with the previous solved one 
+      	    const robot_trajectory::RobotTrajectory& p = *mp_res.trajectory_[j];
+      	    planQuality = evaluate_plan(p); // TODO use a pointer towards which metrics optimize
+      	    planQualityCart = evaluate_plan_cart(p);
+      	  }
+      	  total_time += (ros::WallTime::now() - start).toSec();
+      	  ros::WallTime start = ros::WallTime::now();
+      	}
+      	while (total_time < countdown);
+      	
+      	if (solved_proof > 0) //it exists some iteration which has managed to solve the problem and the best solving one is stored
+      	  finally_solved = TRUE;
 
         // Collect data
         start = ros::WallTime::now();
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
-          post_event_fns_[k](request, mp_res, planner_data[j]);
+          post_event_fns_[k](request, mp_res_before_exceeding, planner_data[j]);
 
-        collectMetrics(planner_data[j], mp_res, solved, total_time);
+        collectMetrics(planner_data[j], mp_res_before_exceeding, finally_solved, total_time);
         double metrics_time = (ros::WallTime::now() - start).toSec();
         ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
       }
