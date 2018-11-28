@@ -35,13 +35,8 @@ target_link_libraries(moveit_init_demo_warehouse ${catkin_LIBRARIES} ${MOVEIT_LI
 add_executable(moveit_warehouse_services src/warehouse_services.cpp)
 target_link_libraries(moveit_warehouse_services ${catkin_LIBRARIES} ${MOVEIT_LIB_NAME} ${Boost_LIBRARIES})
 
-<<<<<<< HEAD
-add_executable(moveit_warehouse_generate_queries src/generate_queries.cpp)
-target_link_libraries(moveit_warehouse_generate_queries ${catkin_LIBRARIES} ${MOVEIT_LIB_NAME} ${Boost_LIBRARIES})
-=======
 add_executable(moveit_warehouse_generate_random_queries src/generate_random_queries.cpp)
 target_link_libraries(moveit_warehouse_generate_random_queries ${catkin_LIBRARIES} ${MOVEIT_LIB_NAME} ${Boost_LIBRARIES})
->>>>>>> trying_to_use_once_for_all_the_50random_queries_set
 
 install(
   TARGETS
