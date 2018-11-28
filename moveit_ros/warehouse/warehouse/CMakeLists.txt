@@ -49,11 +49,7 @@ install(
     moveit_warehouse_queries_save_as_text
     moveit_init_demo_warehouse
     moveit_warehouse_services
-<<<<<<< HEAD
-    moveit_warehouse_generate_queries
-=======
     moveit_warehouse_generate_random_queries
->>>>>>> trying_to_use_once_for_all_the_50random_queries_set
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 install(DIRECTORY include/ DESTINATION include)
