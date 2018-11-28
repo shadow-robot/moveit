@@ -796,40 +796,75 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
       	// Modification of the initial code : addition of a while countdown not exceeded -- tweak.
       	planning_interface::MotionPlanDetailedResponse mp_res;
       	planning_interface::MotionPlanDetailedResponse mp_res_before_exceeding;
-      	ros::WallTime start = ros::WallTime::now();
       	double total_time = 0.;
       	bool solved = TRUE; //In case the last mp_res before exceed is not solved but a previous is
       	int solved_proof = 0;
       	bool finally_solved = FALSE;
-      	do
+      	mp_res_before_exceeding = mp_res; // In case the first iteration isn't kept bc too long
+      	robot_trajectory::RobotTrajectory& p;
+      	
+      	// https://www.learncpp.com/cpp-tutorial/78-function-pointers/
+      	double (*const qualityFcnPtr)(robot_trajectory::RobotTrajectory); // pointer which points to the chosen metric function during all the following (because of the const), even though one could alternate between metrics... However const implies the obligation to assign the pointer only once, hence it is not possible to cleanly use the address 0, as for simple pointers, at the definition event. So be careful to memory leaks!
+      	switch(metricChoice) //choice has to be inputed from //TODO idk how far yet...
       	{
+      	case 'energy': 
+      	  qualityFcnPtr = &evaluate_plan;
+      	  break;
+      	case 'relevancy': 
+      	  qualityFcnPtr = &evalute_plan_cart;
+      	  break;
+      	}
+      	double planQuality, previousPlanQuality = planQuality;
+      	
+      	// Offline acquisition of the planner's parameters from the server in order to tweak them
+      	// ...
+      	
+      	// Solve problem, once, as before
+      	ros::WallTime start = ros::WallTime::now();
+      	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
+      	if (solved)
+      	{
+      	  solved_proof +=1;
+      	  p = *mp_res.trajectory_[j];
+      	  planQuality = (*qualityFcnPtr)(p);
+      	  
+      	}
+      	total_time += (ros::WallTime::now() - start).toSec();
+      	
+      	// and as many times as the countdown allows it,
+      	while (total_time < countdown)
+      	{
+      	  ros::WallTime start = ros::WallTime::now();
       	  if (solved)
-      	    mp_res_before_exceeding = mp_res;
-      	  // Solve problem
-      	  solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
+      	  { //(We save the previous iteration only if it solved the pb and allocated time remains.)
+      	    mp_res_before_exceeding = mp_res; // addition to the first iteration above
+      	    previousPlanQuality = plan_Quality;
+      	  }
+      	  // while tweaking the planner's parameters,
+      	  // ...
+      	  
+      	  solved = context->solve(mp_res);
       	  if (solved)
       	  {
       	    solved_proof +=1;
-      	    // Compare with the previous solved one 
-      	    const robot_trajectory::RobotTrajectory& p = *mp_res.trajectory_[j];
-      	    planQuality = evaluate_plan(p); // TODO use a pointer towards which metrics optimize
-      	    planQualityCart = evaluate_plan_cart(p);
+      	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
+      	    p = *mp_res.trajectory_[j];
+      	    planQuality = (*qualityFcnPtr)(p);
+      	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
+      	      mp_res = mp_res_before_exceeding;
       	  }
       	  total_time += (ros::WallTime::now() - start).toSec();
-      	  ros::WallTime start = ros::WallTime::now();
       	}
-      	while (total_time < countdown);
       	
-      	if (solved_proof > 0) //it exists some iteration which has managed to solve the problem and the best solving one is stored
+      	if (solved_proof > 0) //it exists some iteration which has managed to solve the problem and the one which best solves it is stored
       	  finally_solved = TRUE;
-
-        // Collect data
-        start = ros::WallTime::now();
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
           post_event_fns_[k](request, mp_res_before_exceeding, planner_data[j]);
-
+          
+        // Collect data
+        start = ros::WallTime::now();
         collectMetrics(planner_data[j], mp_res_before_exceeding, finally_solved, total_time);
         double metrics_time = (ros::WallTime::now() - start).toSec();
         ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
