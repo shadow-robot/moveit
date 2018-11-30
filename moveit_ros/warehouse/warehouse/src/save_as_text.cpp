@@ -83,13 +83,6 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-<<<<<<< HEAD
-  desc.add_options()
-    ("help", "Show help message")
-    ("host", boost::program_options::value<std::string>(), "Host for the DB.")
-    ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
-    ("queries_format", "Save queries in a good format.");
-=======
   desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
                                                                                                         "DB.")(
       "port", boost::program_options::value<std::size_t>(), "Port for the DB.")(
@@ -98,7 +91,6 @@ int main(int argc, char** argv)
       "Specify the end effector. Default: last link.")("group_prefix", boost::program_options::value<std::string>(),
                                                        "Specify the group prefix you'd like to plan with.")(
       "output_directory", boost::program_options::value<std::string>(), "Directory to save files");
->>>>>>> trying_to_use_once_for_all_the_50random_queries_set
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -171,13 +163,8 @@ int main(int argc, char** argv)
 
   std::vector<std::string> scene_names;
   pss.getPlanningSceneNames(scene_names);
-<<<<<<< HEAD
-  
-=======
-
   std::string scene_filename;
   std::string queries_filename;
->>>>>>> trying_to_use_once_for_all_the_50random_queries_set
   for (std::size_t i = 0; i < scene_names.size(); ++i)
   {
     moveit_warehouse::PlanningSceneWithMetadata pswm;
@@ -204,128 +191,6 @@ int main(int argc, char** argv)
 
         // Get goal constraints for scene
         std::vector<std::string> constraintNames;
-
-<<<<<<< HEAD
-      std::stringstream csregex;
-      csregex << ".*" << scene_names[i] << ".*";
-      cs.getKnownConstraints(csregex.str(), constraintNames);
-      
-      std::ofstream qfout((scene_names[i] + ".queries").c_str());
-      qfout << scene_names[i] << std::endl;
-      
-      //Save queries with a good format to be able to load them
-      if(vm.count("queries_format")){
-
-	std::vector<std::string> query_names;
-      
-	std::stringstream pssregex;
-	pssregex << ".*";
-	pss.getPlanningQueriesNames(pssregex.str(), query_names, scene_names[i]);
-	
-	//std::ofstream qfout((scene_names[i] + ".queries").c_str());
-	//qfout << scene_names[i] << std::endl;
-	
-	for (std::size_t k = 0; k < query_names.size(); ++k)
-	  {
-	    moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
-	    try
-	      {
-		pss.getPlanningQuery(planning_query, scene_names[i], query_names[k]);
-	    }
-	    catch (std::exception& ex)
-	      {
-		ROS_ERROR("Error loading motion planning query '%s': %s", query_names[i].c_str(), ex.what());
-		continue;
-	      }
-	    
-	    moveit_msgs::MotionPlanRequest plan_request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
-	    
-	    moveit_msgs::RobotState startState = plan_request.start_state;
-	    sensor_msgs::JointState jointState = startState.joint_state;
-	    
-	    qfout << query_names[k] << std::endl;
-	    qfout << "START" << std::endl;
-	    
-	    for (std::size_t p = 0; p < jointState.position.size(); ++p){
-	      qfout << jointState.name[p] << " = ";
-	      qfout << jointState.position[p] << std::endl;
-	    }
-	    qfout << "." << std::endl;
-	    
-	    std::vector<moveit_msgs::Constraints> query_goal_constraints = plan_request.goal_constraints;
-	    
-	    if (query_goal_constraints.size() == 1) // a regular RViz query should have 1 constraint
-	      {
-		moveit_msgs::Constraints query_goal = query_goal_constraints[0];
-		qfout << "GOAL" << std::endl;
-		qfout << "joint_constraint" << std::endl;
-		
-		if(query_goal.joint_constraints.size()){
-		  std::vector<moveit_msgs::JointConstraint> joint_constraints = query_goal.joint_constraints;
-		  for(auto iter = joint_constraints.begin(); iter != joint_constraints.end(); iter++){
-		    qfout << iter->joint_name << " = ";
-		    qfout << iter->position << " ";
-		    qfout << iter->tolerance_above << " " << iter->tolerance_below << std::endl;
-		  }
-		  qfout << "." << std::endl;
-		}
-	      }
-	    
-	  }
-	qfout.close();
-      }
-      
-      else if (!(robotStateNames.empty() && constraintNames.empty()))
-	{
-	  //std::ofstream qfout((scene_names[i] + ".queries").c_str());
-	  //qfout << scene_names[i] << std::endl;
-	  if (robotStateNames.size())
-	    {
-	      qfout << "start" << std::endl;
-	      qfout << robotStateNames.size() << std::endl;
-	      for (std::size_t k = 0; k < robotStateNames.size(); ++k)
-		{
-		  ROS_INFO("Saving start state %s for scene %s", robotStateNames[k].c_str(), scene_names[i].c_str());
-		  qfout << robotStateNames[k] << std::endl;
-		  moveit_warehouse::RobotStateWithMetadata robotState;
-		  rss.getRobotState(robotState, robotStateNames[k]);
-		  robot_state::RobotState ks(km);
-		  robot_state::robotStateMsgToRobotState(*robotState, ks, false);
-		  ks.printStateInfo(qfout);
-		  qfout << "." << std::endl;
-		}
-	    }
-	  
-	  if (constraintNames.size())
-	    {
-	      qfout << "goal" << std::endl;
-	      qfout << constraintNames.size() << std::endl;
-	      for (std::size_t k = 0; k < constraintNames.size(); ++k)
-		{
-		  ROS_INFO("Saving goal %s for scene %s", constraintNames[k].c_str(), scene_names[i].c_str());
-		  qfout << "link_constraint" << std::endl;
-		  qfout << constraintNames[k] << std::endl;
-		  moveit_warehouse::ConstraintsWithMetadata constraints;
-		  cs.getConstraints(constraints, constraintNames[k]);
-		  
-		  LinkConstraintMap lcmap;
-		  collectLinkConstraints(*constraints, lcmap);
-            for (LinkConstraintMap::iterator iter = lcmap.begin(); iter != lcmap.end(); iter++)
-	      {
-		std::string link_name = iter->first;
-		LinkConstraintPair lcp = iter->second;
-		qfout << link_name << std::endl;
-		qfout << "xyz " << lcp.first.x << " " << lcp.first.y << " " << lcp.first.z << std::endl;
-		Eigen::Quaterniond orientation(lcp.second.w, lcp.second.x, lcp.second.y, lcp.second.z);
-		Eigen::Vector3d rpy = orientation.matrix().eulerAngles(0, 1, 2);
-		qfout << "rpy " << rpy[0] << " " << rpy[1] << " " << rpy[2] << std::endl;
-	      }
-            qfout << "." << std::endl;
-		}
-	    }
-	  qfout.close();
-	}
-=======
         std::stringstream csregex;
         csregex << ".*" << scene_names[i] << ".*";
         cs.getKnownConstraints(csregex.str(), constraintNames);
@@ -492,7 +357,6 @@ int main(int argc, char** argv)
         }
         qfout.close();
       }
->>>>>>> trying_to_use_once_for_all_the_50random_queries_set
     }
   }
   
