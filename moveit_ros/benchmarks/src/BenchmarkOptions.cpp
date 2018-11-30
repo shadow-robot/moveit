@@ -65,7 +65,7 @@ void BenchmarkOptions::readBenchmarkOptions(const std::string& ros_namespace)
   {
     readWarehouseOptions(nh);
     readBenchmarkParameters(nh);
-    readPlannerConfigs(nh);
+    readPlannerNames(nh);
   }
   else
   {
@@ -238,44 +238,45 @@ void BenchmarkOptions::readWorkspaceParameters(ros::NodeHandle& nh)
   workspace_.header.stamp = ros::Time::now();
 }
 
-void BenchmarkOptions::readPlannerConfigs(ros::NodeHandle& nh)
+void BenchmarkOptions::readPlannerNames(ros::NodeHandle& nh) //This actually only reads the name of the planners and plugins, and doesn't fetch at any moment their parameters! :(
 {
   planners_.clear();
 
-  XmlRpc::XmlRpcValue planner_configs;
-  if (nh.getParam("benchmark_config/planners", planner_configs))
+  XmlRpc::XmlRpcValue planner_sets;
+  if (nh.getParam("benchmark_config/planners", planner_sets))
   {
-    if (planner_configs.getType() != XmlRpc::XmlRpcValue::TypeArray)
+    if (planner_sets.getType() != XmlRpc::XmlRpcValue::TypeArray) //an array of structs plugin+associatedPlanner(s)
     {
-      ROS_ERROR("Expected a list of planner configurations to benchmark");
+      ROS_ERROR("Expected a list of structures, each composed of planner lists associated with the plugin they come from");
       return;
     }
 
-    for (int i = 0; i < planner_configs.size(); ++i)
+    for (int i = 0; i < planner_sets.size(); ++i)
     {
-      if (planner_configs[i].getType() != XmlRpc::XmlRpcValue::TypeStruct)
+      if (planner_sets[i].getType() != XmlRpc::XmlRpcValue::TypeStruct)
       {
-        ROS_WARN("Improper YAML type for planner configurations");
+        ROS_WARN("Improper YAML type for planner(s)' origins");
         continue;
       }
-      if (!planner_configs[i].hasMember("plugin") || !planner_configs[i].hasMember("planners"))
+      
+      if (!planner_sets[i].hasMember("plugin") || !planner_sets[i].hasMember("planners"))
       {
-        ROS_WARN("Malformed YAML for planner configurations");
-        continue;
-      }
-
-      if (planner_configs[i]["planners"].getType() != XmlRpc::XmlRpcValue::TypeArray)
-      {
-        ROS_WARN("Expected a list of planners to benchmark");
+        ROS_WARN("Malformed YAML for planner(s)' origins. It either lacks the plugin name and/or its associated chosen planner(s) to benchmark");
         continue;
       }
 
-      std::string plugin = planner_configs[i]["plugin"];
+      if (planner_sets[i]["planners"].getType() != XmlRpc::XmlRpcValue::TypeArray)
+      {
+        ROS_WARN("Expected a list of planner(s) to benchmark");
+        continue;
+      }
+
+      std::string plugin = planner_sets[i]["plugin"];
       ROS_INFO("Reading in planner names for plugin '%s'", plugin.c_str());
 
       std::vector<std::string> planners;
-      for (int j = 0; j < planner_configs[i]["planners"].size(); ++j)
-        planners.push_back(planner_configs[i]["planners"][j]);
+      for (int j = 0; j < planner_sets[i]["planners"].size(); ++j)
+        planners.push_back(planner_sets[i]["planners"][j]);
 
       for (std::size_t j = 0; j < planners.size(); ++j)
         ROS_INFO("  [%lu]: %s", j, planners[j].c_str());

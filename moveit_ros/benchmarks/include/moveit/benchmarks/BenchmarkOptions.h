@@ -80,7 +80,7 @@ protected:
 
   void readWarehouseOptions(ros::NodeHandle& nh);
   void readBenchmarkParameters(ros::NodeHandle& nh);
-  void readPlannerConfigs(ros::NodeHandle& nh);
+  void readPlannerNames(ros::NodeHandle& nh);
 
   void readWorkspaceParameters(ros::NodeHandle& nh);
   void readGoalOffset(ros::NodeHandle& nh);
