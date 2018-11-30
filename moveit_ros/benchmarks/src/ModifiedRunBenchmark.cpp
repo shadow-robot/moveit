@@ -48,6 +48,10 @@ int main(int argc, char** argv)
 
   // Read benchmark options from param server
   moveit_ros_benchmarks::BenchmarkOptions opts(ros::this_node::getName()); //(readBenchmarkOptions(ros_namespace))
+  
+  // TODO Read planner's parameters in order to either write into a file, or store in memory, a sample of a lot of set of parameters that might be used to restart the non-opt fast planner as long as countdown isn't reached
+  // ...
+  
   // Setup benchmark server
   moveit_ros_benchmarks::BenchmarkExecutor server;
 
