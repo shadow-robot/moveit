@@ -249,7 +249,7 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
 
-      ROS_INFO("Benchmarking query '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size());
+      ROS_INFO("Benchmarking query '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size()); // (Note that queries are benchmarked in disorder)
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns(),
       		   options_.getMetricChoice());
@@ -816,16 +816,17 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	{
       	  qualityFcnPtr = &evaluate_plan;
       	  ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'. Currently you can change it by acting on iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
-      	  break;
+      	  goto jmp; // a hack to break out of if statements
       	} else if (metricChoice.compare(metric2)==0)
       	{
       	  qualityFcnPtr = &evaluate_plan_cart;
       	  ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'. Currently you can change it by acting on iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml", metric2.c_str());
-      	  break;
+      	  goto jmp;
       	} else
       	{
       	  ROS_ERROR("In iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml, you did not set any metric over which do the optimization process. In parameters list, please add metric_choice: relevancy OR energy");
       	}
+      	jmp:
       	double planQuality, previousPlanQuality = planQuality;
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
