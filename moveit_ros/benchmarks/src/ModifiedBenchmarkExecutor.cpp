@@ -839,7 +839,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	{
       	  solved_proof +=1;
       	  planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
-      	  
+  	  ROS_INFO("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
       	
@@ -862,13 +862,19 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
       	    planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
       	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
+      	    {
       	      mp_res = mp_res_before_exceeding;
+      	      ROS_INFO("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
+      	    }
       	  }
       	  total_time += (ros::WallTime::now() - start).toSec();
       	}
       	
-      	if (solved_proof > 0) //it exists some iteration which has managed to solve the problem and the one which best solves it is stored
+      	if (solved_proof > 0)
+      	{
       	  finally_solved = true;
+      	  ROS_INFO("It exists some iteration which has managed to solve the problem. And the one which best solves it, is stored");
+      	}
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
