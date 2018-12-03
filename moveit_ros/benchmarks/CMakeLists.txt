@@ -31,11 +31,14 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/include ${catkin_INCLUDE_DIRS} ${B
 link_directories(${catkin_LIBRARY_DIRS})
 
 add_library(${MOVEIT_LIB_NAME} src/BenchmarkOptions.cpp
-                               src/BenchmarkExecutor.cpp)
+                               src/BenchmarkExecutor.cpp
+                               src/ModifiedBenchmarkOptions.cpp
+                               src/ModifiedBenchmarkExecutor.cpp)
 set_target_properties(${MOVEIT_LIB_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_VERSION})
 target_link_libraries(${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(moveit_run_benchmark src/RunBenchmark.cpp)
+add_executable(moveit_run_benchmark src/RunBenchmark.cpp
+				    src/ModifiedRunBenchmark.cpp)
 target_link_libraries(moveit_run_benchmark ${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 install(
