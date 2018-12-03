@@ -42,7 +42,7 @@
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "moveit_run_benchmark");
+  ros::init(argc, argv, "modified_moveit_run_benchmark");
   ros::AsyncSpinner spinner(1);
   spinner.start();
 
