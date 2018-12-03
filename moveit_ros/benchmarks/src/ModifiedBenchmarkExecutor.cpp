@@ -763,7 +763,7 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
 {
   benchmark_data_.clear();
 
-  double countdown = request.request.allowed_planning_time;
+  double countdown = request.allowed_planning_time;
   ROS_INFO("I ensure that countdown is in seconds -- countdown = '%lf'", countdown);
 
   unsigned int num_planners = 0;
@@ -799,9 +799,9 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
       	planning_interface::MotionPlanDetailedResponse mp_res;
       	planning_interface::MotionPlanDetailedResponse mp_res_before_exceeding;
       	double total_time = 0.;
-      	bool solved = TRUE; //In case the last mp_res before exceed is not solved but a previous is
+      	bool solved = true; //In case the last mp_res before exceed is not solved but a previous is
       	int solved_proof = 0;
-      	bool finally_solved = FALSE;
+      	bool finally_solved = false;
       	mp_res_before_exceeding = mp_res; // In case the first iteration isn't kept bc too long
       	robot_trajectory::RobotTrajectory& p;
       	
@@ -847,7 +847,7 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
       	  if (solved)
       	  { //(We save the previous iteration only if it solved the pb and allocated time remains.)
       	    mp_res_before_exceeding = mp_res; // addition to the first iteration above
-      	    previousPlanQuality = plan_Quality;
+      	    previousPlanQuality = planQuality;
       	  }
       	  // while tweaking the planner's parameters,
       	  // ...
@@ -866,7 +866,7 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
       	}
       	
       	if (solved_proof > 0) //it exists some iteration which has managed to solve the problem and the one which best solves it is stored
-      	  finally_solved = TRUE;
+      	  finally_solved = true;
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
