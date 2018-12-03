@@ -759,6 +759,9 @@ bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& reg
   return true;
 }
 
+static double evaluate_plan(const robot_trajectory::RobotTrajectory& p);
+static double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p);
+
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
                                      const std::map<std::string, std::vector<std::string>>& planners, int runs, const std::string& metricChoice)
 {
@@ -804,10 +807,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	int solved_proof = 0;
       	bool finally_solved = false;
       	mp_res_before_exceeding = mp_res; // In case the first iteration isn't kept bc too long
-      	robot_trajectory::RobotTrajectory& p;
       	
       	// https://www.learncpp.com/cpp-tutorial/78-function-pointers/
-      	double (*const qualityFcnPtr)(robot_trajectory::RobotTrajectory); // pointer which points to the chosen metric function during all the following (because of the const), even though one could alternate between metrics... However const implies the obligation to assign the pointer only once, hence it is not possible to cleanly use the address 0, as for simple pointers, at the definition event. So be careful to memory leaks!
+      	double (*qualityFcnPtr)(const robot_trajectory::RobotTrajectory&); // pointer which points to the chosen metric function during all the following, even though one could alternate between metrics...
       	std::string metric1 ("energy");
       	std::string metric2 ("relevancy");
       	if (metricChoice.compare(metric1)==0)
@@ -817,7 +819,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  break;
       	} else if (metricChoice.compare(metric2)==0)
       	{
-      	  qualityFcnPtr = &evalute_plan_cart;
+      	  qualityFcnPtr = &evaluate_plan_cart;
       	  ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'. Currently you can change it by acting on iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml", metric2.c_str());
       	  break;
       	} else
@@ -835,8 +837,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	if (solved)
       	{
       	  solved_proof +=1;
-      	  p = *mp_res.trajectory_[j];
-      	  planQuality = (*qualityFcnPtr)(p);
+      	  planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
       	  
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
@@ -858,8 +859,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  {
       	    solved_proof +=1;
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
-      	    p = *mp_res.trajectory_[j];
-      	    planQuality = (*qualityFcnPtr)(p);
+      	    planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
       	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
       	      mp_res = mp_res_before_exceeding;
       	  }
