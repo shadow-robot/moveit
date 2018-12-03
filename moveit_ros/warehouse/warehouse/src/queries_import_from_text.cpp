@@ -47,6 +47,7 @@
 #include <boost/program_options/variables_map.hpp>
 #include <ros/ros.h>
 
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
 #include <moveit/planning_interface/planning_response.h>
 #include <moveit/planning_interface/planning_interface.h>
 
@@ -55,6 +56,12 @@ static const std::string ROBOT_DESCRIPTION = "robot_description";
 
 void parseStartFormat(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
 		      moveit_warehouse::RobotStateStorage* rs, moveit_msgs::RobotState& startState)
+=======
+static const std::string ROBOT_DESCRIPTION = "robot_description";
+
+void parseStart(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+                moveit_warehouse::RobotStateStorage* rs, moveit_msgs::RobotState& startState)
+>>>>>>> Can now import and save queries directly
 {
   std::map<std::string, double> v;
   
@@ -64,6 +71,7 @@ void parseStartFormat(std::istream& in, planning_scene_monitor::PlanningSceneMon
   in >> joint;
   
   while (joint != "." && in.good() && !in.eof())
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
   {
     in >> marker;
     if (marker != "=")
@@ -74,6 +82,18 @@ void parseStartFormat(std::istream& in, planning_scene_monitor::PlanningSceneMon
     if (joint != ".")
       in >> joint;
   }
+=======
+    {
+      in >> marker;
+      if (marker != "=")
+	joint = ".";
+      else
+	in >> value;
+      v[joint] = value;
+      if (joint != ".")
+	in >> joint;
+    }
+>>>>>>> Can now import and save queries directly
 	
   if (!v.empty())
   {
@@ -85,12 +105,21 @@ void parseStartFormat(std::istream& in, planning_scene_monitor::PlanningSceneMon
   }
 }
 
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
 
 void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
 		     moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
 {
   std::string joint;
   std::string marker;
+=======
+void parseGoal(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+                moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState)
+{
+  std::string joint;
+  std::string marker;
+  in >> joint;
+>>>>>>> Can now import and save queries directly
   
   double pos;
   double tol_above;
@@ -98,6 +127,7 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
   
   moveit_msgs::Constraints msg;
   std::vector<moveit_msgs::JointConstraint> joint_constraints;
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
 
   in >> joint;
   
@@ -120,10 +150,34 @@ void parseGoalFormat(std::istream& in, planning_scene_monitor::PlanningSceneMoni
     if (joint != ".")
       in >> joint;
   }
+=======
+  
+  while (joint != "." && in.good() && !in.eof())
+    {
+      in >> marker;
+      if (marker != "=")
+	joint = ".";
+      else{
+	in >> pos;
+	in >> tol_above;
+	in >> tol_below;
+	moveit_msgs::JointConstraint joint_constraint;
+	joint_constraint.joint_name = joint;
+	joint_constraint.position = pos;
+	joint_constraint.tolerance_above = tol_above;
+	joint_constraint.tolerance_below = tol_below;
+	
+	joint_constraints.push_back(joint_constraint);
+      }
+      if (joint != ".")
+	in >> joint;
+    }
+>>>>>>> Can now import and save queries directly
   msg.joint_constraints = joint_constraints;
   goalState = msg;
 }
 
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
 void parseGoalFormatCartesian(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
 			      moveit_warehouse::RobotStateStorage* rs, moveit_msgs::Constraints& goalState, std::string eef_name = "")
 {
@@ -242,11 +296,73 @@ void parseQueriesFormat(std::istream& in, planning_scene_monitor::PlanningSceneM
   }
 }
 
+=======
+void parseQueries(std::istream& in, planning_scene_monitor::PlanningSceneMonitor* psm,
+                  moveit_warehouse::RobotStateStorage* rs, moveit_warehouse::ConstraintsStorage* cs, moveit_warehouse::PlanningSceneStorage* pss)
+{
+  std::string scene_name;
+  in >> scene_name;
+  
+  moveit_msgs::RobotState startState;
+  moveit_msgs::Constraints goalState;
+  
+  while (in.good() && !in.eof())
+  {
+    std::string query_name;
+    in >> query_name;
+    
+    if (in.good() && !in.eof())
+      {
+	std::string type;
+	in >> type;
+
+	// Get the start state of the query
+	if(type == "START" && in.good() && !in.eof())
+	  {
+	    parseStart(in, psm, rs, startState);
+	    in >> type;
+	  }
+	else
+	  {
+	    ROS_ERROR("Unknown query type: '%s'", type.c_str());
+	  }
+
+	// Get the goal of the query as a set of joint_constraints
+	if(type == "GOAL" && in.good() && !in.eof())
+	  {
+	    std::string joint_constraint;
+	    in >> joint_constraint;
+	    if(joint_constraint == "joint_constraint")
+	      parseGoal(in, psm, rs, goalState);
+	  }
+	else
+	  {
+	    ROS_ERROR("Unknown query type: '%s'", type.c_str());
+	  }
+
+	// Save the query as Start state + Goal constraint
+	moveit_msgs::MotionPlanRequest planning_query;
+	planning_query.start_state = startState;
+	planning_query.goal_constraints = {goalState};
+	
+	pss->addPlanningQuery(planning_query, scene_name, query_name);
+	
+	ROS_INFO("Loaded query '%s' to scene '%s'", query_name.c_str(), scene_name.c_str());
+      }
+  }
+}
+
+
+
+
+
+>>>>>>> Can now import and save queries directly
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "import_from_text_to_warehouse", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
   desc.add_options()
     ("help", "Show help message")
     ("queries", boost::program_options::value<std::string>(), "Name of file containing motion planning queries.")
@@ -255,10 +371,19 @@ int main(int argc, char** argv)
     ("port", boost::program_options::value<std::size_t>(), "Port for the DB.")
     ("eef", boost::program_options::value<std::string>(), "Specify the end effector. Default: last link.");
   
+=======
+  desc.add_options()("help", "Show help message")("queries", boost::program_options::value<std::string>(),
+                                                  "Name of file containing motion planning queries.")(
+      "scene", boost::program_options::value<std::string>(), "Name of file containing motion planning scene.")(
+      "host", boost::program_options::value<std::string>(),
+      "Host for the DB.")("port", boost::program_options::value<std::size_t>(), "Port for the DB.");
+
+>>>>>>> Can now import and save queries directly
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
   boost::program_options::notify(vm);
 
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
   std::string eef_name = "";
   if (vm.count("eef"))
   {
@@ -270,6 +395,9 @@ int main(int argc, char** argv)
   }
   
   if (vm.count("help"))  // show help if no parameters passed
+=======
+  if (vm.count("help") || argc == 1)  // show help if no parameters passed
+>>>>>>> Can now import and save queries directly
   {
     std::cout << desc << std::endl;
     return 1;
@@ -305,6 +433,7 @@ int main(int argc, char** argv)
     psm.getPlanningScene()->getPlanningSceneMsg(psmsg);
     pss.addPlanningScene(psmsg);
   }
+<<<<<<< d732d709ac281455bd78221251c6518176b8e0f7
   else if (argc >= 0)// if (vm.count("queries"))
   {
     std::ifstream fin(vm["queries"].as<std::string>().c_str());
@@ -321,5 +450,15 @@ int main(int argc, char** argv)
     return 1;
   }
   
+=======
+  
+  if (vm.count("queries"))
+  {
+    std::ifstream fin(vm["queries"].as<std::string>().c_str());
+    if (fin.good() && !fin.eof())
+      parseQueries(fin, &psm, &rs, &cs, &pss);
+    fin.close();
+  }
+>>>>>>> Can now import and save queries directly
   return 0;
 }

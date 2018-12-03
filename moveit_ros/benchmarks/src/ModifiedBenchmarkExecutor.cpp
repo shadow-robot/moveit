@@ -759,7 +759,7 @@ bool BenchmarkExecutor::loadTrajectoryConstraints(const std::string& regex,
 }
 
 void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
-                                     const std::map<std::string, std::vector<std::string>>& planners, int runs)
+                                     const std::map<std::string, std::vector<std::string>>& planners, int runs, const std::string& metricChoice)
 {
   benchmark_data_.clear();
 
@@ -807,14 +807,22 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
       	
       	// https://www.learncpp.com/cpp-tutorial/78-function-pointers/
       	double (*const qualityFcnPtr)(robot_trajectory::RobotTrajectory); // pointer which points to the chosen metric function during all the following (because of the const), even though one could alternate between metrics... However const implies the obligation to assign the pointer only once, hence it is not possible to cleanly use the address 0, as for simple pointers, at the definition event. So be careful to memory leaks!
-      	switch(metricChoice) //choice has to be inputed from //TODO idk how far yet...
+      	std::string metric1 ("energy");
+      	std::string metric2 ("relevancy");
+      	if (metricChoice.compare(metric1)==0)
       	{
-      	case 'energy': 
       	  qualityFcnPtr = &evaluate_plan;
+      	  ROS_INFO();
       	  break;
-      	case 'relevancy': 
+      	} else if (metricChoice.compare(metric2)==0)
+      	{
       	  qualityFcnPtr = &evalute_plan_cart;
+      	  ROS_INFO();
       	  break;
+      	} else
+      	  ROS_ERROR();
+      	{
+      	
       	}
       	double planQuality, previousPlanQuality = planQuality;
       	
