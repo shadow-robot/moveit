@@ -68,7 +68,7 @@ static std::string getHostname()
   }
 }
 
-BenchmarkExecutor::BenchmarkExecutor(const std::string& robot_description_param)
+ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
 {
   pss_ = NULL;
   psws_ = NULL;
@@ -90,7 +90,7 @@ BenchmarkExecutor::BenchmarkExecutor(const std::string& robot_description_param)
   }
 }
 
-BenchmarkExecutor::~BenchmarkExecutor()
+ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
 {
   if (pss_)
     delete pss_;
@@ -105,7 +105,7 @@ BenchmarkExecutor::~BenchmarkExecutor()
   delete psm_;
 }
 
-void BenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
+void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
 {
   planner_interfaces_.clear();
   // Load the planning plugins
@@ -147,7 +147,7 @@ void BenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classe
   }
 }
 
-void BenchmarkExecutor::clear()
+void ModifiedBenchmarkExecutor::clear()
 {
   if (pss_)
   {
@@ -184,41 +184,41 @@ void BenchmarkExecutor::clear()
   query_end_fns_.clear();
 }
 
-void BenchmarkExecutor::addPreRunEvent(PreRunEventFunction func)
+void ModifiedBenchmarkExecutor::addPreRunEvent(PreRunEventFunction func)
 {
   pre_event_fns_.push_back(func);
 }
 
-void BenchmarkExecutor::addPostRunEvent(PostRunEventFunction func)
+void ModifiedBenchmarkExecutor::addPostRunEvent(PostRunEventFunction func)
 {
   post_event_fns_.push_back(func);
 }
 
-void BenchmarkExecutor::addPlannerStartEvent(PlannerStartEventFunction func)
+void ModifiedBenchmarkExecutor::addPlannerStartEvent(PlannerStartEventFunction func)
 {
   planner_start_fns_.push_back(func);
 }
 
-void BenchmarkExecutor::addPlannerCompletionEvent(PlannerCompletionEventFunction func)
+void ModifiedBenchmarkExecutor::addPlannerCompletionEvent(PlannerCompletionEventFunction func)
 {
   planner_completion_fns_.push_back(func);
 }
 
-void BenchmarkExecutor::addQueryStartEvent(QueryStartEventFunction func)
+void ModifiedBenchmarkExecutor::addQueryStartEvent(QueryStartEventFunction func)
 {
   query_start_fns_.push_back(func);
 }
 
-void BenchmarkExecutor::addQueryCompletionEvent(QueryCompletionEventFunction func)
+void ModifiedBenchmarkExecutor::addQueryCompletionEvent(QueryCompletionEventFunction func)
 {
   query_end_fns_.push_back(func);
 }
 
-bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
+bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& opts)
 {
   if (planner_interfaces_.size() == 0)
   {
-    ROS_ERROR("No planning interfaces configured.  Did you call BenchmarkExecutor::initialize?");
+    ROS_ERROR("No planning interfaces configured.  Did you call ModifiedBenchmarkExecutor::initialize?");
     return false;
   }
 
@@ -268,7 +268,7 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
   return false;
 }
 
-bool BenchmarkExecutor::queriesAndPlannersCompatible(const std::vector<BenchmarkRequest>& requests,
+bool ModifiedBenchmarkExecutor::queriesAndPlannersCompatible(const std::vector<BenchmarkRequest>& requests,
                                                      const std::map<std::string, std::vector<std::string>>& planners)
 {
   // Make sure that the planner interfaces can service the desired queries
@@ -289,7 +289,7 @@ bool BenchmarkExecutor::queriesAndPlannersCompatible(const std::vector<Benchmark
   return true;
 }
 
-bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
+bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
                                              std::vector<BenchmarkRequest>& requests)
 {
   if (!plannerConfigurationsExist(opts.getPlannerConfigurations(), opts.getGroupName()))
@@ -443,7 +443,7 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   return true;
 }
 
-void BenchmarkExecutor::shiftConstraintsByOffset(moveit_msgs::Constraints& constraints,
+void ModifiedBenchmarkExecutor::shiftConstraintsByOffset(moveit_msgs::Constraints& constraints,
                                                  const std::vector<double> offset)
 {
   Eigen::Affine3d offset_tf(Eigen::AngleAxis<double>(offset[3], Eigen::Vector3d::UnitX()) *
@@ -465,7 +465,7 @@ void BenchmarkExecutor::shiftConstraintsByOffset(moveit_msgs::Constraints& const
   constraints.orientation_constraints[0].orientation = new_pose_msg.orientation;
 }
 
-void BenchmarkExecutor::createRequestCombinations(const BenchmarkRequest& brequest,
+void ModifiedBenchmarkExecutor::createRequestCombinations(const BenchmarkRequest& brequest,
                                                   const std::vector<StartState>& start_states,
                                                   const std::vector<PathConstraints>& path_constraints,
                                                   std::vector<BenchmarkRequest>& requests)
@@ -509,7 +509,7 @@ void BenchmarkExecutor::createRequestCombinations(const BenchmarkRequest& breque
   }
 }
 
-bool BenchmarkExecutor::plannerConfigurationsExist(const std::map<std::string, std::vector<std::string>>& planners,
+bool ModifiedBenchmarkExecutor::plannerConfigurationsExist(const std::map<std::string, std::vector<std::string>>& planners,
                                                    const std::string& group_name)
 {
   // Make sure planner plugins exist
@@ -570,7 +570,7 @@ bool BenchmarkExecutor::plannerConfigurationsExist(const std::map<std::string, s
   return true;
 }
 
-bool BenchmarkExecutor::loadPlanningScene(const std::string& scene_name, moveit_msgs::PlanningScene& scene_msg)
+bool ModifiedBenchmarkExecutor::loadPlanningScene(const std::string& scene_name, moveit_msgs::PlanningScene& scene_msg)
 {
   bool ok = false;
   try
@@ -606,7 +606,7 @@ bool BenchmarkExecutor::loadPlanningScene(const std::string& scene_name, moveit_
   return ok;
 }
 
-bool BenchmarkExecutor::loadQueries(const std::string& regex, const std::string& scene_name,
+bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std::string& scene_name,
                                     std::vector<BenchmarkRequest>& queries)
 {
   if (regex.empty())
@@ -651,7 +651,7 @@ bool BenchmarkExecutor::loadQueries(const std::string& regex, const std::string&
   return true;
 }
 
-bool BenchmarkExecutor::loadStates(const std::string& regex, std::vector<StartState>& start_states)
+bool ModifiedBenchmarkExecutor::loadStates(const std::string& regex, std::vector<StartState>& start_states)
 {
   if (regex.size())
   {
@@ -689,7 +689,7 @@ bool BenchmarkExecutor::loadStates(const std::string& regex, std::vector<StartSt
   return true;
 }
 
-bool BenchmarkExecutor::loadPathConstraints(const std::string& regex, std::vector<PathConstraints>& constraints)
+bool ModifiedBenchmarkExecutor::loadPathConstraints(const std::string& regex, std::vector<PathConstraints>& constraints)
 {
   if (regex.size())
   {
@@ -723,7 +723,7 @@ bool BenchmarkExecutor::loadPathConstraints(const std::string& regex, std::vecto
   return true;
 }
 
-bool BenchmarkExecutor::loadTrajectoryConstraints(const std::string& regex,
+bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& regex,
                                                   std::vector<TrajectoryConstraints>& constraints)
 {
   if (regex.size())
@@ -759,7 +759,7 @@ bool BenchmarkExecutor::loadTrajectoryConstraints(const std::string& regex,
   return true;
 }
 
-void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
+void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
                                      const std::map<std::string, std::vector<std::string>>& planners, int runs, const std::string& metricChoice)
 {
   benchmark_data_.clear();
@@ -1042,7 +1042,7 @@ double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof 
 
 }
 
-void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
+void ModifiedBenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
                                        const planning_interface::MotionPlanDetailedResponse& mp_res, bool solved,
                                        double total_time)
 {
@@ -1140,7 +1140,7 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
   }
 }
 
-void BenchmarkExecutor::writeOutput(const BenchmarkRequest& brequest, const std::string& start_time,
+void ModifiedBenchmarkExecutor::writeOutput(const BenchmarkRequest& brequest, const std::string& start_time,
                                     double benchmark_duration)
 {
   const std::map<std::string, std::vector<std::string>>& planners = options_.getPlannerConfigurations();

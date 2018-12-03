@@ -38,25 +38,25 @@
 
 using namespace moveit_ros_benchmarks;
 
-BenchmarkOptions::BenchmarkOptions()
+ModifiedBenchmarkOptions::ModifiedBenchmarkOptions()
 {
 }
 
-BenchmarkOptions::BenchmarkOptions(const std::string& ros_namespace)
-{
-  readBenchmarkOptions(ros_namespace);
-}
-
-BenchmarkOptions::~BenchmarkOptions()
-{
-}
-
-void BenchmarkOptions::setNamespace(const std::string& ros_namespace)
+ModifiedBenchmarkOptions::ModifiedBenchmarkOptions(const std::string& ros_namespace)
 {
   readBenchmarkOptions(ros_namespace);
 }
 
-void BenchmarkOptions::readBenchmarkOptions(const std::string& ros_namespace)
+ModifiedBenchmarkOptions::~ModifiedBenchmarkOptions()
+{
+}
+
+void ModifiedBenchmarkOptions::setNamespace(const std::string& ros_namespace)
+{
+  readBenchmarkOptions(ros_namespace);
+}
+
+void ModifiedBenchmarkOptions::readBenchmarkOptions(const std::string& ros_namespace)
 {
   ros::NodeHandle nh(ros_namespace);
 
@@ -73,88 +73,88 @@ void BenchmarkOptions::readBenchmarkOptions(const std::string& ros_namespace)
   }
 }
 
-const std::string& BenchmarkOptions::getHostName() const
+const std::string& ModifiedBenchmarkOptions::getHostName() const
 {
   return hostname_;
 }
 
-int BenchmarkOptions::getPort() const
+int ModifiedBenchmarkOptions::getPort() const
 {
   return port_;
 }
 
-const std::string& BenchmarkOptions::getSceneName() const
+const std::string& ModifiedBenchmarkOptions::getSceneName() const
 {
   return scene_name_;
 }
 
-int BenchmarkOptions::getNumRuns() const
+int ModifiedBenchmarkOptions::getNumRuns() const
 {
   return runs_;
 }
 
-double BenchmarkOptions::getTimeout() const
+double ModifiedBenchmarkOptions::getTimeout() const
 {
   return timeout_;
 }
 
-const std::string& BenchmarkOptions::getBenchmarkName() const
+const std::string& ModifiedBenchmarkOptions::getBenchmarkName() const
 {
   return benchmark_name_;
 }
 
-const std::string& BenchmarkOptions::getGroupName() const
+const std::string& ModifiedBenchmarkOptions::getGroupName() const
 {
   return group_name_;
 }
 
-const std::string& BenchmarkOptions::getOutputDirectory() const
+const std::string& ModifiedBenchmarkOptions::getOutputDirectory() const
 {
   return output_directory_;
 }
 
-const std::string& BenchmarkOptions::getQueryRegex() const
+const std::string& ModifiedBenchmarkOptions::getQueryRegex() const
 {
   return query_regex_;
 }
 
-const std::string& BenchmarkOptions::getMetricChoice() const
+const std::string& ModifiedBenchmarkOptions::getMetricChoice() const
 {
   return metric_choice_;
 }
 
-const std::string& BenchmarkOptions::getStartStateRegex() const
+const std::string& ModifiedBenchmarkOptions::getStartStateRegex() const
 {
   return start_state_regex_;
 }
 
-const std::string& BenchmarkOptions::getGoalConstraintRegex() const
+const std::string& ModifiedBenchmarkOptions::getGoalConstraintRegex() const
 {
   return goal_constraint_regex_;
 }
 
-const std::string& BenchmarkOptions::getPathConstraintRegex() const
+const std::string& ModifiedBenchmarkOptions::getPathConstraintRegex() const
 {
   return path_constraint_regex_;
 }
 
-const std::string& BenchmarkOptions::getTrajectoryConstraintRegex() const
+const std::string& ModifiedBenchmarkOptions::getTrajectoryConstraintRegex() const
 {
   return trajectory_constraint_regex_;
 }
 
-void BenchmarkOptions::getGoalOffsets(std::vector<double>& offsets) const
+void ModifiedBenchmarkOptions::getGoalOffsets(std::vector<double>& offsets) const
 {
   offsets.resize(6);
   memcpy(&offsets[0], goal_offsets, 6 * sizeof(double));
 }
 
-const std::map<std::string, std::vector<std::string>>& BenchmarkOptions::getPlannerConfigurations() const
+const std::map<std::string, std::vector<std::string>>& ModifiedBenchmarkOptions::getPlannerConfigurations() const
 {
   return planners_;
 }
 
-void BenchmarkOptions::getPlannerPluginList(std::vector<std::string>& plugin_list) const
+void ModifiedBenchmarkOptions::getPlannerPluginList(std::vector<std::string>& plugin_list) const
 {
   plugin_list.clear();
   for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners_.begin(); it != planners_.end();
@@ -162,17 +162,17 @@ void BenchmarkOptions::getPlannerPluginList(std::vector<std::string>& plugin_lis
     plugin_list.push_back(it->first);
 }
 
-const std::string& BenchmarkOptions::getWorkspaceFrameID() const
+const std::string& ModifiedBenchmarkOptions::getWorkspaceFrameID() const
 {
   return workspace_.header.frame_id;
 }
 
-const moveit_msgs::WorkspaceParameters& BenchmarkOptions::getWorkspaceParameters() const
+const moveit_msgs::WorkspaceParameters& ModifiedBenchmarkOptions::getWorkspaceParameters() const
 {
   return workspace_;
 }
 
-void BenchmarkOptions::readWarehouseOptions(ros::NodeHandle& nh)
+void ModifiedBenchmarkOptions::readWarehouseOptions(ros::NodeHandle& nh)
 {
   nh.param(std::string("benchmark_config/warehouse/host"), hostname_, std::string("127.0.0.1"));
   nh.param(std::string("benchmark_config/warehouse/port"), port_, 33829);
@@ -185,7 +185,7 @@ void BenchmarkOptions::readWarehouseOptions(ros::NodeHandle& nh)
   ROS_INFO("Benchmark scene: %s", scene_name_.c_str());
 }
 
-void BenchmarkOptions::readBenchmarkParameters(ros::NodeHandle& nh)
+void ModifiedBenchmarkOptions::readBenchmarkParameters(ros::NodeHandle& nh)
 {
   nh.param(std::string("benchmark_config/parameters/name"), benchmark_name_, std::string(""));
   nh.param(std::string("benchmark_config/parameters/runs"), runs_, 10);
@@ -228,7 +228,7 @@ void BenchmarkOptions::readBenchmarkParameters(ros::NodeHandle& nh)
   ROS_INFO_STREAM("Benchmark workspace: " << workspace_);
 }
 
-void BenchmarkOptions::readWorkspaceParameters(ros::NodeHandle& nh)
+void ModifiedBenchmarkOptions::readWorkspaceParameters(ros::NodeHandle& nh)
 {
   // Make sure all params exist
   if (!nh.getParam("benchmark_config/parameters/workspace/frame_id", workspace_.header.frame_id))
@@ -245,7 +245,7 @@ void BenchmarkOptions::readWorkspaceParameters(ros::NodeHandle& nh)
   workspace_.header.stamp = ros::Time::now();
 }
 
-void BenchmarkOptions::readPlannerNames(ros::NodeHandle& nh) //This actually only reads the name of the planners and plugins, and doesn't fetch at any moment their parameters! :(
+void ModifiedBenchmarkOptions::readPlannerNames(ros::NodeHandle& nh) //This actually only reads the name of the planners and plugins, and doesn't fetch at any moment their parameters! :(
 {
   planners_.clear();
 

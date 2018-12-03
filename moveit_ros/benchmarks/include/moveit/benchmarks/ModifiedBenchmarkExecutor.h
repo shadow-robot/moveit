@@ -37,7 +37,7 @@
 #ifndef MOVEIT_ROS_BENCHMARKS_BENCHMARK_EXECUTOR_
 #define MOVEIT_ROS_BENCHMARKS_BENCHMARK_EXECUTOR_
 
-#include <moveit/benchmarks/BenchmarkOptions.h>
+#include <moveit/benchmarks/ModifiedBenchmarkOptions.h>
 
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 
@@ -60,7 +60,7 @@ namespace moveit_ros_benchmarks
 {
 /// A class that executes motion plan requests and aggregates data across multiple runs
 /// Note: This class operates outside of MoveGroup and does NOT use PlanningRequestAdapters
-class BenchmarkExecutor
+class ModifiedBenchmarkExecutor
 {
 public:
   /// Structure to hold information for a single run of a planner
@@ -95,8 +95,8 @@ public:
                                PlannerRunData& run_data)>
       PostRunEventFunction;
 
-  BenchmarkExecutor(const std::string& robot_description_param = "robot_description");
-  virtual ~BenchmarkExecutor();
+  ModifiedBenchmarkExecutor(const std::string& robot_description_param = "robot_description");
+  virtual ~ModifiedBenchmarkExecutor();
 
   // Initialize the benchmark executor by loading planning pipelines from the
   // given set of classes
@@ -111,7 +111,7 @@ public:
 
   virtual void clear();
 
-  virtual bool runBenchmarks(const BenchmarkOptions& opts);
+  virtual bool runBenchmarks(const ModifiedBenchmarkOptions& opts);
 
 protected:
   struct BenchmarkRequest
@@ -138,7 +138,7 @@ protected:
     std::string name;
   };
 
-  virtual bool initializeBenchmarks(const BenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
+  virtual bool initializeBenchmarks(const ModifiedBenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
                                     std::vector<BenchmarkRequest>& queries);
 
   virtual void collectMetrics(PlannerRunData& metrics, const planning_interface::MotionPlanDetailedResponse& mp_res,
@@ -191,7 +191,7 @@ protected:
   warehouse_ros::DatabaseLoader dbloader;
   planning_scene::PlanningScenePtr planning_scene_;
 
-  BenchmarkOptions options_;
+  ModifiedBenchmarkOptions options_;
 
   std::shared_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader_;
   std::map<std::string, planning_interface::PlannerManagerPtr> planner_interfaces_;

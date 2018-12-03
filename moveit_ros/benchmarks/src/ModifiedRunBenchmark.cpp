@@ -37,8 +37,8 @@
 #include <ros/ros.h>
 #include <string>
 
-#include <moveit/benchmarks/BenchmarkOptions.h>
-#include <moveit/benchmarks/BenchmarkExecutor.h>
+#include <moveit/benchmarks/ModifiedBenchmarkOptions.h>
+#include <moveit/benchmarks/ModifiedBenchmarkExecutor.h>
 
 int main(int argc, char** argv)
 {
@@ -47,13 +47,13 @@ int main(int argc, char** argv)
   spinner.start();
 
   // Read benchmark options from param server
-  moveit_ros_benchmarks::BenchmarkOptions opts(ros::this_node::getName()); //(readBenchmarkOptions(ros_namespace))
+  moveit_ros_benchmarks::ModifiedBenchmarkOptions opts(ros::this_node::getName()); //(readBenchmarkOptions(ros_namespace))
   
   // TODO Read planner's parameters in order to either write into a file, or store in memory, a sample of a lot of set of parameters that might be used to restart the non-opt fast planner as long as countdown isn't reached
   // ...
   
   // Setup benchmark server
-  moveit_ros_benchmarks::BenchmarkExecutor server;
+  moveit_ros_benchmarks::ModifiedBenchmarkExecutor server;
 
   std::vector<std::string> plugins;
   opts.getPlannerPluginList(plugins);

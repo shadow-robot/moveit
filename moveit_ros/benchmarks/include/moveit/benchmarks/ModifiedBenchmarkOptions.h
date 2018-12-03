@@ -45,12 +45,12 @@
 
 namespace moveit_ros_benchmarks
 {
-class BenchmarkOptions
+class ModifiedBenchmarkOptions
 {
 public:
-  BenchmarkOptions();
-  BenchmarkOptions(const std::string& ros_namespace);
-  virtual ~BenchmarkOptions();
+  ModifiedBenchmarkOptions();
+  ModifiedBenchmarkOptions(const std::string& ros_namespace);
+  virtual ~ModifiedBenchmarkOptions();
 
   void setNamespace(const std::string& ros_namespace);
 
