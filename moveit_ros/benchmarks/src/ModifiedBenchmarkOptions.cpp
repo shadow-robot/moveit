@@ -34,7 +34,7 @@
 
 /* Author: Ryan Luna */
 
-#include <moveit/benchmarks/BenchmarkOptions.h>
+#include <moveit/benchmarks/ModifiedBenchmarkOptions.h>
 
 using namespace moveit_ros_benchmarks;
 

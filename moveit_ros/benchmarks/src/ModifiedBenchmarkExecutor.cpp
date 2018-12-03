@@ -251,7 +251,8 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
 
       ROS_INFO("Benchmarking query '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size());
       ros::WallTime start_time = ros::WallTime::now();
-      runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns());
+      runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns(),
+      		   options_.getMetricChoice());
       double duration = (ros::WallTime::now() - start_time).toSec();
       
       ROS_INFO("Benchmark took '%f' seconds.", duration);
