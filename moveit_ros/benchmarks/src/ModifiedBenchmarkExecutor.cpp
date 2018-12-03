@@ -34,7 +34,7 @@
 
 /* Author: Ryan Luna */
 
-#include <moveit/benchmarks/BenchmarkExecutor.h>
+#include <moveit/benchmarks/ModifiedBenchmarkExecutor.h>
 #include <moveit/utils/lexical_casts.h>
 #include <moveit/version.h>
 #include <eigen_conversions/eigen_msg.h> // Abstract transformations, such as rotations (represented by angle and axis or by a quaternion), translations, scalings
