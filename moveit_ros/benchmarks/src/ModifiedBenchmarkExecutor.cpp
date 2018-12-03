@@ -812,17 +812,16 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
       	if (metricChoice.compare(metric1)==0)
       	{
       	  qualityFcnPtr = &evaluate_plan;
-      	  ROS_INFO();
+      	  ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'. Currently you can change it by acting on iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
       	  break;
       	} else if (metricChoice.compare(metric2)==0)
       	{
       	  qualityFcnPtr = &evalute_plan_cart;
-      	  ROS_INFO();
+      	  ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'. Currently you can change it by acting on iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml", metric2.c_str());
       	  break;
       	} else
-      	  ROS_ERROR();
       	{
-      	
+      	  ROS_ERROR("In iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml, you did not set any metric over which do the optimization process. In parameters list, please add metric_choice: relevancy OR energy");
       	}
       	double planQuality, previousPlanQuality = planQuality;
       	
