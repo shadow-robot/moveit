@@ -118,6 +118,11 @@ const std::string& BenchmarkOptions::getQueryRegex() const
   return query_regex_;
 }
 
+const std::string& BenchmarkOptions::getMetricChoice() const
+{
+  return metric_choice_;
+}
+
 const std::string& BenchmarkOptions::getStartStateRegex() const
 {
   return start_state_regex_;
@@ -187,6 +192,7 @@ void BenchmarkOptions::readBenchmarkParameters(ros::NodeHandle& nh)
   nh.param(std::string("benchmark_config/parameters/timeout"), timeout_, 10.0);
   nh.param(std::string("benchmark_config/parameters/output_directory"), output_directory_, std::string(""));
   nh.param(std::string("benchmark_config/parameters/queries"), query_regex_, std::string(".*"));
+  nh.param(std::string("benchmark_config/parameters/metric_choice"), metric_choice_, std::string("relevancy"));
   nh.param(std::string("benchmark_config/parameters/start_states"), start_state_regex_, std::string(""));
   nh.param(std::string("benchmark_config/parameters/goal_constraints"), goal_constraint_regex_, std::string(""));
   nh.param(std::string("benchmark_config/parameters/path_constraints"), path_constraint_regex_, std::string(""));
@@ -212,6 +218,7 @@ void BenchmarkOptions::readBenchmarkParameters(ros::NodeHandle& nh)
   ROS_INFO("Benchmark timeout: %f secs", timeout_);
   ROS_INFO("Benchmark group: %s", group_name_.c_str());
   ROS_INFO("Benchmark query regex: '%s'", query_regex_.c_str());
+  ROS_INFO("Optimization metric choice: '%s'", metric_choice_.c_str());
   ROS_INFO("Benchmark start state regex: '%s':", start_state_regex_.c_str());
   ROS_INFO("Benchmark goal constraint regex: '%s':", goal_constraint_regex_.c_str());
   ROS_INFO("Benchmark path constraint regex: '%s':", path_constraint_regex_.c_str());
