@@ -108,8 +108,6 @@ int main(int argc, char** argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
 
-  planning_scene_monitor::PlanningSceneMonitor psm(ROBOT_DESCRIPTION);
-
   moveit_warehouse::PlanningSceneStorage pss(conn);
   moveit_warehouse::RobotStateStorage rss(conn);
   moveit_warehouse::ConstraintsStorage cs(conn);
@@ -159,12 +157,19 @@ int main(int argc, char** argv)
   {
     srand(static_cast<unsigned>(time(0)));
 
-    psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
+
+
+    // psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
+    // robot_model::RobotModelConstPtr km = psm.getRobotModel();
+    // planning_scene::PlanningScenePtr planning_scene = psm.getPlanningScene();
+
+
+    robot_model_loader::RobotModelLoader rml;
+    robot_model::RobotModelConstPtr km = rml.getModel();
+    planning_scene::PlanningScene planning_scene(km);
+
     while (cur_queries_number < tot_queries_number && fail_queries_cur < fail_queries_bound)
     {
-      robot_model::RobotModelConstPtr km = psm.getRobotModel();
-      planning_scene::PlanningScenePtr planning_scene = psm.getPlanningScene();
-
       moveit::core::RobotState coll_start_state(km);
       moveit::core::RobotState coll_goal_state(km);
 
@@ -209,16 +214,16 @@ int main(int argc, char** argv)
       moveit_msgs::Constraints msg_goal_state;
 
       // check start state collision
-      planning_scene->checkCollision(collision_request, collision_result_start, coll_start_state);
+      planning_scene.checkCollision(collision_request, collision_result_start, coll_start_state);
       if (!collision_result_start.collision)
       {
-        robot_state::RobotState st = planning_scene->getCurrentState();
+        robot_state::RobotState st = planning_scene.getCurrentState();
         st.setVariablePositions(var_start);
         robot_state::robotStateToRobotStateMsg(st, msg_start_state);
       }
 
       // check goal state collision
-      planning_scene->checkCollision(collision_request, collision_result_goal, coll_goal_state);
+      planning_scene.checkCollision(collision_request, collision_result_goal, coll_goal_state);
       if (!collision_result_goal.collision)
       {
         std::vector<moveit_msgs::JointConstraint> joint_constraints;
