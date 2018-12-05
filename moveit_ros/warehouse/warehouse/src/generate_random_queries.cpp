@@ -58,7 +58,7 @@ typedef std::map<std::string, LinkConstraintPair> LinkConstraintMap;
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
+  ros::init(argc, argv, "warehouse_generate_random_queries", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
   desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
