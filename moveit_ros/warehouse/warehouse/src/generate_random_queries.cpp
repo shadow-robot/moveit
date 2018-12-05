@@ -156,22 +156,14 @@ int main(int argc, char** argv)
   if (pss.getPlanningScene(pswm, scene_name))
   {
     srand(static_cast<unsigned>(time(0)));
-
-
-
-    // psm.getPlanningScene()->setPlanningSceneMsg(static_cast<const moveit_msgs::PlanningScene&>(*pswm));
-    // robot_model::RobotModelConstPtr km = psm.getRobotModel();
-    // planning_scene::PlanningScenePtr planning_scene = psm.getPlanningScene();
-
-
     robot_model_loader::RobotModelLoader rml;
-    robot_model::RobotModelConstPtr km = rml.getModel();
-    planning_scene::PlanningScene planning_scene(km);
+    robot_model::RobotModelConstPtr robot_model = rml.getModel();
+    planning_scene::PlanningScene planning_scene(robot_model);
 
     while (cur_queries_number < tot_queries_number && fail_queries_cur < fail_queries_bound)
     {
-      moveit::core::RobotState coll_start_state(km);
-      moveit::core::RobotState coll_goal_state(km);
+      moveit::core::RobotState coll_start_state(robot_model);
+      moveit::core::RobotState coll_goal_state(robot_model);
 
       std::vector<std::string> names = coll_start_state.getVariableNames();
       std::map<std::string, double> var_start;
@@ -182,8 +174,8 @@ int main(int argc, char** argv)
       {
         if (names[i].compare(0, group_prefix.length(), group_prefix) == 0)
         {
-          float bound_up = km->getVariableBounds(names[i]).max_position_;
-          float bound_down = km->getVariableBounds(names[i]).min_position_;
+          float bound_up = robot_model->getVariableBounds(names[i]).max_position_;
+          float bound_down = robot_model->getVariableBounds(names[i]).min_position_;
           if (vm.count("limited_joints"))
           {
             bound_up = 3.14;
@@ -253,7 +245,7 @@ int main(int argc, char** argv)
 
         if (vm.count("cartesian"))
         {
-          const std::vector<std::string>& id_names = km->getLinkModelNames();
+          const std::vector<std::string>& id_names = robot_model->getLinkModelNames();
           const Eigen::Affine3d& link_pose = coll_goal_state.getGlobalLinkTransform(eef_name);
           geometry_msgs::Transform transform;
           geometry_msgs::PoseStamped pose;
