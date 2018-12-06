@@ -71,7 +71,7 @@ Here are a few examples of how to use them:
   ```
   rosrun moveit_ros_warehouse moveit_warehouse_save_as_text --output_directory /tmp/queries --group_prefix ra --cartesian --eef ra_wrist_3_link
   ```
-  Example of exporting a query: example_scene.queries
+  Example of exporting a query: cartesian_example_scene.queries
   ```
   example_scene
   cartesian_query
@@ -149,4 +149,8 @@ Here are a few examples of how to use them:
 * Example of generating 10 random queries in cartesian space in the example_scene:
   ```
   rosrun moveit_ros_warehouse moveit_warehouse_generate_random_queries example_scene 10 --group_prefix ra --cartesian --eef ra_wrist_3_link
+  ```
+* Example of clearing the random queries in example_scene:
+  ```
+  rosrun moveit_ros_warehouse moveit_warehouse_generate_random_queries example_scene --clear
   ```
