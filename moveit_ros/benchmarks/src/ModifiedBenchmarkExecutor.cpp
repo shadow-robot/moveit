@@ -759,9 +759,6 @@ bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& reg
   return true;
 }
 
-static double evaluate_plan(const robot_trajectory::RobotTrajectory& p);
-static double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p);
-static XmlRpc::XmlRpcValue getPlannerParameters(const std::string& planner);
 ////static	      getRobotActuatedJoints();
 
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
@@ -901,18 +898,18 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
   }
 }
 
-XmlRpc::XmlRpcValue getPlannerParameters(const std::string& planner) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
+XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::string& planner) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
 {
-  XmlRpc::XmlRpcValue planner_parameters_XmlRpc;
+  //XmlRpc::XmlRpcValue planner_parameters_XmlRpc;
   int offset = 2; // just to test
   int* offsetPtr = &offset;
-  if (ros::param::get("planner_configs/"+planner, planner_parameters_XmlRpc)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
+  if (ros::param::get("planner_configs/"+planner, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
   // TODO && check that, apart from the type parameter, it exists parameters to tweak (PRMstarkConfigDefault creates an exception, see ompl_planning.yaml)
   {
-    return planner_parameters_XmlRpc.structFromXml("string test", offsetPtr);
+    return this->XmlRpcValue::structFromXml("string test", offsetPtr);
   }
   else
-    ROS_WARN("No planner_configs/'%s' found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!", planner);
+    ROS_WARN("No planner_configs/'%s' found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!", planner.c_str());
 }
 
 ////const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
@@ -926,7 +923,7 @@ XmlRpc::XmlRpcValue getPlannerParameters(const std::string& planner) // the outp
 ////    ROS_WARN("No robot_description_planning/joint_limits found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!");
 ////}
 
-double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energy consumption
+double ModifiedBenchmarkExecutor::evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energy consumption
 {
   int num_of_joints = p.getWayPoint(0).getVariableCount();
   const double pi = boost::math::constants::pi<double>();
@@ -997,7 +994,7 @@ double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energ
 }
 
 
-double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof how far the actual trajectory is from the end-effector shortest trajectory
+double ModifiedBenchmarkExecutor::evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof how far the actual trajectory is from the end-effector shortest trajectory
 {
   int n = p.getWayPointCount();
 

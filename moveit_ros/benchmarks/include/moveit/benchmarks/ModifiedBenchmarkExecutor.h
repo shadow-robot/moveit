@@ -56,13 +56,16 @@
 #include <boost/function.hpp>
 #include <memory>
 
+#include <xmlrpcpp/XmlRpcValue.h> // mandatored for read a bunch of ros server parameters by invoking only once rosparam, as the dictionnary will be of type XmlRpcValue, not map or array...
+
+
 namespace moveit_ros_benchmarks
 {
 /// A class that executes motion plan requests and aggregates data across multiple runs
 /// Note: This class operates outside of MoveGroup and does NOT use PlanningRequestAdapters
-class ModifiedBenchmarkExecutor
+class ModifiedBenchmarkExecutor : public XmlRpc::XmlRpcValue //only way if I don't want to notify/modify XmlRpcValue that structFromXml() has to be friend with ModifiedBenchmarkExecutor class, and thus have to somehow provide XmlRpcValue.h in the online versionned repo -- inherit from Xml class.
 {
-public:
+public: 
   /// Structure to hold information for a single run of a planner
   typedef std::map<std::string, std::string> PlannerRunData;
   /// Structure to hold information for a single planner's benchmark data.
@@ -112,6 +115,11 @@ public:
   virtual void clear();
 
   virtual bool runBenchmarks(const ModifiedBenchmarkOptions& opts);
+  
+  static double evaluate_plan(const robot_trajectory::RobotTrajectory& p);
+  static double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p);
+  
+  XmlRpc::XmlRpcValue getPlannerParameters(const std::string& planner);
 
 protected:
   struct BenchmarkRequest
