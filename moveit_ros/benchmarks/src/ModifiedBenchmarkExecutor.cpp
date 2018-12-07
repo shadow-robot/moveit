@@ -911,9 +911,27 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::s
   int offset = 0; // just to test
   int* offsetPtr = &offset;
   std::string to_display;
-  if (ros::param::get("/moveit_run_benchmark/planner_configs/"+planner, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
+  XmlRpc::XmlRpcValue structParams;
+  ROS_WARN("param path : '%s' : ", ("/moveit_run_benchmark/planner_configs/"+planner).c_str());
+  if (ros::param::get("/moveit_run_benchmark/planner_configs/"+planner, structParams)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
   // TODO && check that, apart from the type parameter, it exists parameters to tweak (PRMstarkConfigDefault creates an exception, see ompl_planning.yaml)
   {
+  
+  /*ROS_WARN("CheckArrayType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeArray));
+  ROS_WARN("CheckStructType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeStruct));
+  ROS_WARN("CheckStringType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeString));
+  ROS_WARN("CheckInvalidType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeInvalid));
+  //XmlRpc::XmlRpcValue::ValueStruct* mapping = this->asStruct();
+  ROS_WARN("HAS MEMBER RANGE: %d", (int) this->hasMember("range"));
+  ROS_WARN("CHECK DOUBLE RANGE: %d", (int)((*this)["range"].getType() ==XmlRpc::XmlRpcValue::TypeDouble));
+  ROS_WARN("CHECK Invalid RANGE: %d", (int)((*this)["range"].getType()==XmlRpc::XmlRpcValue::TypeInvalid));
+  ROS_WARN("CHECK Int RANGE: %d", (int)((*this)["range"].getType()==XmlRpc::XmlRpcValue::TypeInt));
+  ROS_WARN("CHECK String RANGE: %d", (int)((*this)["range"].getType()==XmlRpc::XmlRpcValue::TypeString));
+  ROS_WARN("CHECK TypeStruct RANGE: %d", (int)(structParams["range"].getType()==XmlRpc::XmlRpcValue::TypeStruct));
+  double range = (*this)["range"];
+  ROS_WARN("CHECK DOUBLE RANGE: %f", range);*/
+  ROS_WARN("CHECK DOUBLE RANGE: %s", std::string(structParams["type"]).c_str());
+  return structParams;
     if (this->XmlRpcValue::structFromXml(to_display, offsetPtr) == true)
     {
       ROS_WARN("Set of params : '%s' : ", to_display.c_str()); //INFO actually but to highlight
