@@ -834,13 +834,6 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	XmlRpc::XmlRpcValue parametersSet_Xml = getPlannerParameters(planners.begin()->second[0]); // planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
-      	struct test {
-          int attr;
-        } testsruct;
-        int testint(0);
-        std::cout << "Type of parametersSet_Xml variable = " << typeid(parametersSet_Xml).name() << '\n';
-        std::cout << "Type of testint variable = " << typeid(testint).name() << '\n';
-        std::cout << "Type of testsruct variable = " << typeid(testsruct).name() << '\n';
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
@@ -912,51 +905,66 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::s
   int* offsetPtr = &offset;
   std::string to_display;
   XmlRpc::XmlRpcValue structParams;
-  ROS_WARN("param path : '%s' : ", ("/moveit_run_benchmark/planner_configs/"+planner).c_str());
-  if (ros::param::get("/moveit_run_benchmark/planner_configs/"+planner, structParams)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
+  if (ros::param::get("/moveit_run_benchmark/planner_configs/"+planner, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
   // TODO && check that, apart from the type parameter, it exists parameters to tweak (PRMstarkConfigDefault creates an exception, see ompl_planning.yaml)
   {
-  
-  /*ROS_WARN("CheckArrayType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeArray));
-  ROS_WARN("CheckStructType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeStruct));
-  ROS_WARN("CheckStringType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeString));
-  ROS_WARN("CheckInvalidType: %d", (int) (this->getType() == XmlRpc::XmlRpcValue::TypeInvalid));
-  //XmlRpc::XmlRpcValue::ValueStruct* mapping = this->asStruct();
-  ROS_WARN("HAS MEMBER RANGE: %d", (int) this->hasMember("range"));
-  ROS_WARN("CHECK DOUBLE RANGE: %d", (int)((*this)["range"].getType() ==XmlRpc::XmlRpcValue::TypeDouble));
-  ROS_WARN("CHECK Invalid RANGE: %d", (int)((*this)["range"].getType()==XmlRpc::XmlRpcValue::TypeInvalid));
-  ROS_WARN("CHECK Int RANGE: %d", (int)((*this)["range"].getType()==XmlRpc::XmlRpcValue::TypeInt));
-  ROS_WARN("CHECK String RANGE: %d", (int)((*this)["range"].getType()==XmlRpc::XmlRpcValue::TypeString));
-  ROS_WARN("CHECK TypeStruct RANGE: %d", (int)(structParams["range"].getType()==XmlRpc::XmlRpcValue::TypeStruct));
-  double range = (*this)["range"];
-  ROS_WARN("CHECK DOUBLE RANGE: %f", range);*/
-  ROS_WARN("CHECK DOUBLE RANGE: %s", std::string(structParams["type"]).c_str());
-  return structParams;
-    if (this->XmlRpcValue::structFromXml(to_display, offsetPtr) == true)
+    ROS_WARN("Parameter range = %f", double((*this)["range"]));
+    ROS_WARN("Parameter type = %s", std::string((*this)["type"]).c_str());
+    
+    /*if (this->XmlRpcValue::structFromXml(to_display, offsetPtr) == true)
     {
       ROS_WARN("Set of params : '%s' : ", to_display.c_str()); //INFO actually but to highlight
       
       return this->XmlRpcValue::structFromXml(to_display, offsetPtr);
     }
     else
-      ROS_WARN("Might investigate that offset argument!");
+      ROS_WARN("Might investigate that offset argument!");*/
   }
   else
     ROS_WARN("No planner_configs/%s found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!", planner.c_str());
 }
 
+std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersDictionnary()
+{ //This has for purpose to list all the CURRENT planners implemented in moveit and their TWEAKABLE default parameters
+  this["SBLkConfigDefault"] = std::vector<std::string>> vect{"range"};
+  this["ESTkConfigDefault"] = std::vector<std::string>> vect{"range","goal_bias"};
+  this["LBKPIECEkConfigDefault"] = std::vector<std::string>> vect{"range","border_fraction", "min_valid_path_fraction"};
+  this["BKPIECEkConfigDefault"] = std::vector<std::string>> vect{"range","border_fraction","failed_expansion_score_factor","min_valid_path_fraction"};
+  this["KPIECEkConfigDefault"] = std::vector<std::string>> vect{"range","goal_bias","border_fraction","failed_expansion_score_factor","min_valid_path_fraction"};
+  this["RRTkConfigDefault"] = std::vector<std::string>> vect{"range","goal_bias"};
+  this["RRTConnectkConfigDefault"] = std::vector<std::string>> vect{"range"};
+    type: geometric::RRTConnect
+    : 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+  this["RRTstarkConfigDefault"] = std::vector<std::string>> vect{"",""};
+    type: geometric::RRTstar
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability? default: 0.05
+    delay_collision_checking: 1  # Stop collision checking as soon as C-free parent found. default 1
+  this["TRRTkConfigDefault"] = std::vector<std::string>> vect{"",""};
+    type: geometric::TRRT
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability? default: 0.05
+    max_states_failed: 10  # when to start increasing temp. default: 10
+    temp_change_factor: 2.0  # how much to increase or decrease temp. default: 2.0
+    min_temperature: 10e-10  # lower limit of temp change. default: 10e-10
+    init_temperature: 10e-6  # initial temperature. default: 10e-6
+    frountier_threshold: 0.0  # dist new state to nearest neighbor to disqualify as frontier. default: 0.0 set in setup() 
+    frountierNodeRatio: 0.1  # 1/10, or 1 nonfrontier for every 10 frontier. default: 0.1
+    k_constant: 0.0  # value used to normalize expresssion. default: 0.0 set in setup()
+  this["PRMkConfigDefault"] = std::vector<std::string>> vect{"max_nearest_neighbors"};
+  this["PRMstarkConfigDefault"] = std::vector<std::string>>(); //empty vector
+}
 
-
-////const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
-////{
-////  XmlRpc::XmlRpcValue robot_joints_XmlRpc;
-////  if (ros::param::get("robot_description_planning/joint_limits", planner_parameters_XmlRpc)) 
-////  {
-////    return robot_joints_XmlRpc.structFromXml()
-////  }
-////  else
-////    ROS_WARN("No robot_description_planning/joint_limits found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!");
-////}
+    /*const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
+    {
+      XmlRpc::XmlRpcValue robot_joints_XmlRpc;
+      if (ros::param::get("robot_description_planning/joint_limits", planner_parameters_XmlRpc)) 
+      {
+        return robot_joints_XmlRpc.structFromXml()
+      }
+      else
+        ROS_WARN("No robot_description_planning/joint_limits found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!");
+    }*/
 
 double ModifiedBenchmarkExecutor::evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energy consumption
 {
