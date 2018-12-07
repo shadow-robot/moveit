@@ -51,6 +51,9 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2/LinearMath/Quaternion.h>
 
+#include <typeinfo> //for debug purpose only, can be removed for the deliverable version!
+#include <iostream>
+
 
 using namespace moveit_ros_benchmarks;
 
@@ -759,8 +762,6 @@ bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& reg
   return true;
 }
 
-////static	      getRobotActuatedJoints();
-
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
                                      const std::map<
                                      std::string, std::vector<std::string> >& planners, 
@@ -833,6 +834,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	XmlRpc::XmlRpcValue parametersSet_Xml = getPlannerParameters(planners.begin()->second[0]); // planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+      	struct test {
+          int attr;
+        } testsruct;
+        int testint(0);
+        std::cout << "Type of parametersSet_Xml variable = " << typeid(parametersSet_Xml).name() << '\n';
+        std::cout << "Type of testint variable = " << typeid(testint).name() << '\n';
+        std::cout << "Type of testsruct variable = " << typeid(testsruct).name() << '\n';
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
@@ -909,6 +917,7 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::s
     if (this->XmlRpcValue::structFromXml(to_display, offsetPtr) == true)
     {
       ROS_WARN("Set of params : '%s' : ", to_display.c_str()); //INFO actually but to highlight
+      
       return this->XmlRpcValue::structFromXml(to_display, offsetPtr);
     }
     else
@@ -917,6 +926,8 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::s
   else
     ROS_WARN("No planner_configs/%s found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!", planner.c_str());
 }
+
+
 
 ////const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
 ////{
