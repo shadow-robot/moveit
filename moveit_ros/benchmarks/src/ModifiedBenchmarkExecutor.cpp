@@ -48,11 +48,10 @@
 
 #include <math.h>
 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h> // for the additional metrics
 #include <tf2/LinearMath/Quaternion.h>
 
-#include <typeinfo> //for debug purpose only, can be removed for the deliverable version!
-#include <iostream>
+#include <list> // for the map of planners -- associated parameters
 
 
 using namespace moveit_ros_benchmarks;
@@ -924,35 +923,50 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::s
     ROS_WARN("No planner_configs/%s found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!", planner.c_str());
 }
 
-std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersDictionnary()
-{ //This has for purpose to list all the CURRENT planners implemented in moveit and their TWEAKABLE default parameters
-  this["SBLkConfigDefault"] = std::vector<std::string>> vect{"range"};
-  this["ESTkConfigDefault"] = std::vector<std::string>> vect{"range","goal_bias"};
-  this["LBKPIECEkConfigDefault"] = std::vector<std::string>> vect{"range","border_fraction", "min_valid_path_fraction"};
-  this["BKPIECEkConfigDefault"] = std::vector<std::string>> vect{"range","border_fraction","failed_expansion_score_factor","min_valid_path_fraction"};
-  this["KPIECEkConfigDefault"] = std::vector<std::string>> vect{"range","goal_bias","border_fraction","failed_expansion_score_factor","min_valid_path_fraction"};
-  this["RRTkConfigDefault"] = std::vector<std::string>> vect{"range","goal_bias"};
-  this["RRTConnectkConfigDefault"] = std::vector<std::string>> vect{"range"};
-    type: geometric::RRTConnect
-    : 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
-  this["RRTstarkConfigDefault"] = std::vector<std::string>> vect{"",""};
-    type: geometric::RRTstar
-    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
-    goal_bias: 0.05  # When close to goal select goal, with this probability? default: 0.05
-    delay_collision_checking: 1  # Stop collision checking as soon as C-free parent found. default 1
-  this["TRRTkConfigDefault"] = std::vector<std::string>> vect{"",""};
-    type: geometric::TRRT
-    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
-    goal_bias: 0.05  # When close to goal select goal, with this probability? default: 0.05
-    max_states_failed: 10  # when to start increasing temp. default: 10
-    temp_change_factor: 2.0  # how much to increase or decrease temp. default: 2.0
-    min_temperature: 10e-10  # lower limit of temp change. default: 10e-10
-    init_temperature: 10e-6  # initial temperature. default: 10e-6
-    frountier_threshold: 0.0  # dist new state to nearest neighbor to disqualify as frontier. default: 0.0 set in setup() 
-    frountierNodeRatio: 0.1  # 1/10, or 1 nonfrontier for every 10 frontier. default: 0.1
-    k_constant: 0.0  # value used to normalize expresssion. default: 0.0 set in setup()
-  this["PRMkConfigDefault"] = std::vector<std::string>> vect{"max_nearest_neighbors"};
-  this["PRMstarkConfigDefault"] = std::vector<std::string>>(); //empty vector
+std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersNamesDictionnary()
+{ //This has for purpose to list all the CURRENT planners implemented in moveit and their TWEAKABLE default parameters (basically, "type" parameter = geometric::... is not tweakable into control:: currently)
+  std::map<std::string, std::vector<std::string>> map_by_value_08Dec18;
+  map_by_value_08Dec18["SBLkConfigDefault"] = {"range", 
+  					       "projection_evaluator", 
+  					       "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["ESTkConfigDefault"] = {"range", 
+  					       "goal_bias"};
+  map_by_value_08Dec18["LBKPIECEkConfigDefault"] = {"range",
+				    	    	    "border_fraction",
+				    	            "min_valid_path_fraction",
+				    	            "projection_evaluator",
+				    	            "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["BKPIECEkConfigDefault"] = {"range",
+  					           "border_fraction", 
+  					           "failed_expansion_score_factor", 
+  					           "min_valid_path_fraction", 
+  					           "projection_evaluator", 
+  					           "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["KPIECEkConfigDefault"] = {"range", 
+  					          "goal_bias",
+  					          "border_fraction", 
+  					          "failed_expansion_score_factor", 
+  					          "min_valid_path_fraction", 
+  					          "projection_evaluator", 
+  					          "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["RRTkConfigDefault"] = {"range", 
+  				               "goal_bias"};
+  map_by_value_08Dec18["RRTConnectkConfigDefault"] = {"range"};
+  map_by_value_08Dec18["RRTstarkConfigDefault"] = {"range", 
+  					           "goal_bias", 
+  					           "delay_collision_checking"};
+  map_by_value_08Dec18["TRRTkConfigDefault"] = {"range", 
+  					        "goal_bias", 
+				                "max_states_failed", 
+  					        "temp_change_factor", 
+  					        "min_temperature", 
+  					        "init_temperature", 
+  					        "frountier_threshold", 
+  					        "frountierNodeRatio", 
+  					        "k_constant"};
+  map_by_value_08Dec18["PRMkConfigDefault"] = {"max_nearest_neighbors"};
+  map_by_value_08Dec18["PRMstarkConfigDefault"] = {}; //empty vector
+  return map_by_value_08Dec18;
 }
 
     /*const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
