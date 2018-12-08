@@ -832,7 +832,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	double planQuality, previousPlanQuality = planQuality;
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
-      	XmlRpc::XmlRpcValue parametersSet_Xml = getPlannerParameters(planners.begin()->second[0]); // planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+      	std::map<std::string, std::vector<std::string>> plannerParametersNames = 
+      	constructMoveitPlannerParametersNamesDictionnary();
+      	XmlRpc::XmlRpcValue previousPlannerParameters, 
+      			  parametersSet_Xml = getPlannerParameters(planners.begin()->second[0]); // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
@@ -853,9 +856,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  { //(We save the previous iteration only if it solved the pb and allocated time remains.)
       	    mp_res_before_exceeding = mp_res; // addition to the first iteration above
       	    previousPlanQuality = planQuality;
+      	    previousPlannerParameters = parametersSet_Xml;
       	  }
-      	  // while tweaking the planner's parameters,
-      	  // ...
+      	  
+      	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get the best of what each planner randomness has to offer
+      	  //tweakPlannerParameters(&parametersSet_Xml)
       	  
       	  solved = context->solve(mp_res);
       	  if (solved)
@@ -900,24 +905,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 
 XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::string& planner) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
 {
-  int offset = 0; // just to test
-  int* offsetPtr = &offset;
-  std::string to_display;
-  XmlRpc::XmlRpcValue structParams;
   if (ros::param::get("/moveit_run_benchmark/planner_configs/"+planner, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
   // TODO && check that, apart from the type parameter, it exists parameters to tweak (PRMstarkConfigDefault creates an exception, see ompl_planning.yaml)
   {
-    ROS_WARN("Parameter range = %f", double((*this)["range"]));
-    ROS_WARN("Parameter type = %s", std::string((*this)["type"]).c_str());
-    
-    /*if (this->XmlRpcValue::structFromXml(to_display, offsetPtr) == true)
-    {
-      ROS_WARN("Set of params : '%s' : ", to_display.c_str()); //INFO actually but to highlight
-      
-      return this->XmlRpcValue::structFromXml(to_display, offsetPtr);
-    }
-    else
-      ROS_WARN("Might investigate that offset argument!");*/
+    /*ROS_INFO("Parameter range = %f", double((*this)["range"]));
+    ROS_INFO("Parameter type = %s", std::string((*this)["type"]).c_str());*/
+    return this;
   }
   else
     ROS_WARN("No planner_configs/%s found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!", planner.c_str());
