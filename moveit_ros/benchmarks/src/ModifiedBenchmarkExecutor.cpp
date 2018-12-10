@@ -52,6 +52,7 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <list> // for the map of planners -- associated parameters
+//#include <cstdlib> //for random numbers (to decide in how many dim make a move towards neighbour)
 
 
 using namespace moveit_ros_benchmarks;
@@ -835,8 +836,14 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	std::map<std::string, std::vector<std::string>> plannerParametersNames = 
       	constructMoveitPlannerParametersNamesDictionnary();
       	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+      	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
+      	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/planner_parameters_boundaries";
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
-      			  parametersSet_Xml = getServerParameters("/moveit_run_benchmark/planner_configs/"+planner); 
+      			    parametersSet_Xml = getServerParameters(pathPlannerParameters),
+      			    paramBoundariesAndSteps_Xml = getServerParameters
+      			    					(pathPlannerParamBoundaries);
+      	int nbPlannerParameters = parametersSet_Xml.size();
+      	ROS_WARN("(Just to verify) This planner (%s) has %d parameters", planner.c_str(), nbPlannerParameters);
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
@@ -861,7 +868,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  }
       	  
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
-      	  //tweakPlannerParameters(&parametersSet_Xml);
+      	  /*alterPlannerParameters(&parametersSet_Xml, paramBoundariesAndSteps_Xml, 
+      	  			   nbPlannerParameters);*/
       	  
       	  solved = context->solve(mp_res);
       	  if (solved)
@@ -914,7 +922,7 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getServerParameters(const std::st
     return this;
   }
   else
-    ROS_ERROR("No %s found on param server. Type 'rosparam list' in the console to see the paths", path.c_str());
+    ROS_ERROR("No %s found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
 }
 
 std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersNamesDictionnary()
@@ -963,17 +971,26 @@ std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::const
   return map_by_value_08Dec18;
 }
 
-XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::loadPlannerParametersBoundaries(const std::string& planner) //assuming a .yaml life was previously loaded onto the server, loads these values into the c++ script scope
+void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const XmlRpc::XmlRpcValue& parametersBoundaries, int nbParams)
 {
-
-}
-
-void ModifiedBenchmarkExecutor::tweakPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const XmlRpc::XmlRpcValue& parametersBoundaries)
-{
+  //Decide whether to make a move (towards a neighbour set of parameters) with respect to one of the n dims, or to move along up to n dims
+  double unirandom_d = std::rand()/(double)(RAND_MAX+1); // belongs to [0.,1.[
+  int unirandom_int;
+  ROS_WARN("This is just to confirm that unirandom = %lf isn't repeated through the very fast loops", unirandom);
+  int moveBetween = floor(nbParams*unirandom+1); // a number of axis belonging to [1,nbParams]
+  ROS_WARN("(To verify) That move will alter '%d' parameters", moveBetween);
+  
+  //Decide regarding which of the m<=n dims to move (choose the indexes)
+  indexes = int[moveBetween];
+  for (unsigned i=0; i < moveBetween; ++i)
+    indexes[i] = std::rand()%(moveBetween+1); // an index belonging to [1,moveBetween]
+    
+  // ...
   
 }
 
-    /*const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
+    /* For laterly alter the joint_projections parameter as well:
+    const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
     {
       XmlRpc::XmlRpcValue robot_joints_XmlRpc;
       if (ros::param::get("robot_description_planning/joint_limits", planner_parameters_XmlRpc)) 

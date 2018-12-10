@@ -40,6 +40,9 @@
 #include <moveit/benchmarks/ModifiedBenchmarkOptions.h>
 #include <moveit/benchmarks/ModifiedBenchmarkExecutor.h>
 
+//#include <cstdlib> //for random numbers (to decide in how many dim make a move towards neighbour)
+//#include <ctime>
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "modified_moveit_run_benchmark");
@@ -55,6 +58,9 @@ int main(int argc, char** argv)
   std::vector<std::string> plugins;
   opts.getPlannerPluginList(plugins);
   server.initialize(plugins);
+
+  //Iterations over countdown alter it only by +-1sec and summon this node, but this node, even with a low countdown, takes (I believe) more than one second (bc of the multiples runs and queries) to return its agreement to be re-summoned again to the countdown loop. So, for the uniform random dim moves (see in Executor), initialization of a seed here should not lead to any repetition in sequences of random numbers
+  std::srand(std::time(NULL));
 
   // Running benchmarks
   if (!server.runBenchmarks(opts))
