@@ -967,7 +967,7 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::loadPlannerParametersBoundaries(c
 
 }
 
-void ModifiedBenchmarkExecutor::tweakPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate)
+void ModifiedBenchmarkExecutor::tweakPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const XmlRpc::XmlRpcValue& parametersBoundaries)
 {
   
 }
