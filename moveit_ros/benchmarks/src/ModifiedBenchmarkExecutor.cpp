@@ -834,8 +834,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	std::map<std::string, std::vector<std::string>> plannerParametersNames = 
       	constructMoveitPlannerParametersNamesDictionnary();
+      	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
-      			  parametersSet_Xml = getPlannerParameters(planners.begin()->second[0]); // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+      			  parametersSet_Xml = getServerParameters("/moveit_run_benchmark/planner_configs/"+planner); 
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
@@ -903,9 +904,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
   }
 }
 
-XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::string& planner) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
+XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getServerParameters(const std::string& path) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
 {
-  if (ros::param::get("/moveit_run_benchmark/planner_configs/"+planner, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
+  if (ros::param::get(path, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
   // TODO && check that, apart from the type parameter, it exists parameters to tweak (PRMstarkConfigDefault creates an exception, see ompl_planning.yaml)
   {
     /*ROS_INFO("Parameter range = %f", double((*this)["range"]));
@@ -913,7 +914,7 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::s
     return this;
   }
   else
-    ROS_WARN("No planner_configs/%s found on param server. Type 'rosparam list' in the console to see the paths. The optimization process continue, though it won't smartly tweak its parameters at restarts!!", planner.c_str());
+    ROS_ERROR("No %s found on param server. Type 'rosparam list' in the console to see the paths", path.c_str());
 }
 
 std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersNamesDictionnary()
