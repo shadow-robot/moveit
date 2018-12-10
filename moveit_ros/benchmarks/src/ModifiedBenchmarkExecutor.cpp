@@ -859,8 +859,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	    previousPlannerParameters = parametersSet_Xml;
       	  }
       	  
-      	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get the best of what each planner randomness has to offer
-      	  //tweakPlannerParameters(&parametersSet_Xml)
+      	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
+      	  //tweakPlannerParameters(&parametersSet_Xml);
       	  
       	  solved = context->solve(mp_res);
       	  if (solved)
@@ -919,11 +919,21 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getPlannerParameters(const std::s
 std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersNamesDictionnary()
 { //This has for purpose to list all the CURRENT planners implemented in moveit and their TWEAKABLE default parameters (basically, "type" parameter = geometric::... is not tweakable into control:: currently)
   std::map<std::string, std::vector<std::string>> map_by_value_08Dec18;
+  map_by_value_08Dec18["RRTConnectkConfigDefault"] = {"range"};
+  map_by_value_08Dec18["ESTkConfigDefault"] = {"range", 
+  					       "goal_bias"};
+  map_by_value_08Dec18["RRTkConfigDefault"] = {"range", 
+  				               "goal_bias"};
+  map_by_value_08Dec18["KPIECEkConfigDefault"] = {"range", 
+  					          "goal_bias",
+  					          "border_fraction", 
+  					          "failed_expansion_score_factor", 
+  					          "min_valid_path_fraction", 
+  					          "projection_evaluator", 
+  					          "longest_valid_segment_fraction"};
   map_by_value_08Dec18["SBLkConfigDefault"] = {"range", 
   					       "projection_evaluator", 
   					       "longest_valid_segment_fraction"};
-  map_by_value_08Dec18["ESTkConfigDefault"] = {"range", 
-  					       "goal_bias"};
   map_by_value_08Dec18["LBKPIECEkConfigDefault"] = {"range",
 				    	    	    "border_fraction",
 				    	            "min_valid_path_fraction",
@@ -935,16 +945,6 @@ std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::const
   					           "min_valid_path_fraction", 
   					           "projection_evaluator", 
   					           "longest_valid_segment_fraction"};
-  map_by_value_08Dec18["KPIECEkConfigDefault"] = {"range", 
-  					          "goal_bias",
-  					          "border_fraction", 
-  					          "failed_expansion_score_factor", 
-  					          "min_valid_path_fraction", 
-  					          "projection_evaluator", 
-  					          "longest_valid_segment_fraction"};
-  map_by_value_08Dec18["RRTkConfigDefault"] = {"range", 
-  				               "goal_bias"};
-  map_by_value_08Dec18["RRTConnectkConfigDefault"] = {"range"};
   map_by_value_08Dec18["RRTstarkConfigDefault"] = {"range", 
   					           "goal_bias", 
   					           "delay_collision_checking"};
@@ -960,6 +960,16 @@ std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::const
   map_by_value_08Dec18["PRMkConfigDefault"] = {"max_nearest_neighbors"};
   map_by_value_08Dec18["PRMstarkConfigDefault"] = {}; //empty vector
   return map_by_value_08Dec18;
+}
+
+XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::loadPlannerParametersBoundaries(const std::string& planner) //assuming a .yaml life was previously loaded onto the server, loads these values into the c++ script scope
+{
+
+}
+
+void ModifiedBenchmarkExecutor::tweakPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate)
+{
+  
 }
 
     /*const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
