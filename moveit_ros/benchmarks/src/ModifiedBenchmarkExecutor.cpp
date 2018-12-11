@@ -998,13 +998,11 @@ void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 				
 	//https://stackoverflow.com/questions/2347851/c-a-cure-for-the-warning-integer-overflow-in-expression
   ROS_WARN("(To verify) that unirandom_d = %f sequence isn't repeated through the very fast loops", unirandom_d); //TODO verify in another way than visually only!
   
-  nbParams=4; //TODO TO ERASE, THIS IS JUST TO DEBUG
   std::vector<int> indexParams(nbParams);
   for (int i = 0; i < nbParams; i++)
     indexParams[i] = i; //nbParams components belong to [0,nbParams-1]
   
   int moveBetween = floor(nbParams*unirandom_d+1); // a number of axis belonging to [1,nbParams]
-  ROS_WARN("(To verify) That move will alter 'moveBetween = %d' parameters (must belong to [1,nbParams])", moveBetween);
   
   //Decide regarding which of the m<=n dims to move
   int draw;
@@ -1015,7 +1013,6 @@ void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 				
     indexParamsToAlter[i] = indexParams[draw];
     indexParams.erase(indexParams.begin()+draw); //update of the remaining parameters to be choosable
     nbParams-=1; //update of the range where to pick a param indx in the vector of possible choices
-    ROS_WARN("(To verify) That indexParamsToAlter[%d] will alter the %d-th parameter (must belong to [1,nbParams])", i, indexParamsToAlter[i]);
   }
     
   // ...
