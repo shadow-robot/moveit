@@ -838,10 +838,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
       	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/planner_parameters_boundaries";
-      	XmlRpc::XmlRpcValue previousPlannerParameters, 
-      			    parametersSet_Xml = getServerParameters(pathPlannerParameters),
-      			    paramBoundariesAndSteps_Xml = getServerParameters
+      	XmlRpc::XmlRpcValue previousPlannerParameters;
+      	XmlRpc::XmlRpcValue parametersSet_Xml = getServerParameters(pathPlannerParameters);
+      	ROS_WARN("ok1");
+      	XmlRpc::XmlRpcValue paramBoundariesAndSteps_Xml = getServerParameters
       			    					(pathPlannerParamBoundaries);
+	ROS_WARN("ok2");
       	int nbPlannerParameters = parametersSet_Xml.size();
       	ROS_WARN("(Just to verify) This planner (%s) has %d parameters", planner.c_str(), nbPlannerParameters);
       	
@@ -868,8 +870,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  }
       	  
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
-      	  /*alterPlannerParameters(&parametersSet_Xml, paramBoundariesAndSteps_Xml, 
-      	  			   nbPlannerParameters);*/
+      	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml, 
+      	  			   nbPlannerParameters);
       	  
       	  solved = context->solve(mp_res);
       	  if (solved)
@@ -919,10 +921,11 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getServerParameters(const std::st
   {
     /*ROS_INFO("Parameter range = %f", double((*this)["range"]));
     ROS_INFO("Parameter type = %s", std::string((*this)["type"]).c_str());*/
+    ROS_INFO("Parameters well acquired from the ROS '%s' server", path.c_str());
     return this;
   }
   else
-    ROS_ERROR("No %s found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
+    ROS_ERROR("No path '%s' found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
 }
 
 std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersNamesDictionnary()
@@ -974,16 +977,19 @@ std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::const
 void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const XmlRpc::XmlRpcValue& parametersBoundaries, int nbParams)
 {
   //Decide whether to make a move (towards a neighbour set of parameters) with respect to one of the n dims, or to move along up to n dims
-  double unirandom_d = std::rand()/(double)(RAND_MAX+1); // belongs to [0.,1.[
-  int unirandom_int;
-  ROS_WARN("This is just to confirm that unirandom = %lf isn't repeated through the very fast loops", unirandom);
-  int moveBetween = floor(nbParams*unirandom+1); // a number of axis belonging to [1,nbParams]
-  ROS_WARN("(To verify) That move will alter '%d' parameters", moveBetween);
+  double unirandom_d = std::rand()/((double)(RAND_MAX)+1.); // belongs to [0.,1.[
+  	//(double)(RAND_MAX+1) implies "warning: integer overflow in expression"
+	//https://stackoverflow.com/questions/2347851/c-a-cure-for-the-warning-integer-overflow-in-expression
+  ROS_WARN("This is just to confirm that unirandom = %f isn't repeated through the very fast loops", unirandom_d);
+  int moveBetween = floor(nbParams*unirandom_d+1); // a number of axis belonging to [1,nbParams]
+  ROS_WARN("(To verify) That move will alter 'moveBetween = %d' parameters (must belong to [1,nbParams])", moveBetween);
   
   //Decide regarding which of the m<=n dims to move (choose the indexes)
-  indexes = int[moveBetween];
-  for (unsigned i=0; i < moveBetween; ++i)
+  int indexes[moveBetween];
+  for (unsigned i=0; i < moveBetween; ++i) {
     indexes[i] = std::rand()%(moveBetween+1); // an index belonging to [1,moveBetween]
+    ROS_WARN("(To verify) That indexes[%d] will alter the %d-th parameter (must belong to [1,nbParams])", i, indexes[i]);
+  }
     
   // ...
   
