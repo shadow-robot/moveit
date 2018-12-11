@@ -57,7 +57,7 @@
 #include <memory>
 
 #include <xmlrpcpp/XmlRpcValue.h> // mandatored for read a bunch of ros server parameters by invoking only once rosparam, as the dictionnary will be of type XmlRpcValue, not map or array...
-
+#include <xmlrpcpp/XmlRpcException.h>
 
 namespace moveit_ros_benchmarks
 {
@@ -120,6 +120,7 @@ public:
   static double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p);
   
   XmlRpc::XmlRpcValue getServerParameters(const std::string& path);
+  int xmlRpcValueSize(XmlRpc::XmlRpcValue& someXmlSet);
   //std::map<std::string, XmlRpc::XmlRpcValue> getServerParametersBoundaries(const std::string& path);
   std::map<std::string, std::vector<std::string>> constructMoveitPlannerParametersNamesDictionnary();
   //void alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const std::map<std::string, XmlRpc::XmlRpcValue>& parametersBoundaries, int nbParams);

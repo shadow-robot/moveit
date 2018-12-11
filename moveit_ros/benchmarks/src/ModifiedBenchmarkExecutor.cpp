@@ -837,23 +837,16 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	constructMoveitPlannerParametersNamesDictionnary();
       	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
-      	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/planner_parameters_boundaries";
-      	XmlRpc::XmlRpcValue previousPlannerParameters;
-      	XmlRpc::XmlRpcValue parametersSet_Xml = getServerParameters(pathPlannerParameters);
-      	ROS_WARN("ok1");
-      	XmlRpc::XmlRpcValue test;
+      	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 								  	   "planner_parameters_boundaries";
+      	XmlRpc::XmlRpcValue previousPlannerParameters, 
+      			    parametersSet_Xml = getServerParameters(pathPlannerParameters), 
+      			    test;
+      			    
       	if (!ros::param::get(pathPlannerParamBoundaries, test))
       	  ROS_WARN("didn't get that");
       	//std::map<std::string, XmlRpc::XmlRpcValue> paramBoundariesAndSteps_Xml = 						getServerParametersBoundaries(pathPlannerParamBoundaries);
-	ROS_WARN("ok2");
-	ROS_WARN("[Just to verify] (parametersSet_Xml == XmlRpc::XmlRpcValue::TypeArray), answer = %d", parametersSet_Xml.getType() == XmlRpc::XmlRpcValue::TypeArray);
-	ROS_WARN("[Just to verify] (parametersSet_Xml == XmlRpc::XmlRpcValue::TypeString), answer = %d", parametersSet_Xml.getType() == XmlRpc::XmlRpcValue::TypeString);
-	ROS_WARN("[Just to verify] (parametersSet_Xml == XmlRpc::XmlRpcValue::TypeBase64), answer = %d", parametersSet_Xml.getType() == XmlRpc::XmlRpcValue::TypeBase64);
-	ROS_WARN("[Just to verify] (parametersSet_Xml == XmlRpc::XmlRpcValue::TypeStruct), answer = %d", parametersSet_Xml.getType() == XmlRpc::XmlRpcValue::TypeStruct);
-	
-      	int nbPlannerParameters = parametersSet_Xml.size();
+      	int nbPlannerParameters = xmlRpcValueSize(parametersSet_Xml);
       	ROS_WARN("(Just to verify) This planner (%s) has %d parameters", planner.c_str(), nbPlannerParameters);
-      	ROS_WARN("ok3");
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
@@ -924,17 +917,49 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 
 XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getServerParameters(const std::string& path) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
 {
-  if (ros::param::get(path, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
+XmlRpc::XmlRpcValue tmp;
+  if (ros::param::get(path, tmp)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
   // TODO && check that, apart from the type parameter, it exists parameters to tweak (PRMstarkConfigDefault creates an exception, see ompl_planning.yaml)
   {
     /*ROS_INFO("Parameter range = %f", double((*this)["range"]));
     ROS_INFO("Parameter type = %s", std::string((*this)["type"]).c_str());*/
     ROS_INFO("Parameters well acquired from the ROS '%s' server", path.c_str());
-    return this;
+    return tmp;
   }
   else
     ROS_ERROR("No path '%s' found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
 }
+
+int ModifiedBenchmarkExecutor::xmlRpcValueSize(XmlRpc::XmlRpcValue& someXmlSet) //(const& generates error)
+{
+  int length = 0;
+  ROS_ASSERT(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeStruct);
+  ROS_WARN("ok1");
+  ROS_WARN("Struct: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeStruct));
+  ROS_WARN("Array: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeArray));
+  ROS_WARN("Invalid: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeInvalid));
+  ROS_WARN("Double:%d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeDouble));
+  ROS_WARN("Bool: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeBoolean));
+  ROS_WARN("Int: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeInt));
+  ROS_WARN("String: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeString));
+  ROS_WARN("Date: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeDateTime));
+  ROS_WARN("Base64: %d",(someXmlSet.getType() == XmlRpc::XmlRpcValue::TypeBase64));
+  
+  try{
+  for (XmlRpc::XmlRpcValue::iterator it = someXmlSet.begin() ; it != someXmlSet.end(); ++it)
+    length+=1;
+  }catch (XmlRpc::XmlRpcException& e){
+      ROS_WARN(e.getMessage().c_str());
+      exit(-1);
+  }
+  ROS_WARN("ok2");
+  return length;
+}
+/*
+for(XmlRpc::XmlRpcValue whatever : input_xmlrpc_struct){
+whatever.getType.....
+}
+*/
 
 /*std::map<std::string, XmlRpc::XmlRpcValue> ModifiedBenchmarkExecutor::getServerParametersBoundaries(const std::string& path) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
 {
