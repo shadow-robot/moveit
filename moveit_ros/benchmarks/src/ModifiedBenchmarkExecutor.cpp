@@ -851,7 +851,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	{
       	  solved_proof +=1;
       	  planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
-  	  ROS_INFO("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
+  	  ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
       	
@@ -867,8 +867,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  }
       	  
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
-      	  /*alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml, 
-      	  			   nbPlannerParameters);*/
+      	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml, 
+      	  			   nbPlannerParameters);
       	  
       	  solved = context->solve(mp_res);
       	  if (solved)
@@ -879,7 +879,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
       	    {
       	      mp_res = mp_res_before_exceeding;
-      	      ROS_INFO("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
+      	      ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	    }
       	  }
       	  total_time += (ros::WallTime::now() - start).toSec();
@@ -943,20 +943,6 @@ whatever.getType.....
 }
 */
 
-/*std::map<std::string, XmlRpc::XmlRpcValue> ModifiedBenchmarkExecutor::getServerParametersBoundaries(const std::string& path) // the output type is for debug purpose, I want in the end to return only one planner's set of parameters, and in a struct or array type!!
-{
-  if (ros::param::get(path, *this)) // http://docs.ros.org/kinetic/api/roscpp/html/namespaceros_1_1param.html#a8946be052ed53e5e243dbd0c9bb23b8a
-  // TODO && check that, apart from the type parameter, it exists parameters to tweak (PRMstarkConfigDefault creates an exception, see ompl_planning.yaml)
-  {
-    //ROS_INFO("Parameter range = %f", double((*this)["range"]));
-    //ROS_INFO("Parameter type = %s", std::string((*this)["type"]).c_str());
-    ROS_INFO("Parameters well acquired from the ROS '%s' server", path.c_str());
-    return this;
-  }
-  else
-    ROS_ERROR("No path '%s' found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
-}*/
-
 std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersNamesDictionnary()
 { //This has for purpose to list all the CURRENT planners implemented in moveit and their TWEAKABLE default parameters (basically, "type" parameter = geometric::... is not tweakable into control:: currently)
   std::map<std::string, std::vector<std::string>> map_by_value_08Dec18;
@@ -1003,26 +989,39 @@ std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::const
   return map_by_value_08Dec18;
 }
 
-/*void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const std::map<std::string, XmlRpc::XmlRpcValue>& parametersBoundaries, int nbParams)
+void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 										   parametersSet_toUpdate, 
+						  const XmlRpc::XmlRpcValue& parametersBoundaries, 							  int nbParams)
 {
   //Decide whether to make a move (towards a neighbour set of parameters) with respect to one of the n dims, or to move along up to n dims
   double unirandom_d = std::rand()/((double)(RAND_MAX)+1.); // belongs to [0.,1.[
   	//(double)(RAND_MAX+1) implies "warning: integer overflow in expression"
 	//https://stackoverflow.com/questions/2347851/c-a-cure-for-the-warning-integer-overflow-in-expression
-  ROS_WARN("This is just to confirm that unirandom = %f isn't repeated through the very fast loops", unirandom_d);
+  ROS_WARN("(To verify) that unirandom_d = %f sequence isn't repeated through the very fast loops", unirandom_d); //TODO verify in another way than visually only!
+  
+  nbParams=4; //TODO TO ERASE, THIS IS JUST TO DEBUG
+  std::vector<int> indexParams(nbParams);
+  for (int i = 0; i < nbParams; i++)
+    indexParams[i] = i; //nbParams components belong to [0,nbParams-1]
+  
   int moveBetween = floor(nbParams*unirandom_d+1); // a number of axis belonging to [1,nbParams]
   ROS_WARN("(To verify) That move will alter 'moveBetween = %d' parameters (must belong to [1,nbParams])", moveBetween);
   
-  //Decide regarding which of the m<=n dims to move (choose the indexes)
-  int indexes[moveBetween];
-  for (unsigned i=0; i < moveBetween; ++i) {
-    indexes[i] = std::rand()%(moveBetween+1); // an index belonging to [1,moveBetween]
-    ROS_WARN("(To verify) That indexes[%d] will alter the %d-th parameter (must belong to [1,nbParams])", i, indexes[i]);
+  //Decide regarding which of the m<=n dims to move
+  int draw;
+  std::vector<int> indexParamsToAlter(moveBetween);
+  for (unsigned i=0; i < moveBetween; ++i)
+  { //draw without replacement (otherwise it's not anymore an infinitesimal move)
+    draw = std::rand()%nbParams; // an index belonging to [0,nbParams-1]
+    indexParamsToAlter[i] = indexParams[draw];
+    indexParams.erase(indexParams.begin()+draw); //update of the remaining parameters to be choosable
+    nbParams-=1; //update of the range where to pick a param indx in the vector of possible choices
+    ROS_WARN("(To verify) That indexParamsToAlter[%d] will alter the %d-th parameter (must belong to [1,nbParams])", i, indexParamsToAlter[i]);
   }
     
   // ...
   
-}*/
+  return;
+}
 
     /* For laterly alter the joint_projections parameter as well:
     const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
