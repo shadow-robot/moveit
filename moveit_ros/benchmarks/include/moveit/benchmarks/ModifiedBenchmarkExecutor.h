@@ -120,8 +120,9 @@ public:
   static double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p);
   
   XmlRpc::XmlRpcValue getServerParameters(const std::string& path);
+  //std::map<std::string, XmlRpc::XmlRpcValue> getServerParametersBoundaries(const std::string& path);
   std::map<std::string, std::vector<std::string>> constructMoveitPlannerParametersNamesDictionnary();
-  void alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const XmlRpc::XmlRpcValue& parametersBoundaries, int nbParams);
+  //void alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const std::map<std::string, XmlRpc::XmlRpcValue>& parametersBoundaries, int nbParams);
 
 protected:
   struct BenchmarkRequest
