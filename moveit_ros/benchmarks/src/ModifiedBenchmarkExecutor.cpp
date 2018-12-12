@@ -251,8 +251,12 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       // Calling query start events // QUITE DONT UNDERSTAND  for what index j stands.. nb runs??
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
-
-      ROS_INFO("Benchmarking query '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size()); // (Note that queries are benchmarked in disorder)
+      
+      ROS_WARN("--------------------------------");
+      ROS_WARN("--------------------------------");
+      ROS_WARN("QUERY '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size()); // (Note that queries are benchmarked in disorder)
+      ROS_WARN("--------------------------------");
+      ROS_WARN("--------------------------------");
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns(),
       		   options_.getMetricChoice());
@@ -771,7 +775,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
   benchmark_data_.clear();
 
   double countdown = request.allowed_planning_time;
-  ROS_INFO("I ensure that countdown is in seconds -- countdown = '%lf'", countdown);
+  ROS_WARN("I ensure that countdown is in seconds -- countdown = '%lf'", countdown);
 
   unsigned int num_planners = 0;
   for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); it != planners.end();
@@ -798,6 +802,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
           planner_interfaces_[it->first]->getPlanningContext(planning_scene_, request);
       for (int j = 0; j < runs; ++j)
       {
+        ROS_WARN("--------------------------------");
+        ROS_WARN("--------------------------------");
+        ROS_WARN("RUN NUMBER: %d", j);
+        ROS_WARN("--------------------------------");
+        ROS_WARN("--------------------------------");
+        
         // Pre-run events
         for (std::size_t k = 0; k < pre_event_fns_.size(); ++k)
           pre_event_fns_[k](request);
@@ -833,16 +843,16 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	double planQuality, previousPlanQuality = planQuality;
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
-      	std::map<std::string, std::vector<std::string>> plannerParametersNames = 
-      	constructMoveitPlannerParametersNamesDictionnary();
+      	std::map<std::string, std::vector<std::string>> plannersParameterNames = 
+      	constructMoveitPlannersParameterNamesDictionnary();
       	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
       	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 								  	   "planner_parameters_boundaries";
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
       			    parametersSet_Xml = getServerParameters(pathPlannerParameters), 
       			    paramBoundariesAndSteps_Xml = 							getServerParameters(pathPlannerParamBoundaries);
-      	int nbPlannerParameters = xmlRpcValueSize(parametersSet_Xml);
-      	ROS_WARN("(Just to verify) This planner (%s) has %d parameters", planner.c_str(), nbPlannerParameters);
+      	std::vector<std::string> vecPlannerParamNames = plannersParameterNames[planner];
+      	int nbPlannerParams = vecPlannerParamNames.size();
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
@@ -850,7 +860,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	if (solved)
       	{
       	  solved_proof +=1;
-      	  planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
+      	  planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // TODO HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
   	  ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
@@ -867,8 +877,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  }
       	  
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
-      	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml, 
-      	  			   nbPlannerParameters);
+      	  ROS_WARN( "[To verify] We currently are into runBenchmark_() and about to call alterPlannerParameterS() ...");
+      	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml,
+      	  			 vecPlannerParamNames, nbPlannerParams);
       	  
       	  solved = context->solve(mp_res);
       	  if (solved)
@@ -919,105 +930,93 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getServerParameters(const std::st
   {
     /*ROS_INFO("Parameter range = %f", double((*this)["range"]));
     ROS_INFO("Parameter type = %s", std::string((*this)["type"]).c_str());*/
-    ROS_INFO("Parameters well acquired from the ROS '%s' server", path.c_str());
     return tmp;
   }
   else
     ROS_ERROR("No path '%s' found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
 }
 
-int ModifiedBenchmarkExecutor::xmlRpcValueSize(XmlRpc::XmlRpcValue& someXmlSet) //(const& generates error)
-{
-  int length = 0;
-  //try{
-  for (XmlRpc::XmlRpcValue::iterator it = someXmlSet.begin() ; it != someXmlSet.end(); ++it)
-    length+=1;
-  /*}catch (XmlRpc::XmlRpcException& e){
-      ROS_WARN(e.getMessage().c_str());
-      exit(-1);
-  }*/
-  return length;
-} /* other way to investigate
-for(XmlRpc::XmlRpcValue whatever : input_xmlrpc_struct){
-whatever.getType.....
-}
-*/
-
-std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannerParametersNamesDictionnary()
-{ //This has for purpose to list all the CURRENT planners implemented in moveit and their TWEAKABLE default parameters (basically, "type" parameter = geometric::... is not tweakable into control:: currently)
-  std::map<std::string, std::vector<std::string>> map_by_value_08Dec18;
-  map_by_value_08Dec18["RRTConnectkConfigDefault"] = {"range"};
-  map_by_value_08Dec18["ESTkConfigDefault"] = {"range", 
-  					       "goal_bias"};
-  map_by_value_08Dec18["RRTkConfigDefault"] = {"range", 
-  				               "goal_bias"};
-  map_by_value_08Dec18["KPIECEkConfigDefault"] = {"range", 
-  					          "goal_bias",
-  					          "border_fraction", 
-  					          "failed_expansion_score_factor", 
-  					          "min_valid_path_fraction", 
-  					          "projection_evaluator", 
-  					          "longest_valid_segment_fraction"};
-  map_by_value_08Dec18["SBLkConfigDefault"] = {"range", 
-  					       "projection_evaluator", 
-  					       "longest_valid_segment_fraction"};
-  map_by_value_08Dec18["LBKPIECEkConfigDefault"] = {"range",
-				    	    	    "border_fraction",
-				    	            "min_valid_path_fraction",
-				    	            "projection_evaluator",
-				    	            "longest_valid_segment_fraction"};
-  map_by_value_08Dec18["BKPIECEkConfigDefault"] = {"range",
-  					           "border_fraction", 
-  					           "failed_expansion_score_factor", 
-  					           "min_valid_path_fraction", 
-  					           "projection_evaluator", 
-  					           "longest_valid_segment_fraction"};
-  map_by_value_08Dec18["RRTstarkConfigDefault"] = {"range", 
-  					           "goal_bias", 
-  					           "delay_collision_checking"};
-  map_by_value_08Dec18["TRRTkConfigDefault"] = {"range", 
-  					        "goal_bias", 
-				                "max_states_failed", 
-  					        "temp_change_factor", 
-  					        "min_temperature", 
-  					        "init_temperature", 
-  					        "frountier_threshold", 
-  					        "frountierNodeRatio", 
-  					        "k_constant"};
-  map_by_value_08Dec18["PRMkConfigDefault"] = {"max_nearest_neighbors"};
-  map_by_value_08Dec18["PRMstarkConfigDefault"] = {}; //empty vector
-  return map_by_value_08Dec18;
-}
+/*TODO use typedef for e.g 
+typedef std::map< std::string, XmlRpc::XmlRpcValue > String2XmlRpcValue; */
 
 void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 										   parametersSet_toUpdate, 
-						  const XmlRpc::XmlRpcValue& parametersBoundaries, 							  int nbParams)
+						  XmlRpc::XmlRpcValue& parametersBoundaries,
+						  std::vector<std::string> plannerParamNames, 							  int nbParams)
+// parametersBoundaries not const& because :
+/*error: passing ‘const XmlRpc::XmlRpcValue’ as ‘this’ argument discards qualifiers [-fpermissive]
+    parametersSet_toUpdate[plannerParamName] -= parametersBoundaries[plannerParamName]["step"]; */
+// Though keeping still the &reference is dangerous but avoids to copy the dict...
 {
-  //Decide whether to make a move (towards a neighbour set of parameters) with respect to one of the n dims, or to move along up to n dims
+  //Decide whether to make a move (towards a neighbour set of parameters) with respect to one of the n dims (n params), or to move along up to n dims
   double unirandom_d = std::rand()/((double)(RAND_MAX)+1.); // belongs to [0.,1.[
   	//(double)(RAND_MAX+1) implies "warning: integer overflow in expression"
 	//https://stackoverflow.com/questions/2347851/c-a-cure-for-the-warning-integer-overflow-in-expression
   ROS_WARN("(To verify) that unirandom_d = %f sequence isn't repeated through the very fast loops", unirandom_d); //TODO verify in another way than visually only!
-  
-  std::vector<int> indexParams(nbParams);
-  for (int i = 0; i < nbParams; i++)
-    indexParams[i] = i; //nbParams components belong to [0,nbParams-1]
-  
   int moveBetween = floor(nbParams*unirandom_d+1); // a number of axis belonging to [1,nbParams]
   
   //Decide regarding which of the m<=n dims to move
   int draw;
-  std::vector<int> indexParamsToAlter(moveBetween);
+  //std::vector<std::string> paramNamesToAlter(moveBetween); //actually not necessary
+  std::string plannerParamName;
   for (unsigned i=0; i < moveBetween; ++i)
-  { //draw without replacement (otherwise it's not anymore an infinitesimal move)
+  { //begin routine "draw without replacement" (otherwise it's not anymore an infinitesimal move)
     draw = std::rand()%nbParams; // an index belonging to [0,nbParams-1]
-    indexParamsToAlter[i] = indexParams[draw];
-    indexParams.erase(indexParams.begin()+draw); //update of the remaining parameters to be choosable
+    //paramNamesToAlter[i] = plannerParamNames[draw]; //actually not necessary
+    plannerParamName = plannerParamNames[draw];
+
+    //interruption and insertion of the routine "do the alteration for that draw"
+    ROS_WARN( "[To verify] We currently are into alterPlannerParameterS() and about to call alterPlannerParameter_() ...");
+    if (parametersSet_toUpdate[plannerParamName].getType() == XmlRpc::XmlRpcValue::TypeDouble)
+      alterPlannerParameter<double>(parametersSet_toUpdate, parametersBoundaries, 
+      				    plannerParamName);
+    else if (parametersSet_toUpdate[plannerParamName].getType() == XmlRpc::XmlRpcValue::TypeInt)
+      alterPlannerParameter<int>(parametersSet_toUpdate, parametersBoundaries, plannerParamName);
+    
+    //end of the routine "without replacement"
+    plannerParamNames.erase(plannerParamNames.begin()+draw); //update of the remaining parameters to be choosable
     nbParams-=1; //update of the range where to pick a param indx in the vector of possible choices
   }
-    
-  // ...
-  
-  return;
+}
+
+template <typename T>
+void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& parametersSet_toUpdate, 
+						      XmlRpc::XmlRpcValue& parametersBoundaries,
+						      const std::string& plannerParamName)
+{
+  int coinflip;
+  if (parametersSet_toUpdate[plannerParamName] == parametersBoundaries[plannerParamName]["min"])
+  {
+    parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate[plannerParamName]) + 
+    					     (T)(parametersBoundaries[plannerParamName]["step"]);
+    /* unfortunately there isn't available overload for operator+ operator+= and I believe in fact 
+    every operator but {operator= and operator==} */
+  } else if ( parametersSet_toUpdate[plannerParamName] == parametersBoundaries[plannerParamName] 
+  											 ["max"] )
+  {
+    parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate[plannerParamName]) - 						       (T)parametersBoundaries[plannerParamName]["step"];
+  } else
+  {
+    coinflip = std::rand()%2; // an index being 0 or 1
+    ROS_WARN("(To verify) that 'coinflip = %d' is well belonging to {0,1}", coinflip);
+    switch(coinflip)
+    {
+      case 0 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s \n",
+      			 plannerParamName.c_str(), 
+      			 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
+      	       parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate 
+      			[plannerParamName]) + (T)(parametersBoundaries[plannerParamName]["step"]);
+      	       ROS_WARN( "to %s", 
+      	       		 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
+	       break;
+      case 1 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s \n",
+      			 plannerParamName.c_str(), 
+      			 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
+      	       parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate 
+      			[plannerParamName]) - (T)(parametersBoundaries[plannerParamName]["step"]);
+      	       ROS_WARN( "to %s", 
+      	       		 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
+    }
+  }
 }
 
     /* For laterly alter the joint_projections parameter as well:
@@ -1101,7 +1100,6 @@ double ModifiedBenchmarkExecutor::evaluate_plan(const robot_trajectory::RobotTra
 
   return plan_quality;
 }
-
 
 double ModifiedBenchmarkExecutor::evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof how far the actual trajectory is from the end-effector shortest trajectory
 {
@@ -1387,4 +1385,67 @@ void ModifiedBenchmarkExecutor::writeOutput(const BenchmarkRequest& brequest, co
 
   out.close();
   ROS_INFO("Benchmark results saved to '%s'", filename.c_str());
+}
+
+int ModifiedBenchmarkExecutor::xmlRpcValueSize(XmlRpc::XmlRpcValue& someXmlSet) //(const& generates error)
+{
+  int length = 0;
+  //try{
+  for (XmlRpc::XmlRpcValue::iterator it = someXmlSet.begin() ; it != someXmlSet.end(); ++it)
+    length+=1;
+  /*}catch (XmlRpc::XmlRpcException& e){
+      ROS_WARN(e.getMessage().c_str());
+      exit(-1);
+  }*/
+  return length;
+} /* other way to investigate
+for(XmlRpc::XmlRpcValue whatever : input_xmlrpc_struct){
+whatever.getType.....
+}
+*/
+
+std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::constructMoveitPlannersParameterNamesDictionnary()
+{ //This has for purpose to list all the CURRENT planners implemented in moveit and their TWEAKABLE default parameters (basically, "type" parameter = geometric::... is not tweakable into control:: currently) //TODO currently I did not deal yet with the planners using projection evaluator //TODO retrieve this from a .yaml instead
+  std::map<std::string, std::vector<std::string>> map_by_value_08Dec18;
+  map_by_value_08Dec18["RRTConnectkConfigDefault"] = {"range"};
+  map_by_value_08Dec18["ESTkConfigDefault"] = {"range", 
+  					       "goal_bias"};
+  map_by_value_08Dec18["RRTkConfigDefault"] = {"range", 
+  				               "goal_bias"};
+  map_by_value_08Dec18["KPIECEkConfigDefault"] = {"range", 
+  					          "goal_bias",
+  					          "border_fraction", 
+  					          "failed_expansion_score_factor", 
+  					          "min_valid_path_fraction", 
+  					          "projection_evaluator", 
+  					          "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["SBLkConfigDefault"] = {"range", 
+  					       "projection_evaluator", 
+  					       "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["LBKPIECEkConfigDefault"] = {"range",
+				    	    	    "border_fraction",
+				    	            "min_valid_path_fraction",
+				    	            "projection_evaluator",
+				    	            "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["BKPIECEkConfigDefault"] = {"range",
+  					           "border_fraction", 
+  					           "failed_expansion_score_factor", 
+  					           "min_valid_path_fraction", 
+  					           "projection_evaluator", 
+  					           "longest_valid_segment_fraction"};
+  map_by_value_08Dec18["RRTstarkConfigDefault"] = {"range", 
+  					           "goal_bias", 
+  					           "delay_collision_checking"};
+  map_by_value_08Dec18["TRRTkConfigDefault"] = {"range", 
+  					        "goal_bias", 
+				                "max_states_failed", 
+  					        "temp_change_factor", 
+  					        "min_temperature", 
+  					        "init_temperature", 
+  					        "frountier_threshold", 
+  					        "frountierNodeRatio", 
+  					        "k_constant"};
+  map_by_value_08Dec18["PRMkConfigDefault"] = {"max_nearest_neighbors"};
+  map_by_value_08Dec18["PRMstarkConfigDefault"] = {}; //empty vector
+  return map_by_value_08Dec18;
 }

@@ -121,9 +121,15 @@ public:
   
   XmlRpc::XmlRpcValue getServerParameters(const std::string& path);
   int xmlRpcValueSize(XmlRpc::XmlRpcValue& someXmlSet);
-  std::map<std::string, std::vector<std::string>> constructMoveitPlannerParametersNamesDictionnary
+  std::map<std::string, std::vector<std::string>> constructMoveitPlannersParameterNamesDictionnary
   												 ();
-  void alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate, const 				      XmlRpc::XmlRpcValue& parametersBoundaries, int nbParams);
+  void alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate,
+  			      XmlRpc::XmlRpcValue& parametersBoundaries, 				      std::vector<std::string> plannerParamNames, 
+  			      int nbParams);
+  template <typename T>
+  void alterPlannerParameter(XmlRpc::XmlRpcValue& parametersSet_toUpdate, 
+			     XmlRpc::XmlRpcValue& parametersBoundaries, 
+			     const std::string& plannerParamName);
 
 protected:
   struct BenchmarkRequest
