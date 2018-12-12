@@ -877,7 +877,6 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  }
       	  
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
-      	  ROS_WARN( "[To verify] We currently are into runBenchmark_() and about to call alterPlannerParameterS() ...");
       	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml,
       	  			 vecPlannerParamNames, nbPlannerParams);
       	  
@@ -965,7 +964,6 @@ void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 				
     plannerParamName = plannerParamNames[draw];
 
     //interruption and insertion of the routine "do the alteration for that draw"
-    ROS_WARN( "[To verify] We currently are into alterPlannerParameterS() and about to call alterPlannerParameter_() ...");
     if (parametersSet_toUpdate[plannerParamName].getType() == XmlRpc::XmlRpcValue::TypeDouble)
       alterPlannerParameter<double>(parametersSet_toUpdate, parametersBoundaries, 
       				    plannerParamName);
@@ -997,7 +995,6 @@ void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& param
   } else
   {
     coinflip = std::rand()%2; // an index being 0 or 1
-    ROS_WARN("(To verify) that 'coinflip = %d' is well belonging to {0,1}", coinflip);
     switch(coinflip)
     {
       case 0 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s \n",
