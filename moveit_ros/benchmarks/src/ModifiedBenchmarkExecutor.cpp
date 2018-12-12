@@ -840,7 +840,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  ROS_ERROR("In iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml, you did not set any metric over which do the optimization process. In parameters list, please add metric_choice: relevancy OR energy");
       	}
       	jmp:
-      	double planQuality, previousPlanQuality = planQuality;
+      	double planQuality = 0., previousPlanQuality;
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	std::map<std::string, std::vector<std::string>> plannersParameterNames = 
