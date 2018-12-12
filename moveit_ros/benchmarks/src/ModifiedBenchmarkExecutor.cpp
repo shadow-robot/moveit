@@ -804,7 +804,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       {
         ROS_WARN("--------------------------------");
         ROS_WARN("--------------------------------");
-        ROS_WARN("RUN NUMBER: %d", j);
+        ROS_WARN("RUN NUMBER: %d", j+1);
         ROS_WARN("--------------------------------");
         ROS_WARN("--------------------------------");
         
@@ -997,7 +997,7 @@ void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& param
     coinflip = std::rand()%2; // an index being 0 or 1
     switch(coinflip)
     {
-      case 0 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s \n",
+      case 0 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s",
       			 plannerParamName.c_str(), 
       			 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
       	       parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate 
@@ -1005,7 +1005,7 @@ void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& param
       	       ROS_WARN( "to %s", 
       	       		 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
 	       break;
-      case 1 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s \n",
+      case 1 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s",
       			 plannerParamName.c_str(), 
       			 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
       	       parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate 
