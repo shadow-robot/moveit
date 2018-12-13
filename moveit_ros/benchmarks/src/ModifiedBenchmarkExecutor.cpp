@@ -798,8 +798,31 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       for (std::size_t j = 0; j < planner_start_fns_.size(); ++j)
         planner_start_fns_[j](request, planner_data);
 
-      planning_interface::PlanningContextPtr context =
-          planner_interfaces_[it->first]->getPlanningContext(planning_scene_, request);
+      planning_interface::PlanningContextPtr context = planner_interfaces_[it->first]-> 
+      						      getPlanningContext(planning_scene_, request);
+      
+			//addition of mine that should be below, but already lot of content    
+      // https://www.learncpp.com/cpp-tutorial/78-function-pointers/
+			double (*qualityFcnPtr)(const robot_trajectory::RobotTrajectory&); // pointer which points 				to the chosen metric function during all the following, even though one could alternate 			between metrics...
+			std::string metric1 ("energy");
+			std::string metric2 ("relevancy");
+			if (metricChoice.compare(metric1)==0)
+			{
+				qualityFcnPtr = &evaluate_plan;
+				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   "Currently you can change it by acting on iplanr_description/" 
+						 "benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
+			} else if (metricChoice.compare(metric2)==0)
+			{
+				qualityFcnPtr = &evaluate_plan_cart;
+				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   "Currently you can change it by acting on iplanr_description/" 
+						 "benchmark_configs/scene_ground_with_boxes.yaml", metric2.c_str());
+			} else
+			{
+				ROS_ERROR("In iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml," 
+							"you did not set any metric over which do the optimization process." 
+							"In parameters list, please add metric_choice: relevancy OR energy");
+			}
+      						      
       for (int j = 0; j < runs; ++j)
       {
         ROS_WARN("--------------------------------");
@@ -813,39 +836,17 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
           pre_event_fns_[k](request);
 
       	// Modification of the initial code : addition of a while countdown not exceeded -- tweak.
-      	planning_interface::MotionPlanDetailedResponse mp_res;
-      	planning_interface::MotionPlanDetailedResponse mp_res_before_exceeding;
-      	double total_time = 0.;
+      	planning_interface::MotionPlanDetailedResponse mp_res, mp_res_before_exceeding;
+      	double total_time = 0., planQuality = 0., previousPlanQuality;
       	bool solved = true; //In case the last mp_res before exceed is not solved but a previous is
-      	int solved_proof = 0;
       	bool finally_solved = false;
-      	mp_res_before_exceeding = mp_res; // In case the first iteration isn't kept bc too long
+      	int solved_proof = 0;
       	
-      	// https://www.learncpp.com/cpp-tutorial/78-function-pointers/
-      	double (*qualityFcnPtr)(const robot_trajectory::RobotTrajectory&); // pointer which points to the chosen metric function during all the following, even though one could alternate between metrics...
-      	std::string metric1 ("energy");
-      	std::string metric2 ("relevancy");
-      	if (metricChoice.compare(metric1)==0)
-      	{
-      	  qualityFcnPtr = &evaluate_plan;
-      	  ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'. Currently you can change it by acting on iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
-      	  goto jmp; // a hack to break out of if statements
-      	} else if (metricChoice.compare(metric2)==0)
-      	{
-      	  qualityFcnPtr = &evaluate_plan_cart;
-      	  ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'. Currently you can change it by acting on iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml", metric2.c_str());
-      	  goto jmp;
-      	} else
-      	{
-      	  ROS_ERROR("In iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml, you did not set any metric over which do the optimization process. In parameters list, please add metric_choice: relevancy OR energy");
-      	}
-      	jmp:
-      	double planQuality = 0., previousPlanQuality;
-      	
+      	// TODO each run should start from the same initial parameters set
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	std::map<std::string, std::vector<std::string>> plannersParameterNames = 
       	constructMoveitPlannersParameterNamesDictionnary();
-      	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+      	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type 		{plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
       	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 								  	   "planner_parameters_boundaries";
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
@@ -869,7 +870,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	while (total_time < countdown)
       	{
       	  ros::WallTime start = ros::WallTime::now();
-      	  if (solved)
+      	  if (solved) //then mp_res isn't empty, if not mp_res is empty and then we could as 				legitly return the empty mp_res_before_exceeding as mp_res
       	  { //(We save the previous iteration only if it solved the pb and allocated time remains.)
       	    mp_res_before_exceeding = mp_res; // addition to the first iteration above
       	    previousPlanQuality = planQuality;
@@ -879,13 +880,22 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
       	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml,
       	  			 vecPlannerParamNames, nbPlannerParams);
-      	  
+      	  			 
       	  solved = context->solve(mp_res);
       	  if (solved)
       	  {
       	    solved_proof +=1;
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
       	    planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
+      	    
+      	    ////////////////////////////////////////////////////////////////////
+      	    ////////////////////////////////////////////////////////////////////
+      	    ////////////////////////////////////////////////////////////////////
+      	    /* WHY planQuality KEEPS REMAINING CONSTANT ????!!!!!!! TODO  !!! */
+      	    ////////////////////////////////////////////////////////////////////
+      	    ////////////////////////////////////////////////////////////////////
+      	    ////////////////////////////////////////////////////////////////////
+      	    
       	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
       	    {
       	      mp_res = mp_res_before_exceeding;
@@ -950,7 +960,7 @@ void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 				
   double unirandom_d = std::rand()/((double)(RAND_MAX)+1.); // belongs to [0.,1.[
   	//(double)(RAND_MAX+1) implies "warning: integer overflow in expression"
 	//https://stackoverflow.com/questions/2347851/c-a-cure-for-the-warning-integer-overflow-in-expression
-  ROS_WARN("(To verify) that unirandom_d = %f sequence isn't repeated through the very fast loops", unirandom_d); //TODO verify in another way than visually only!
+  //ROS_WARN("(To verify) that unirandom_d = %f sequence isn't repeated through the very fast loops", unirandom_d); //TODO verify in another way than visually only!
   int moveBetween = floor(nbParams*unirandom_d+1); // a number of axis belonging to [1,nbParams]
   
   //Decide regarding which of the m<=n dims to move
