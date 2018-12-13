@@ -888,13 +888,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  {
       	    solved_proof +=1;
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
-      	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // HOW/WHY can it exists 							several found trajectories ? (why do I have to retrieve only the first [0] of them?)
+      	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) );
       	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
       	    {
       	      mp_res = mp_res_before_exceeding;
       	      planQuality = previousPlanQuality;
       	      parametersSet_Xml = previousPlannerParameters;
-      	      ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	    }
       	  }
       	  total_time += (ros::WallTime::now() - start).toSec();
