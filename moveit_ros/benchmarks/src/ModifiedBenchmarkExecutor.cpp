@@ -848,10 +848,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	constructMoveitPlannersParameterNamesDictionnary();
       	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type 		{plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
-      	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 								  	   "planner_parameters_boundaries";
+      	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 								  	   																 "planner_parameters_boundaries";
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
       			    parametersSet_Xml = getServerParameters(pathPlannerParameters), 
-      			    paramBoundariesAndSteps_Xml = 							getServerParameters(pathPlannerParamBoundaries);
+      			    paramBoundariesAndSteps_Xml = getServerParameters(pathPlannerParamBoundaries);
       	std::vector<std::string> vecPlannerParamNames = plannersParameterNames[planner];
       	int nbPlannerParams = vecPlannerParamNames.size();
       	
@@ -861,8 +861,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	if (solved)
       	{
       	  solved_proof +=1;
-      	  planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // TODO HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
-  	  ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
+      	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
+  	    ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
       	
@@ -886,7 +886,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  {
       	    solved_proof +=1;
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
-      	    planQuality = (*qualityFcnPtr)(*mp_res.trajectory_[0]); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
+      	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
       	    
       	    ////////////////////////////////////////////////////////////////////
       	    ////////////////////////////////////////////////////////////////////
