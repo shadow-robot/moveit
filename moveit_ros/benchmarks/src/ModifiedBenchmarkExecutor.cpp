@@ -856,17 +856,14 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	std::vector<std::string> vecPlannerParamNames = plannersParameterNames[planner];
       	int nbPlannerParams = vecPlannerParamNames.size();
       	
-      	// Solve problem, once, as before
+      	// Solve problem, once, as before,
       	ros::WallTime start = ros::WallTime::now();
-      	ROS_WARN("SIZE OF MP_RES TRAJ 0 : %d", mp_res.trajectory_.size());
       	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
-      	ROS_WARN("SIZE OF MP_RES TRAJ 1 : %d", mp_res.trajectory_.size());
       	if (solved)
       	{
       	  solved_proof +=1;
-      	  ROS_WARN("Type of *(mp_res.trajectory_[0]) is : %s", typeid(*(mp_res.trajectory_[0])).name() );
-      	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
-  	    ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
+      	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
+  	    	ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
       	
@@ -874,34 +871,24 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	while (total_time < countdown)
       	{
       	  ros::WallTime start = ros::WallTime::now();
-      	  if (solved) //then mp_res isn't empty, if not mp_res is empty and then we could as 				legitly return the empty mp_res_before_exceeding as mp_res
-      	  { //(We save the previous iteration only if it solved the pb and allocated time remains.)
+      	  if (solved) //then mp_res isn't empty, if not mp_res is empty and then we could as 													legitly return the empty mp_res_before_exceeding as mp_res
+      	  { //(We save the previous iteration only if it solved the pb AND ALLOCATED TIME REMAINS.)
       	    mp_res_before_exceeding = mp_res; // addition to the first iteration above
       	    previousPlanQuality = planQuality;
       	    previousPlannerParameters = parametersSet_Xml;
       	  }
       	  
-      	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
+      	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer,
       	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml,
       	  			 vecPlannerParamNames, nbPlannerParams);
-      	  mp_res = planning_interface::MotionPlanDetailedResponse();
-      	  ROS_WARN("SIZE OF MP_RES TRAJ 2 : %d", mp_res.trajectory_.size());
+      	  			 
+      	  mp_res = planning_interface::MotionPlanDetailedResponse(); //this constructor acts as a 					clearer, otherwise solve(mp_res) would append a set of trajectories to its current 						vector trajectory_ attribute!
       	  solved = context->solve(mp_res);
-      	  ROS_WARN("SIZE OF MP_RES TRAJ 3 : %d", mp_res.trajectory_.size());
       	  if (solved)
       	  {
       	    solved_proof +=1;
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
-      	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
-      	    
-      	    ////////////////////////////////////////////////////////////////////
-      	    ////////////////////////////////////////////////////////////////////
-      	    ////////////////////////////////////////////////////////////////////
-      	    /* WHY planQuality KEEPS REMAINING CONSTANT ????!!!!!!! TODO  !!! */
-      	    ////////////////////////////////////////////////////////////////////
-      	    ////////////////////////////////////////////////////////////////////
-      	    ////////////////////////////////////////////////////////////////////
-      	    
+      	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // HOW/WHY can it exists 							several found trajectories ? (why do I have to retrieve only the first [0] of them?)
       	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
       	    {
       	      mp_res = mp_res_before_exceeding;
@@ -916,7 +903,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	if (solved_proof > 0)
       	{
       	  finally_solved = true;
-      	  ROS_INFO("It exists some iteration which has managed to solve the problem. And the one which best solves it, is stored");
+      	  ROS_INFO("It exists some iteration which has managed to solve the problem. And the one 											which best solves it, is stored");
       	}
 
         // Post-run events
