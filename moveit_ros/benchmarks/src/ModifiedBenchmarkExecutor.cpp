@@ -768,10 +768,9 @@ bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& reg
 }
 
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
-                                     const std::map<
-                                     std::string, std::vector<std::string> >& planners, 
-                                     int runs, 
-                                     const std::string& metricChoice)
+                                     				const std::map<std::string, std::vector<std::string>>& 																																													 planners, 
+                                     				 int runs, 
+                                     				 const std::string& metricChoice)
 {
   benchmark_data_.clear();
 
@@ -779,13 +778,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
   ROS_WARN("I ensure that countdown is in seconds -- countdown = '%lf'", countdown);
 
   unsigned int num_planners = 0;
-  for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); it != planners.end();
-       ++it)
+  for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); 
+  		 it != planners.end(); ++it)
     num_planners += it->second.size();
 
   // Iterate through all planner plugins
-  for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); it != planners.end();
-       ++it)
+  for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); 
+  		 it != planners.end(); ++it)
   {
     // Iterate through all planners associated with the plugin
     for (std::size_t i = 0; i < it->second.size(); ++i)
@@ -800,7 +799,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         planner_start_fns_[j](request, planner_data);
 
       planning_interface::PlanningContextPtr context = planner_interfaces_[it->first]-> 
-      						      getPlanningContext(planning_scene_, request);
+      						      															getPlanningContext(planning_scene_, request);
       
 			//addition of mine that should be below, but already lot of content    
       // https://www.learncpp.com/cpp-tutorial/78-function-pointers/
@@ -810,18 +809,18 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			if (metricChoice.compare(metric1)==0)
 			{
 				qualityFcnPtr = &evaluate_plan;
-				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   "Currently you can change it by acting on iplanr_description/" 
-						 "benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
+				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   					 "Currently you can change it by acting on iplanr_description/" 
+						 		 "benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
 			} else if (metricChoice.compare(metric2)==0)
 			{
 				qualityFcnPtr = &evaluate_plan_cart;
-				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   "Currently you can change it by acting on iplanr_description/" 
-						 "benchmark_configs/scene_ground_with_boxes.yaml", metric2.c_str());
+				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   					 "Currently you can change it by acting on iplanr_description/" 
+						 		 "benchmark_configs/scene_ground_with_boxes.yaml", metric2.c_str());
 			} else
 			{
 				ROS_ERROR("In iplanr_description/benchmark_configs/scene_ground_with_boxes.yaml," 
-							"you did not set any metric over which do the optimization process." 
-							"In parameters list, please add metric_choice: relevancy OR energy");
+									"you did not set any metric over which do the optimization process." 
+									"In parameters list, please add metric_choice: relevancy OR energy");
 			}
       						      
       for (int j = 0; j < runs; ++j)
@@ -843,11 +842,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	bool finally_solved = false;
       	int solved_proof = 0;
       	
-      	// TODO each run should start from the same initial parameters set
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	std::map<std::string, std::vector<std::string>> plannersParameterNames = 
       	constructMoveitPlannersParameterNamesDictionnary();
-      	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type 		{plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+      	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type 					{plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
       	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 								  	   																 "planner_parameters_boundaries";
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
