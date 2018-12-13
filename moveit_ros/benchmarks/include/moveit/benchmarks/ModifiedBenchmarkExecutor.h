@@ -129,7 +129,8 @@ public:
   template <typename T>
   void alterPlannerParameter(XmlRpc::XmlRpcValue& parametersSet_toUpdate, 
 			     XmlRpc::XmlRpcValue& parametersBoundaries, 
-			     const std::string& plannerParamName);
+			     const std::string& plannerParamName);		     
+  bool accepted(double t, double Tmax);
 
 protected:
   struct BenchmarkRequest

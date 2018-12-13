@@ -837,10 +837,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 
       	// Modification of the initial code : addition of a while countdown not exceeded -- tweak.
       	planning_interface::MotionPlanDetailedResponse mp_res, mp_res_before_exceeding;
-      	double total_time = 0., planQuality = 0., previousPlanQuality;
+      	double total_time = 0., currentRealTime;
+      	double planQuality = 0., previousPlanQuality;
       	bool solved = true; //In case the last mp_res before exceed is not solved but a previous is
       	bool finally_solved = false;
-      	int solved_proof = 0;
+      	int solved_proof = 0, restart = 0;
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	std::map<std::string, std::vector<std::string>> plannersParameterNames = 
@@ -861,7 +862,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	{
       	  solved_proof +=1;
       	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
-  	    	ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
+  	    	ROS_WARN("FIRST CALL FOUND SOMETHING -- Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
       	
@@ -881,17 +882,29 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  			 vecPlannerParamNames, nbPlannerParams);
       	  			 
       	  mp_res = planning_interface::MotionPlanDetailedResponse(); //this constructor acts as a 					clearer, otherwise solve(mp_res) would append a set of trajectories to its current 						vector trajectory_ attribute!
+      	  restart += 1;
       	  solved = context->solve(mp_res);
       	  if (solved)
       	  {
       	    solved_proof +=1;
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
       	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) );
-      	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
-      	    {
-      	      mp_res = mp_res_before_exceeding;
-      	      planQuality = previousPlanQuality;
-      	      parametersSet_Xml = previousPlannerParameters;
+      	    ROS_WARN("RESTART NUMBER %d FOUND SOMETHING -- Current quality = %lf out of 1", 										 restart, planQuality);
+      	    if (planQuality <= previousPlanQuality) 
+      	    { //switch back to the previous solution, unless Acceptance function lets it go
+      	      currentRealTime = total_time + (ros::WallTime::now() - start).toSec();
+      	      if ( !accepted(currentRealTime, countdown) )
+      	      {
+      	      	mp_res = mp_res_before_exceeding;
+      	      	planQuality = previousPlanQuality;
+      	      	parametersSet_Xml = previousPlannerParameters;
+      	      }
+      	      else {
+      	      ROS_WARN("Current time = %f from the beginning of the run -- "
+      	      				 "This is a worse quality than the previous one (%f) was found, "
+      	      				 "but might be accepted by the simulated annealing acceptance function, "
+      	      				 "as long as we didn't exceed the countdown (being %f sec)!",
+      	      				 currentRealTime, previousPlanQuality, countdown);}
       	    }
       	  }
       	  total_time += (ros::WallTime::now() - start).toSec();
@@ -950,7 +963,7 @@ void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 				
 {
   //Decide whether to make a move (towards a neighbour set of parameters) with respect to one of the n dims (n params), or to move along up to n dims
   double unirandom_d = std::rand()/((double)(RAND_MAX)+1.); // belongs to [0.,1.[
-  	//(double)(RAND_MAX+1) implies "warning: integer overflow in expression"
+  												//(double)(RAND_MAX+1) implies "warning: integer overflow in expression"
 	//https://stackoverflow.com/questions/2347851/c-a-cure-for-the-warning-integer-overflow-in-expression
   //ROS_WARN("(To verify) that unirandom_d = %f sequence isn't repeated through the very fast loops", unirandom_d); //TODO verify in another way than visually only!
   int moveBetween = floor(nbParams*unirandom_d+1); // a number of axis belonging to [1,nbParams]
@@ -1017,6 +1030,14 @@ void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& param
     }
   }
 }
+
+bool ModifiedBenchmarkExecutor::accepted(double t, double Tmax)
+{ //Here we could also have chosen to input the worse quality than the previous, but since I cannot guarantee the maximum (being 1) to be ever obtainable in presence of obstacles in the scene, let's do it in another way, "more gentle" 
+  double unirandom_d = std::rand()/((double)(RAND_MAX)+1.); // belongs to [0.,1.[
+  if (unirandom_d > t/Tmax) //.EQV. to: acceptance(t)|T = (1-t/T)*100 %of chances
+    return true;
+  return false;
+} //c.f Simulated Annealing algorithm, although choice for acceptance func is totally free
 
     /* For laterly alter the joint_projections parameter as well:
     const 		& getRobotActuatedJoints() // I use a hack, which assumes that have any of these: joint and/or velocity and/or acceleration limits, i.e that the topic /robot_description_planning/joint_limits/ exists. Currently this is the only one available which shows the robot joints //TODO Laterly read in somewhere stable, like the .urdf. //TODO Find where to read the joint which stands as end effector (where the ball marker is on, in RViz)
