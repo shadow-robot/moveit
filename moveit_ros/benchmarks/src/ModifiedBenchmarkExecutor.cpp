@@ -52,7 +52,8 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <list> // for the map of planners -- associated parameters
-//#include <cstdlib> //for random numbers (to decide in how many dim make a move towards neighbour)
+
+#include <typeinfo> //just for debugging //TODO to be removed
 
 
 using namespace moveit_ros_benchmarks;
@@ -857,10 +858,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	
       	// Solve problem, once, as before
       	ros::WallTime start = ros::WallTime::now();
+      	ROS_WARN("SIZE OF MP_RES TRAJ 0 : %d", mp_res.trajectory_.size());
       	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
+      	ROS_WARN("SIZE OF MP_RES TRAJ 1 : %d", mp_res.trajectory_.size());
       	if (solved)
       	{
       	  solved_proof +=1;
+      	  ROS_WARN("Type of *(mp_res.trajectory_[0]) is : %s", typeid(*(mp_res.trajectory_[0])).name() );
       	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it exists several found trajectories ? (why do I have to retrieve only the first [0] of them?)
   	    ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
@@ -880,8 +884,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer
       	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml,
       	  			 vecPlannerParamNames, nbPlannerParams);
-      	  			 
+      	  mp_res = planning_interface::MotionPlanDetailedResponse();
+      	  ROS_WARN("SIZE OF MP_RES TRAJ 2 : %d", mp_res.trajectory_.size());
       	  solved = context->solve(mp_res);
+      	  ROS_WARN("SIZE OF MP_RES TRAJ 3 : %d", mp_res.trajectory_.size());
       	  if (solved)
       	  {
       	    solved_proof +=1;
@@ -899,6 +905,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	    if (planQuality <= previousPlanQuality) //switch back to the previous solution
       	    {
       	      mp_res = mp_res_before_exceeding;
+      	      planQuality = previousPlanQuality;
+      	      parametersSet_Xml = previousPlannerParameters;
       	      ROS_WARN("Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	    }
       	  }
