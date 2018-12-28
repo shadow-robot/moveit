@@ -890,6 +890,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
       	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) );
       	    ROS_WARN("RESTART NUMBER %d FOUND SOMETHING -- Current quality = %lf out of 1", 										 restart, planQuality);
+	    ROS_WARN("Current allocated countdown = %f sec", countdown);
       	    if (planQuality <= previousPlanQuality) 
       	    { //switch back to the previous solution, unless Acceptance function lets it go
       	      currentRealTime = total_time + (ros::WallTime::now() - start).toSec();
@@ -901,7 +902,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	      }
       	      else {
       	      ROS_WARN("Current time = %f from the beginning of the run -- "
-      	      				 "This is a worse quality than the previous one (%f) was found, "
+      	      				 "This is a worse quality than the previous one (%f) which was found and kept in memory, "
       	      				 "but might be accepted by the simulated annealing acceptance function, "
       	      				 "as long as we didn't exceed the countdown (being %f sec)!",
       	      				 currentRealTime, previousPlanQuality, countdown);}
