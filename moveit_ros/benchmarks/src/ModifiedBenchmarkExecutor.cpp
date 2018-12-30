@@ -53,7 +53,7 @@
 
 #include <list> // for the map of planners -- associated parameters
 
-#include <typeinfo> //just for debugging //TODO to be removed
+#include <iostream> // for writing the unique .log
 
 
 using namespace moveit_ros_benchmarks;
@@ -259,8 +259,8 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       ROS_WARN("--------------------------------");
       ROS_WARN("--------------------------------");
       ros::WallTime start_time = ros::WallTime::now();
-      runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns(),
-      		   options_.getMetricChoice());
+      runBenchmark(queries[i].request, queries[i].name, options_.getPlannerConfigurations(), options_.getNumRuns(),
+      		   options_.getMetricChoice(), options_.getSceneName());
       double duration = (ros::WallTime::now() - start_time).toSec();
       
       ROS_INFO("Benchmark took '%f' seconds.", duration);
@@ -768,9 +768,11 @@ bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& reg
 }
 
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
-                                     				const std::map<std::string, std::vector<std::string>>& 																																													 planners, 
+																						 const std::string& queryName,
+                                     				 const std::map<std::string, std::vector<std::string>>& 																																													 planners, 
                                      				 int runs, 
-                                     				 const std::string& metricChoice)
+                                     				 const std::string& metricChoice, 
+																						 const std::string& sceneName)
 {
   benchmark_data_.clear();
 
@@ -855,6 +857,18 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	std::vector<std::string> vecPlannerParamNames = plannersParameterNames[planner];
       	int nbPlannerParams = vecPlannerParamNames.size();
       	
+				//Writing of decisive parameters in an unique .log file through the whole optimization process, this block will have to be removed for real time applications
+				//Because of laziness, I prefer simply write the acceptance function as a string and conserve the already hardcoded expression, rather than each time re-parsing my string function expression which would, I believe, drastically slow down the process. However here is an idea https://archive.codeplex.com/?p=exprtk
+				std::string acceptanceFuncExpression = "1-t/T";
+				std::string logfileName; ros::param::get("/moveit_run_benchmark/benchmark_config/parameters/logname", logfileName);
+				std::ofstream myfile; myfile.open(logfileName, std::ios::out | std::ios::app);
+				myfile << "planner = " << planner << std::endl;
+				myfile << "metric = " << metricChoice << std::endl;
+				myfile << "scene = " << sceneName << std::endl;
+				myfile << "query = " << queryName << std::endl;
+				myfile << "acceptance = " << acceptanceFuncExpression << std::endl;
+				myfile << "run = " << j+1 <<std::endl;
+
       	// Solve problem, once, as before,
       	ros::WallTime start = ros::WallTime::now();
       	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
