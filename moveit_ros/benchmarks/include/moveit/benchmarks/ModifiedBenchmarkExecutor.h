@@ -120,6 +120,11 @@ public:
   static double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p);
   
   XmlRpc::XmlRpcValue getServerParameters(const std::string& path);
+  void writePlannerParametersAndQuality(XmlRpc::XmlRpcValue& paramSet, 
+					std::ofstream& fileVar, 
+					std::vector<std::string> plannerParamNames, 
+					int nbParams, 
+					double planQuality);
   int xmlRpcValueSize(XmlRpc::XmlRpcValue& someXmlSet);
   std::map<std::string, std::vector<std::string>> constructMoveitPlannersParameterNamesDictionnary
   												 ();

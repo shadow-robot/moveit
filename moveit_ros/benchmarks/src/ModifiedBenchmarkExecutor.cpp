@@ -844,6 +844,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	bool solved = true; //In case the last mp_res before exceed is not solved but a previous is
       	bool finally_solved = false;
       	int solved_proof = 0, restart = 0;
+				bool lastIterationIsConcluding;
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	std::map<std::string, std::vector<std::string>> plannersParameterNames = 
@@ -866,24 +867,36 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				myfile << "metric = " << metricChoice << std::endl;
 				myfile << "scene = " << sceneName << std::endl;
 				myfile << "query = " << queryName << std::endl;
+				myfile << "countdown = " << countdown << std::endl;
 				myfile << "acceptance = " << acceptanceFuncExpression << std::endl;
-				myfile << "run = " << j+1 <<std::endl;
+				myfile << "run = " << j+1 << std::endl;
+				// Write the one-line ordered list of parameters for writing laterly online their values
+				for (std::size_t i = 0; i < nbPlannerParams; ++i)
+					myfile << vecPlannerParamNames[i] << ", ";
+				myfile << "quality:" << std::endl;
 
       	// Solve problem, once, as before,
       	ros::WallTime start = ros::WallTime::now();
+				lastIterationIsConcluding = false;
       	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
       	if (solved)
       	{
       	  solved_proof +=1;
+					lastIterationIsConcluding = true;
       	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
-  	    	ROS_WARN("FIRST CALL FOUND SOMETHING -- Current quality = %lf out of 1", planQuality); // TO BE REMOVED
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
+      	if (solved)
+      	{
+					ROS_WARN("FIRST CALL FOUND SOMETHING -- Current quality = %lf out of 1", planQuality); // TO BE REMOVED
+					writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
+				}
       	
       	// and as many times as the countdown allows it,
       	while (total_time < countdown)
       	{
       	  ros::WallTime start = ros::WallTime::now();
+					lastIterationIsConcluding = false;
       	  if (solved) //then mp_res isn't empty, if not mp_res is empty and then we could as 													legitly return the empty mp_res_before_exceeding as mp_res
       	  { //(We save the previous iteration only if it solved the pb AND ALLOCATED TIME REMAINS.)
       	    mp_res_before_exceeding = mp_res; // addition to the first iteration above
@@ -905,21 +918,30 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) );
       	    ROS_WARN("RESTART NUMBER %d FOUND SOMETHING -- Current quality = %lf out of 1", 										 restart, planQuality);
 	    ROS_WARN("Current allocated countdown = %f sec", countdown);
-      	    if (planQuality <= previousPlanQuality) 
-      	    { //switch back to the previous solution, unless Acceptance function lets it go
+      	    if (planQuality > previousPlanQuality) 
+						{ //write the new better results
+							writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
+							lastIterationIsConcluding = true;
+						}
+						else //(planQuality <= previousPlanQuality)
+      	    { 
       	      currentRealTime = total_time + (ros::WallTime::now() - start).toSec();
       	      if ( !accepted(currentRealTime, countdown) )
-      	      {
+      	      { //switch back to the previous solution, unless Acceptance function lets it go
       	      	mp_res = mp_res_before_exceeding;
       	      	planQuality = previousPlanQuality;
       	      	parametersSet_Xml = previousPlannerParameters;
       	      }
-      	      else {
-      	      ROS_WARN("Current time = %f from the beginning of the run -- "
-      	      				 "This is a worse quality than the previous one (%f) which was found and kept in memory, "
-      	      				 "but might be accepted by the simulated annealing acceptance function, "
-      	      				 "as long as we didn't exceed the countdown (being %f sec)!",
-      	      				 currentRealTime, previousPlanQuality, countdown);}
+      	      else
+							{ //write the new worse results
+								writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
+								lastIterationIsConcluding = true;
+      	      	ROS_WARN("Current time = %f from the beginning of the run -- "
+      	      				 	 "This is a worse quality than the previous one (%f) which was found and kept in memory, "
+      	      				 	 "but might be accepted by the simulated annealing acceptance function, "
+      	      				 	 "as long as we didn't exceed the countdown (being %f sec)!",
+      	      				 	 currentRealTime, previousPlanQuality, countdown);
+							}
       	    }
       	  }
       	  total_time += (ros::WallTime::now() - start).toSec();
@@ -929,6 +951,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	{
       	  finally_solved = true;
       	  ROS_INFO("It exists some iteration which has managed to solve the problem. And the one 											which best solves it, is stored");
+					if (lastIterationIsConcluding == true) //then the iteration that exceeded the countdown is concluding and we appended a useless line to the saving file that has to be removed since it exceeded the countdown!
+						//TODO:
       	}
 
         // Post-run events
@@ -963,6 +987,19 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getServerParameters(const std::st
   }
   else
     ROS_ERROR("No path '%s' found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
+}
+
+void ModifiedBenchmarkExecutor::writePlannerParametersAndQuality(XmlRpc::XmlRpcValue& paramSet, //params got from the ros server
+																																 std::ofstream& fileVar,
+																																 std::vector<std::string> plannerParamNames,
+																																 int nbParams,
+																																 double planQuality)
+{
+		for (std::size_t i = 0; i < nbParams; ++i)
+		{
+		  fileVar << paramSet[plannerParamNames[i]] << ", ";
+		}
+		fileVar << planQuality << std::endl;
 }
 
 /*TODO use typedef for e.g 
