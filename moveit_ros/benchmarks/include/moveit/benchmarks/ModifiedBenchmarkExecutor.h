@@ -137,6 +137,11 @@ public:
 			     const std::string& plannerParamName);		     
   bool accepted(double t, double Tmax);
 
+  //C language: (these ones are for removing last line of a given file)
+  long fsize(FILE *binaryStream);
+  char* getOffsetBeforeLastBuf(char *buf, int n, FILE *binaryStream, off_t& offset);
+  void deleteLastLine(const char *filePathPtr, unsigned int bufLengthMax);
+
 protected:
   struct BenchmarkRequest
   {

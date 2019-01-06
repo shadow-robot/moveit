@@ -55,6 +55,17 @@
 
 #include <iostream> // for writing the unique .log
 
+/* strangely the catkin builder was already not complaining before I even added these so let's comment them
+//to read backwards a file from its end:
+// https://stackoverflow.com/questions/14834267/reading-a-text-file-backwards-in-c 
+#include <limits.h>
+#include <string.h>
+#include <stdio.h>
+//to truncate:
+// https://stackoverflow.com/questions/873454/how-to-truncate-a-file-in-c/873653#873653 
+//#include <unistd.h> 
+#include <sys/types.h> */
+
 
 using namespace moveit_ros_benchmarks;
 
@@ -843,7 +854,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	double planQuality = 0., previousPlanQuality;
       	bool solved = true; //In case the last mp_res before exceed is not solved but a previous is
       	bool finally_solved = false;
-      	int solved_proof = 0, restart = 0;
+      	int restart = 0;
 				bool lastIterationIsConcluding;
       	
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
@@ -862,7 +873,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				//Because of laziness, I prefer simply write the acceptance function as a string and conserve the already hardcoded expression, rather than each time re-parsing my string function expression which would, I believe, drastically slow down the process. However here is an idea https://archive.codeplex.com/?p=exprtk
 				std::string acceptanceFuncExpression = "1-t/T";
 				std::string logfileName; ros::param::get("/moveit_run_benchmark/benchmark_config/parameters/logname", logfileName);
+				unsigned int bufLengthMax = 256; //maximal number of bytes (= interpreted chars) on a line of datas, let's see...
+
 				std::ofstream myfile; myfile.open(logfileName, std::ios::out | std::ios::app);
+
 				myfile << "planner = " << planner << std::endl;
 				myfile << "metric = " << metricChoice << std::endl;
 				myfile << "scene = " << sceneName << std::endl;
@@ -875,19 +889,20 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					myfile << vecPlannerParamNames[i] << ", ";
 				myfile << "quality:" << std::endl;
 
+				unsigned int solved_proof = 0, kept_proof = 0;
       	// Solve problem, once, as before,
       	ros::WallTime start = ros::WallTime::now();
 				lastIterationIsConcluding = false;
       	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
       	if (solved)
       	{
-      	  solved_proof +=1;
+      	  solved_proof +=1; kept_proof +=1;
 					lastIterationIsConcluding = true;
       	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
       	if (solved)
-      	{
+      	{ //putting the things that slow down the process outside the time measurement, as it will be removed sooner or later
 					ROS_WARN("FIRST CALL FOUND SOMETHING -- Current quality = %lf out of 1", planQuality); // TO BE REMOVED
 					writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
 				}
@@ -916,11 +931,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	    solved_proof +=1;
       	    // and while comparing the qualities as well to see if these tweaks lead to improvment.
       	    planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) );
-      	    ROS_WARN("RESTART NUMBER %d FOUND SOMETHING -- Current quality = %lf out of 1", 										 restart, planQuality);
-	    ROS_WARN("Current allocated countdown = %f sec", countdown);
+      	    ROS_WARN("RESTART NUMBER %d FOUND SOMETHING -- Current quality = %lf out of 1", restart, planQuality);
+	    			ROS_WARN("Current allocated countdown = %f sec", countdown);
       	    if (planQuality > previousPlanQuality) 
 						{ //write the new better results
 							writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
+							kept_proof +=1;
 							lastIterationIsConcluding = true;
 						}
 						else //(planQuality <= previousPlanQuality)
@@ -935,6 +951,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	      else
 							{ //write the new worse results
 								writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
+								kept_proof +=1;
 								lastIterationIsConcluding = true;
       	      	ROS_WARN("Current time = %f from the beginning of the run -- "
       	      				 	 "This is a worse quality than the previous one (%f) which was found and kept in memory, "
@@ -946,14 +963,24 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  }
       	  total_time += (ros::WallTime::now() - start).toSec();
       	}
-      	
-      	if (solved_proof > 0)
-      	{
+				myfile.close();
+
+      	if ((solved_proof > 0) && (lastIterationIsConcluding == true))
+      	{ //then the iteration that exceeded the countdown is concluding and we appended a useless line to the saving file that has to be removed since it exceeded the countdown!
       	  finally_solved = true;
       	  ROS_INFO("It exists some iteration which has managed to solve the problem. And the one 											which best solves it, is stored");
-					if (lastIterationIsConcluding == true) //then the iteration that exceeded the countdown is concluding and we appended a useless line to the saving file that has to be removed since it exceeded the countdown!
-						//TODO:
-      	}
+					//temporary switch to C language to remove the last line:
+				  deleteLastLine(logfileName.c_str(), bufLengthMax);
+				  // just to be sure that we indeed removed the last line: (comeback to C++)
+				  myfile.open(logfileName, std::ios::out | std::ios::app);
+				  myfile << std::endl << "succeeding_restarts = " << --kept_proof << std::endl << std::endl; //--kept_proof as a line just popped out
+				  myfile.close();
+      	} else
+				{
+					myfile.open(logfileName, std::ios::out | std::ios::app);
+				  myfile << "succeeding_restarts = " << kept_proof << std::endl << std::endl;
+				  myfile.close();
+				}
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
@@ -999,7 +1026,7 @@ void ModifiedBenchmarkExecutor::writePlannerParametersAndQuality(XmlRpc::XmlRpcV
 		{
 		  fileVar << paramSet[plannerParamNames[i]] << ", ";
 		}
-		fileVar << planQuality << std::endl;
+		fileVar << planQuality << ";" << std::endl;
 }
 
 /*TODO use typedef for e.g 
@@ -1520,4 +1547,135 @@ std::map<std::string, std::vector<std::string>> ModifiedBenchmarkExecutor::const
   map_by_value_08Dec18["PRMkConfigDefault"] = {"max_nearest_neighbors"};
   map_by_value_08Dec18["PRMstarkConfigDefault"] = {}; //empty vector
   return map_by_value_08Dec18;
+}
+
+//What's below is C language and all the following functions stand for one purpose : remove the last line of a given file
+/* File must be open with 'b' (for binary) in the mode parameter to fopen() */
+long ModifiedBenchmarkExecutor::fsize(FILE *binaryStream) //2 million lines maximum
+{
+  long ofs, ofs2;
+  int result;
+
+  // if cursor isn't placed at beginning (0 octets), return error (return something not 0)
+  if (fseek(binaryStream, 0, SEEK_SET) != 0 ||
+      fgetc(binaryStream) == EOF)
+    return 0;
+
+  ofs = 1;
+
+  //while cursot not at end of file, and cursor is well puted on ofs octets from the file beginning, read one char in result
+  while ((result = fseek(binaryStream, ofs, SEEK_SET)) == 0 &&
+         (result = (fgetc(binaryStream) == EOF)) == 0 &&
+         ofs <= LONG_MAX / 4 + 1)
+    ofs *= 2;
+
+  /* If the last seek failed, back up to the last successfully seekable offset */
+  if (result != 0)
+    ofs /= 2;
+
+  for (ofs2 = ofs / 2; ofs2 != 0; ofs2 /= 2)
+    if (fseek(binaryStream, ofs + ofs2, SEEK_SET) == 0 &&
+        fgetc(binaryStream) != EOF)
+      ofs += ofs2;
+
+  /* Return -1 for files longer than LONG_MAX */
+  if (ofs == LONG_MAX)
+    return -1;
+
+  return ofs + 1;
+}
+
+/* File must be open with 'b' in the mode parameter to fopen() */
+/* Set file position to size of file before reading last line of file */
+char* ModifiedBenchmarkExecutor::getOffsetBeforeLastBuf(char *buf, int n, FILE *binaryStream, off_t& offset)
+{ /* and returns the last buf after this position setting, as well as initiates/modifies the value of that position setting = offset */
+  long fpos;
+  int cpos;
+
+  /* when calling ftell, tells the current value of the position indicator.
+  If an error occurs, -1L is returned, and the global variable errno is set to a positive value*/
+  if (n <= 1 || (fpos = ftell(binaryStream)) == -1 || fpos == 0)
+    return NULL;
+
+  cpos = n - 1;
+  buf[cpos] = '\0'; /* The length of a C string (an array containing the characters and terminated with a '\0' character)
+  is found by searching for the (first) NUL byte*/
+
+  int second = 0; //flag to catch only the second '\n' char starting from the end (native booleans don't exist in C)
+  for (;;) //infinite loop I guess
+  {
+    int c;
+
+    if (fseek(binaryStream, --fpos, SEEK_SET) != 0 || //failed to move back the cursor of one position unit
+        (c = fgetc(binaryStream)) == EOF)
+      return NULL;
+
+    if (c == '\n' && second == 1) /* accept at most one '\n' */
+      break;
+    second = 1;
+
+    /* I believe this block may stand for DOS/Windows where newlines are encoded with both '\n'+'\r' as well,
+    due to History where the handcraft printer machines used to \n to scroll down and \r to come back to the extreme left */
+    if (c != '\r') //So I think it's always yes under linux/posix
+    {
+      unsigned char ch = c;
+      if (cpos == 0)
+      {
+        memmove(buf + 1, buf, n - 2);
+        ++cpos;
+      }
+      memcpy(buf + --cpos, &ch, 1); //copy 1 octets from ch to buf so I guess it fills buf from last to first char in the line
+    } else
+    {
+      /*//exploration
+      printf("NO\n");*/
+    }
+
+    if (fpos == 0)
+    {
+      fseek(binaryStream, 0, SEEK_SET);
+      break;
+    }
+  }
+
+  memmove(buf, buf + cpos, n - cpos); /* I think it finally moves buf from cpos, which from the beginning decreased to an
+  offset lower than n (=256 in this current case), forgetting every empty char before, to the new buf that will be filled with
+  only what is necessary (unempty chars)*/
+
+  offset = n-cpos;
+  return buf;
+}
+
+void ModifiedBenchmarkExecutor::deleteLastLine(const char *filePathPtr, unsigned int bufLengthMax)
+{
+  off_t globaloffset, localoffset;
+  FILE* f;
+  if ((f = fopen(filePathPtr, "rb")) == NULL)
+  {
+    printf("failed to open file \'%s\'\n", filePathPtr);
+    return;
+  }
+
+  long sz = fsize(f);
+  if (sz > 0)
+  {
+    char buf[bufLengthMax]; //LENGTH MAX OF A LINE I GUESS
+    fseek(f, sz, SEEK_SET); //place the cursor after the last char of the last line
+    if ( getOffsetBeforeLastBuf(buf, sizeof(buf), f, localoffset) != NULL )
+    {
+      if (truncate( filePathPtr, (globaloffset = sz - localoffset) ) != 0);
+      {
+        //printf("Deletion of the exceeding countdown measure writing went wrong!\n");
+        /* One mystery that remains is that it does go wrong and prints this above commented print, even though it does the job...*/
+      }
+
+      //printf("%s", buf);
+    }
+    else
+    {
+      printf("Retrieved a last line of null buffer length!\n");
+    }
+  }
+
+  fclose(f);
 }
