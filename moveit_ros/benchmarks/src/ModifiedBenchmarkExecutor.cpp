@@ -973,14 +973,19 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				  deleteLastLine(logfileName.c_str(), bufLengthMax);
 				  // just to be sure that we indeed removed the last line: (comeback to C++)
 				  myfile.open(logfileName, std::ios::out | std::ios::app);
-				  myfile << std::endl << "succeeding_restarts = " << --kept_proof << std::endl << std::endl; //--kept_proof as a line just popped out
-				  myfile.close();
+				  myfile << std::endl << "succeeding_restarts = " << --kept_proof << std::endl; //--kept_proof as a line just popped out
       	} else
 				{
 					myfile.open(logfileName, std::ios::out | std::ios::app);
-				  myfile << "succeeding_restarts = " << kept_proof << std::endl << std::endl;
-				  myfile.close();
+				  myfile << "succeeding_restarts = " << kept_proof << std::endl;
 				}
+				// Also I forgot to write the steps and they are not deducible via diff() in matlab, as it requires 2 restarts at least! So:
+				myfile << "step = [";
+				for (std::size_t i = 0; i < nbPlannerParams; ++i)
+					myfile << " " << (double)paramBoundariesAndSteps_Xml[vecPlannerParamNames[i]]["step"];
+				myfile << " ]" << std::endl << std::endl;
+				myfile.close();
+				
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
@@ -1080,8 +1085,8 @@ void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& param
   {
     parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate[plannerParamName]) + 
     					     (T)(parametersBoundaries[plannerParamName]["step"]);
-    /* unfortunately there isn't available overload for operator+ operator+= and I believe in fact 
-    every operator but {operator= and operator==} */
+    /* unfortunately there isn't available overload for operator+ operator+= and I believe in fact for
+    any operator but {operator= and operator==} */
   } else if ( parametersSet_toUpdate[plannerParamName] == parametersBoundaries[plannerParamName] 
   											 ["max"] )
   {
