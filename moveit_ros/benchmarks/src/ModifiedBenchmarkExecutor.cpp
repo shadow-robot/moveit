@@ -270,8 +270,12 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       ROS_WARN("--------------------------------");
       ROS_WARN("--------------------------------");
       ros::WallTime start_time = ros::WallTime::now();
-      runBenchmark(queries[i].request, queries[i].name, options_.getPlannerConfigurations(), options_.getNumRuns(),
-      		   options_.getMetricChoice(), options_.getSceneName());
+      runBenchmark(queries[i].request, 
+		   queries[i].name, 
+		   options_.getPlannerConfigurations(), 
+		   options_.getNumRuns(), 
+		   options_.getMetricChoice(), 
+		   options_.getSceneName());
       double duration = (ros::WallTime::now() - start_time).toSec();
       
       ROS_INFO("Benchmark took '%f' seconds.", duration);
@@ -779,11 +783,11 @@ bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& reg
 }
 
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
-																						 const std::string& queryName,
-                                     				 const std::map<std::string, std::vector<std::string>>& 																																													 planners, 
-                                     				 int runs, 
-                                     				 const std::string& metricChoice, 
-																						 const std::string& sceneName)
+					     const std::string& queryName,
+					     const std::map<std::string, std::vector<std::string>>& planners, 
+					     int runs, 
+					     const std::string& metricChoice, 
+					     const std::string& sceneName)
 {
   benchmark_data_.clear();
 
@@ -862,15 +866,16 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	constructMoveitPlannersParameterNamesDictionnary();
       	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type 					{plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
-      	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 								  	   																 "planner_parameters_boundaries";
+      	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 							       																	 "planner_parameters_boundaries";
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
       			    parametersSet_Xml = getServerParameters(pathPlannerParameters), 
       			    paramBoundariesAndSteps_Xml = getServerParameters(pathPlannerParamBoundaries);
       	std::vector<std::string> vecPlannerParamNames = plannersParameterNames[planner];
       	int nbPlannerParams = vecPlannerParamNames.size();
       	
-				//Writing of decisive parameters in an unique .log file through the whole optimization process, this block will have to be removed for real time applications
-				//Because of laziness, I prefer simply write the acceptance function as a string and conserve the already hardcoded expression, rather than each time re-parsing my string function expression which would, I believe, drastically slow down the process. However here is an idea https://archive.codeplex.com/?p=exprtk
+				//Writing of decisive parameters in an unique .log file through the whole optimization process, this 					block will have to be removed for real time applications
+				//Because of laziness, I prefer simply write the acceptance function as a string and conserve the 				already hardcoded expression, rather than each time re-parsing my string function expression which 					would, I believe, drastically slow down the process. 
+				//However here is an idea https://archive.codeplex.com/?p=exprtk
 				std::string acceptanceFuncExpression = "1-t/T";
 				std::string logfileName; ros::param::get("/moveit_run_benchmark/benchmark_config/parameters/logname", logfileName);
 				unsigned int bufLengthMax = 256; //maximal number of bytes (= interpreted chars) on a line of datas, let's see...
@@ -982,10 +987,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				// Also I forgot to write the steps and they are not deducible via diff() in matlab, as it requires 2 restarts at least! So:
 				myfile << "step = [";
 				for (std::size_t i = 0; i < nbPlannerParams; ++i)
-					myfile << " " << (double)paramBoundariesAndSteps_Xml[vecPlannerParamNames[i]]["step"];
+				  myfile << " " << paramBoundariesAndSteps_Xml[vecPlannerParamNames[i]]["step"];
 				myfile << " ]" << std::endl << std::endl;
 				myfile.close();
-				
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
@@ -1064,10 +1068,13 @@ void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 				
 
     //interruption and insertion of the routine "do the alteration for that draw"
     if (parametersSet_toUpdate[plannerParamName].getType() == XmlRpc::XmlRpcValue::TypeDouble)
+    {
       alterPlannerParameter<double>(parametersSet_toUpdate, parametersBoundaries, 
       				    plannerParamName);
-    else if (parametersSet_toUpdate[plannerParamName].getType() == XmlRpc::XmlRpcValue::TypeInt)
+    } else if (parametersSet_toUpdate[plannerParamName].getType() == XmlRpc::XmlRpcValue::TypeInt)
+    {
       alterPlannerParameter<int>(parametersSet_toUpdate, parametersBoundaries, plannerParamName);
+    }
     
     //end of the routine "without replacement"
     plannerParamNames.erase(plannerParamNames.begin()+draw); //update of the remaining parameters to be choosable
@@ -1081,37 +1088,39 @@ void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& param
 						      const std::string& plannerParamName)
 {
   int coinflip;
-  if (parametersSet_toUpdate[plannerParamName] == parametersBoundaries[plannerParamName]["min"])
+  if ((T)parametersSet_toUpdate[plannerParamName] <= (T)parametersBoundaries[plannerParamName]["min"])
   {
-    parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate[plannerParamName]) + 
-    					     (T)(parametersBoundaries[plannerParamName]["step"]);
+    parametersSet_toUpdate[plannerParamName] = (T)parametersBoundaries[plannerParamName]["min"]+ 
+    					     														 (T)parametersBoundaries[plannerParamName]["step"];
     /* unfortunately there isn't available overload for operator+ operator+= and I believe in fact for
     any operator but {operator= and operator==} */
-  } else if ( parametersSet_toUpdate[plannerParamName] == parametersBoundaries[plannerParamName] 
-  											 ["max"] )
+  } else if ( (T)parametersSet_toUpdate[plannerParamName] >= (T)parametersBoundaries[plannerParamName]["max"] )
   {
-    parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate[plannerParamName]) - 						       (T)parametersBoundaries[plannerParamName]["step"];
+    parametersSet_toUpdate[plannerParamName] = (T)parametersBoundaries[plannerParamName]["max"] - 
+    																					 (T)parametersBoundaries[plannerParamName]["step"];
   } else
   {
     coinflip = std::rand()%2; // an index being 0 or 1
     switch(coinflip)
     {
       case 0 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s",
-      			 plannerParamName.c_str(), 
-      			 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
-      	       parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate 
-      			[plannerParamName]) + (T)(parametersBoundaries[plannerParamName]["step"]);
+      			 						 plannerParamName.c_str(), 
+      			 						 std::to_string((T)parametersSet_toUpdate[plannerParamName]).c_str() );
+      	       parametersSet_toUpdate[plannerParamName] = (T)parametersSet_toUpdate 
+      								[plannerParamName] + (T)parametersBoundaries[plannerParamName]["step"];
       	       ROS_WARN( "to %s", 
-      	       		 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
-	       break;
+      	       		 			 std::to_string((T)parametersSet_toUpdate[plannerParamName]).c_str() );
+	       			 break;
       case 1 : ROS_WARN( "[For completeness] parameter '%s' has been updated from %s",
-      			 plannerParamName.c_str(), 
-      			 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
-      	       parametersSet_toUpdate[plannerParamName] = (T)(parametersSet_toUpdate 
-      			[plannerParamName]) - (T)(parametersBoundaries[plannerParamName]["step"]);
+      			 						 plannerParamName.c_str(), 
+      			 						 std::to_string((T)parametersSet_toUpdate[plannerParamName]).c_str() );
+      	       parametersSet_toUpdate[plannerParamName] = (T)parametersSet_toUpdate 
+      								[plannerParamName] - (T)parametersBoundaries[plannerParamName]["step"];
       	       ROS_WARN( "to %s", 
-      	       		 std::to_string((T)(parametersSet_toUpdate[plannerParamName])).c_str() );
+      	       		 			 std::to_string((T)parametersSet_toUpdate[plannerParamName]).c_str() );
     }
+    if ((T)parametersSet_toUpdate[plannerParamName] < 0)
+      ROS_ERROR("LLLLLLLLLLLLLLLLLOOOOOOOOOOOOOOOOOOOOOOKKKKKKKKKKKKKKKKKKKK");
   }
 }
 
@@ -1494,10 +1503,13 @@ void ModifiedBenchmarkExecutor::writeOutput(const BenchmarkRequest& brequest, co
 int ModifiedBenchmarkExecutor::xmlRpcValueSize(XmlRpc::XmlRpcValue& someXmlSet) //(const& generates error)
 {
   int length = 0;
-  //try{
+  /*try
+  {*/
   for (XmlRpc::XmlRpcValue::iterator it = someXmlSet.begin() ; it != someXmlSet.end(); ++it)
-    length+=1;
-  /*}catch (XmlRpc::XmlRpcException& e){
+      length+=1;
+  /*}
+  catch (XmlRpc::XmlRpcException& e)
+  {
       ROS_WARN(e.getMessage().c_str());
       exit(-1);
   }*/
