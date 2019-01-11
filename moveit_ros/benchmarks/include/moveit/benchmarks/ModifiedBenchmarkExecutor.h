@@ -120,6 +120,12 @@ public:
   static double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p);
   
   XmlRpc::XmlRpcValue getServerParameters(const std::string& path);
+  void updateServerParameters(const std::string& pathPlannerParameters,
+			      XmlRpc::XmlRpcValue& paramSetCurrent, 
+			      const std::vector<std::string>& plannerParamNamesToModify);
+  void initializePlannerParameters(const std::string& pathPlannerParameters,
+				   XmlRpc::XmlRpcValue& parametersBoundaries,
+				   const std::vector<std::string>& plannerParamNamesToModify);
   void writePlannerParametersAndQuality(XmlRpc::XmlRpcValue& paramSet, 
 					std::ofstream& fileVar, 
 					std::vector<std::string> plannerParamNames, 
@@ -129,8 +135,10 @@ public:
   std::map<std::string, std::vector<std::string>> constructMoveitPlannersParameterNamesDictionnary
   												 ();
   void alterPlannerParameters(XmlRpc::XmlRpcValue& parametersSet_toUpdate,
-  			      XmlRpc::XmlRpcValue& parametersBoundaries, 				      std::vector<std::string> plannerParamNames, 
-  			      int nbParams);
+  			      XmlRpc::XmlRpcValue& parametersBoundaries, 
+			      std::vector<std::string> plannerParamNames, 
+  			      int nbParams,
+			      std::vector<std::string>& plannerParamNamesToModify);
   template <typename T>
   void alterPlannerParameter(XmlRpc::XmlRpcValue& parametersSet_toUpdate, 
 			     XmlRpc::XmlRpcValue& parametersBoundaries, 

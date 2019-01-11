@@ -870,7 +870,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
       			    parametersSet_Xml = getServerParameters(pathPlannerParameters), 
       			    paramBoundariesAndSteps_Xml = getServerParameters(pathPlannerParamBoundaries);
-      	std::vector<std::string> vecPlannerParamNames = plannersParameterNames[planner];
+      	std::vector<std::string> vecPlannerParamNames = plannersParameterNames[planner], plannerParamNamesToModify;
       	int nbPlannerParams = vecPlannerParamNames.size();
       	
 				//Writing of decisive parameters in an unique .log file through the whole optimization process, this 					block will have to be removed for real time applications
@@ -894,6 +894,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					myfile << vecPlannerParamNames[i] << ", ";
 				myfile << "quality:" << std::endl;
 
+				/*In fact as soon as we launch RViz the planner parameters from the dedicated .yaml file already has 
+    			its parameters assigned some values, however those initial values are retrieved from the 
+    			ompl_planning.yaml file, hence not necessarily belonging to the intervals of the exploration space
+    			we defined in planners_numerical_boundaries_andSteps.yaml. This then not only doesn't respect our
+    			space, but also create a super annoying mess into my matlab postprocess (precisely in the way 
+    			it handles the n axis associated to the n params) to show the evolution !*/
+				initializePlannerParameters(pathPlannerParameters, paramBoundariesAndSteps_Xml, vecPlannerParamNames);
 				unsigned int solved_proof = 0, kept_proof = 0;
       	// Solve problem, once, as before,
       	ros::WallTime start = ros::WallTime::now();
@@ -926,7 +933,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	  
       	  // while tweaking the planner's parameters more or less smartly, though this block could be commented to get simply the best of what each planner randomness has to offer,
       	  alterPlannerParameters(parametersSet_Xml, paramBoundariesAndSteps_Xml,
-      	  			 vecPlannerParamNames, nbPlannerParams);
+      	  			 								 vecPlannerParamNames, nbPlannerParams, plannerParamNamesToModify);
+					//the alteration needs to not only be kept in RAM but also to be updated on the ROS param server on which relies the planner!
+					updateServerParameters(pathPlannerParameters, parametersSet_Xml, plannerParamNamesToModify);
       	  			 
       	  mp_res = planning_interface::MotionPlanDetailedResponse(); //this constructor acts as a 					clearer, otherwise solve(mp_res) would append a set of trajectories to its current 						vector trajectory_ attribute!
       	  restart += 1;
@@ -1025,6 +1034,32 @@ XmlRpc::XmlRpcValue ModifiedBenchmarkExecutor::getServerParameters(const std::st
     ROS_ERROR("No path '%s' found on param server. Type 'rosparam list' in the console to see the paths.", path.c_str());
 }
 
+void ModifiedBenchmarkExecutor::updateServerParameters(const std::string& pathPlannerParameters,
+																											 XmlRpc::XmlRpcValue& paramSetCurrent, 
+																										   const std::vector<std::string>& plannerParamNamesToModify)
+{
+  for (auto i : plannerParamNamesToModify)
+	{
+    ros::param::set(pathPlannerParameters+"/"+i, paramSetCurrent[i]);
+	}
+}
+
+void ModifiedBenchmarkExecutor::initializePlannerParameters(const std::string& pathPlannerParameters,
+																														XmlRpc::XmlRpcValue& parametersBoundaries,
+						      																					const std::vector<std::string>& plannerParamNamesToModify)
+{ /*In fact as soon as we launch RViz the planner parameters from the dedicated .yaml file already has 
+    its parameters assigned some values, however those initial values are retrieved from the 
+    ompl_planning.yaml file, hence not necessarily belonging to the intervals of the exploration space
+    we defined in planners_numerical_boundaries_andSteps.yaml. This then not only doesn't respect our
+    space, but also create a super annoying mess into my matlab postprocess (precisely in the way 
+    it handles the n axis associated to the n params) to show the evolution !*/
+  for (auto i : plannerParamNamesToModify)
+	{
+    ros::param::set(pathPlannerParameters+"/"+i, parametersBoundaries[i]["min"]);
+	}
+}
+
+
 void ModifiedBenchmarkExecutor::writePlannerParametersAndQuality(XmlRpc::XmlRpcValue& paramSet, //params got from the ros server
 																																 std::ofstream& fileVar,
 																																 std::vector<std::string> plannerParamNames,
@@ -1043,7 +1078,7 @@ typedef std::map< std::string, XmlRpc::XmlRpcValue > String2XmlRpcValue; */
 
 void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 										   parametersSet_toUpdate, 
 						  XmlRpc::XmlRpcValue& parametersBoundaries,
-						  std::vector<std::string> plannerParamNames, 							  int nbParams)
+						  std::vector<std::string> plannerParamNames, 							  int nbParams, std::vector<std::string>& plannerParamNamesToModify)
 // parametersBoundaries not const& because :
 /*error: passing ‘const XmlRpc::XmlRpcValue’ as ‘this’ argument discards qualifiers [-fpermissive]
     parametersSet_toUpdate[plannerParamName] -= parametersBoundaries[plannerParamName]["step"]; */
@@ -1058,13 +1093,14 @@ void ModifiedBenchmarkExecutor::alterPlannerParameters(XmlRpc::XmlRpcValue& 				
   
   //Decide regarding which of the m<=n dims to move
   int draw;
-  //std::vector<std::string> paramNamesToAlter(moveBetween); //actually not necessary
+  plannerParamNamesToModify.clear(); //this vector will tell which one of the params to update on the ROS server (different than on RAM!)
   std::string plannerParamName;
   for (unsigned i=0; i < moveBetween; ++i)
   { //begin routine "draw without replacement" (otherwise it's not anymore an infinitesimal move)
     draw = std::rand()%nbParams; // an index belonging to [0,nbParams-1]
     //paramNamesToAlter[i] = plannerParamNames[draw]; //actually not necessary
     plannerParamName = plannerParamNames[draw];
+		plannerParamNamesToModify.push_back(plannerParamName);
 
     //interruption and insertion of the routine "do the alteration for that draw"
     if (parametersSet_toUpdate[plannerParamName].getType() == XmlRpc::XmlRpcValue::TypeDouble)
