@@ -1040,7 +1040,21 @@ void ModifiedBenchmarkExecutor::updateServerParameters(const std::string& pathPl
 {
   for (auto i : plannerParamNamesToModify)
 	{
-    ros::param::set(pathPlannerParameters+"/"+i, paramSetCurrent[i]);
+		/*const std::string path = pathPlannerParameters+"/"+i; //to be put directly into rosparam set, just separated for debug purpose
+    ros::param::set(path, paramSetCurrent[i]);*/
+
+		ros::param::set(pathPlannerParameters+"/"+i, paramSetCurrent[i]);
+
+ 		/*//debug:
+		XmlRpc::XmlRpcValue debugXmlRpc = getServerParameters(path);
+		if (debugXmlRpc.getType() == XmlRpc::XmlRpcValue::TypeDouble)
+			ROS_WARN( "[ON ROS SERVER] parameter '%s' has been updated to %s",
+      			 		path.c_str(), std::to_string((double)debugXmlRpc).c_str() );
+		else if (debugXmlRpc.getType() == XmlRpc::XmlRpcValue::TypeInt)
+			ROS_WARN( "[ON ROS SERVER] parameter '%s' has been updated to %s",
+      			 		path.c_str(), std::to_string((int)debugXmlRpc).c_str() );
+		else
+			ROS_ERROR( "[ON ROS SERVER] debugXmlRpc is neither an double nor an interger!!");*/
 	}
 }
 
@@ -1055,7 +1069,21 @@ void ModifiedBenchmarkExecutor::initializePlannerParameters(const std::string& p
     it handles the n axis associated to the n params) to show the evolution !*/
   for (auto i : plannerParamNamesToModify)
 	{
-    ros::param::set(pathPlannerParameters+"/"+i, parametersBoundaries[i]["min"]);
+		/*const std::string path = pathPlannerParameters+"/"+i; //to be put directly into rosparam set, just separated for debug purpose
+    ros::param::set(path, parametersBoundaries[i]["min"]);*/
+
+		ros::param::set(pathPlannerParameters+"/"+i, parametersBoundaries[i]["min"]);
+
+		/*//debug:
+		XmlRpc::XmlRpcValue debugXmlRpc = getServerParameters(path);
+		if (debugXmlRpc.getType() == XmlRpc::XmlRpcValue::TypeDouble)
+			ROS_WARN( "[ON ROS SERVER] parameter '%s' has been updated to %s",
+      			 		path.c_str(), std::to_string((double)debugXmlRpc).c_str() );
+		else if (debugXmlRpc.getType() == XmlRpc::XmlRpcValue::TypeInt)
+			ROS_WARN( "[ON ROS SERVER] parameter '%s' has been updated to %s",
+      			 		path.c_str(), std::to_string((int)debugXmlRpc).c_str() );
+		else
+			ROS_ERROR( "[ON ROS SERVER] debugXmlRpc is neither an double nor an interger!!");*/
 	}
 }
 
