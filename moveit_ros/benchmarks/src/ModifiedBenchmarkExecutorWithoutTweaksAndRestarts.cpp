@@ -895,7 +895,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
       	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
-      	if (solved && total_time < countdown)
+      	if (solved) /* rigourosly : && total_time < countdown), BUT WHAT HAPPENS IS THAT OPT PLANNERS REALLY 					TAKE ALL THEY CAN EAT IN TERM OF COUNTDOWN, HENCE THE QUALITY COMPUTATION MAKING IT SYSTEMATICALLY 					EXCEED THE COUNTDOWN BY SOMETHING LIKE o(0.01) */
       	{ //putting the things that slow down the process outside the time measurement, as it will be removed sooner or later
 					ROS_WARN("UNIQUE CALL FOUND SOMETHING -- Current quality = %lf out of 1", planQuality); // TO BE REMOVED
 					solved_proof += 1;
