@@ -33,18 +33,22 @@ link_directories(${catkin_LIBRARY_DIRS})
 add_library(${MOVEIT_LIB_NAME} src/BenchmarkOptions.cpp
                                src/BenchmarkExecutor.cpp
                                src/ModifiedBenchmarkOptions.cpp
-                               src/ModifiedBenchmarkExecutor.cpp)
+                               src/ModifiedBenchmarkExecutor.cpp
+                               src/ModifiedBenchmarkOptionsWithoutTweaksAndRestarts.cpp
+                               src/ModifiedBenchmarkExecutorWithoutTweaksAndRestarts.cpp)
 set_target_properties(${MOVEIT_LIB_NAME} PROPERTIES VERSION ${${PROJECT_NAME}_VERSION})
 target_link_libraries(${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(moveit_run_benchmark src/RunBenchmark.cpp)
 add_executable(modified_moveit_run_benchmark src/ModifiedRunBenchmark.cpp)
+add_executable(modified_moveit_run_benchmark_without_tweaks_and_restarts src/ModifiedRunBenchmarkWithoutTweaksAndRestarts.cpp)
 target_link_libraries(moveit_run_benchmark ${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 target_link_libraries(modified_moveit_run_benchmark ${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(modified_moveit_run_benchmark_without_tweaks_and_restarts ${MOVEIT_LIB_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 install(
   TARGETS
-    ${MOVEIT_LIB_NAME} moveit_run_benchmark modified_moveit_run_benchmark
+    ${MOVEIT_LIB_NAME} moveit_run_benchmark modified_moveit_run_benchmark modified_moveit_run_benchmark_without_tweaks_and_restarts
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
