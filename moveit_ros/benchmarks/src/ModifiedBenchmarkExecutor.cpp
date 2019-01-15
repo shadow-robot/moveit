@@ -864,7 +864,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	// Offline acquisition of the planner's parameters from the server in order to tweak them
       	std::map<std::string, std::vector<std::string>> plannersParameterNames = 
       	constructMoveitPlannersParameterNamesDictionnary();
-      	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type 					{plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+      	const std::string planner = planners.begin()->second[0]; // second[0] bc: planners of type {plugin1_name: ["planner1_name", "planner2_name"], plugin2_name: ["planner1_name]}
+				const std::string plannerToBeWritten = planner.substr(0, planner.size()-14).append("wrapped");
       	const std::string pathPlannerParameters = "/moveit_run_benchmark/planner_configs/"+planner;
       	const std::string pathPlannerParamBoundaries = "/moveit_run_parameter_optimizer/" 							       																	 "planner_parameters_boundaries";
       	XmlRpc::XmlRpcValue previousPlannerParameters, 
