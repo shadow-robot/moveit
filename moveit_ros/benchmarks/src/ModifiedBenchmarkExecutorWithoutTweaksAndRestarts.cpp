@@ -905,7 +905,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 				myfile << "succeeding_restarts = " << solved_proof << std::endl;
 
 				// Also I forgot to write the steps and they are not deducible via diff() in matlab, as it requires 2 restarts at least! So:
-				myfile << "step = [0]" << std::endl << std::endl;
+				myfile << "step = [ 0 ]" << std::endl << std::endl;
 				myfile.close();
 
         // Post-run events
