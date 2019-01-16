@@ -883,7 +883,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 
 				std::ofstream myfile; myfile.open(logfileName, std::ios::out | std::ios::app);
 
-				myfile << "planner = " << planner << std::endl;
+				myfile << "planner = " << plannerToBeWritten << std::endl;
 				myfile << "metric = " << metricChoice << std::endl;
 				myfile << "scene = " << sceneName << std::endl;
 				myfile << "query = " << queryName << std::endl;
