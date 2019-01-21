@@ -1014,7 +1014,21 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
         
         // Let's try to display the robot movement:
+        // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
+        bool wait_for_trajectory = true;//, succ;
+        //double timeStep = 0.1; //sec
+        //moveit::core::JointModelGroup jmg;
+        visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_[0], wait_for_trajectory);
         
+        /*succ = jmg.moveit_visual_tools::MoveItVisualTools::publishTrajectoryPath(
+      																																mp_res_before_exceeding.trajectory_[0],
+      																																*jmg,
+      																																timeStep,
+        																															wait_for_trajectory);*/
+        /*succ = moveit_visual_tools::MoveItVisualTools::publishTrajectoryPath(
+        																																mp_res_before_exceeding.trajectory_,
+        																																timeStep, 
+        																																wait_for_trajectory);*/
       }
 
       // Planner completion events
