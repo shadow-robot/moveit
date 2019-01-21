@@ -103,6 +103,8 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   {
     ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
   }
+  
+  visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools("base_frame","/moveit_visual_markers"));
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -1010,6 +1012,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         collectMetrics(planner_data[j], mp_res_before_exceeding, finally_solved, total_time);
         double metrics_time = (ros::WallTime::now() - start).toSec();
         ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
+        
+        // Let's try to display the robot movement:
+        
       }
 
       // Planner completion events

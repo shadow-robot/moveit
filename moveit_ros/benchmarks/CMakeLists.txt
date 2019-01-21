@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning
   moveit_ros_warehouse
   roscpp
+  moveit_visual_tools
 )
 
 catkin_package(
@@ -23,6 +24,7 @@ catkin_package(
     moveit_ros_planning
     moveit_ros_warehouse
     roscpp
+    moveit_visual_tools
   DEPENDS
   INCLUDE_DIRS ${CMAKE_CURRENT_LIST_DIR}/include
 )

@@ -59,6 +59,10 @@
 #include <xmlrpcpp/XmlRpcValue.h> // mandatored for read a bunch of ros server parameters by invoking only once rosparam, as the dictionnary will be of type XmlRpcValue, not map or array...
 //#include <xmlrpcpp/XmlRpcException.h> //if needed for try catch debugging over XmlValues
 
+// For visualizing moves in rviz
+#include <moveit_visual_tools/moveit_visual_tools.h>
+
+
 namespace moveit_ros_benchmarks
 {
 /// A class that executes motion plan requests and aggregates data across multiple runs
@@ -241,6 +245,9 @@ protected:
   std::vector<PlannerCompletionEventFunction> planner_completion_fns_;
   std::vector<QueryStartEventFunction> query_start_fns_;
   std::vector<QueryCompletionEventFunction> query_end_fns_;
+  
+	// For visualizing moves in rviz
+	moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
 };
 }
 
