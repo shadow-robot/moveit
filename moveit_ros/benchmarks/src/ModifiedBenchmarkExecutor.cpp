@@ -105,6 +105,8 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   }
   
   visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools("base_frame","/moveit_visual_markers"));
+  // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp#L160
+  // TODO : to investigate!! may need to pass the robot model into the constructor
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -1015,20 +1017,21 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         
         // Let's try to display the robot movement:
         // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
-        bool wait_for_trajectory = true;//, succ;
-        //double timeStep = 0.1; //sec
-        //moveit::core::JointModelGroup jmg;
-        visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_[0], wait_for_trajectory);
-        
-        /*succ = jmg.moveit_visual_tools::MoveItVisualTools::publishTrajectoryPath(
-      																																mp_res_before_exceeding.trajectory_[0],
-      																																*jmg,
-      																																timeStep,
-        																															wait_for_trajectory);*/
-        /*succ = moveit_visual_tools::MoveItVisualTools::publishTrajectoryPath(
-        																																mp_res_before_exceeding.trajectory_,
-        																																timeStep, 
-        																																wait_for_trajectory);*/
+        bool wait_for_trajectory = true;
+        ROS_ERROR("[DEBUG] Now it should play the traj %d !!",mp_res_before_exceeding.trajectory_.size());
+       
+        if(visual_tools_){
+        ROS_ERROR("[DEBUG] Visual tools exists");
+        }
+        if(mp_res_before_exceeding.trajectory_.size()!=0){
+        if(mp_res_before_exceeding.trajectory_.back()){
+        ROS_ERROR("[DEBUG] Trajectory exists properly %d",mp_res_before_exceeding.trajectory_.back()->getWayPointCount());
+        }else{
+        ROS_ERROR("[DEBUG] Trajectory doesn't exists properly");
+        }
+        visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+        }
+        ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
       }
 
       // Planner completion events
