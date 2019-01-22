@@ -39,6 +39,11 @@
 #include <moveit/version.h>
 #include <eigen_conversions/eigen_msg.h> // Abstract transformations, such as rotations (represented by angle and axis or by a quaternion), translations, scalings
 
+// For getting the moves displayed in RViz trial1
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
+
+
 #include <boost/regex.hpp> // To search for letters or words
 #include <boost/progress.hpp>
 #include <boost/math/constants/constants.hpp>
@@ -83,6 +88,16 @@ static std::string getHostname()
   }
 }
 
+static const std::string BASE_LINK = "base_frame"; //TODO : try world
+static const std::string MARKER_TOPIC = "/moveit_visual_markers";
+
+//http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/quickstart_in_rviz/quickstart_in_rviz_tutorial.html
+static const std::string ROBOT_DESCRIPTION = "robot_description";
+// The :move_group_interface:`MoveGroup` class can be easily
+// setup using just the name of the planning group you would like to control and plan for.
+static const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
+
+
 ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
 {
   pss_ = NULL;
@@ -104,9 +119,19 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
     ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
   }
   
-  visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools("base_frame","/moveit_visual_markers"));
+  // https://github.com/ros-planning/moveit_visual_tools
+  // visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools("base_frame","/moveit_visual_markers"));
+  
   // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp#L160
   // TODO : to investigate!! may need to pass the robot model into the constructor
+  // Load the robot model
+	robot_model_loader::RobotModelLoader robot_model_loader_;
+	robot_model::RobotModelPtr robot_model_;
+	//robot_model_loader_(ROBOT_DESCRIPTION); // load the URDF
+	robot_model_ = robot_model_loader_.getModel(); // Get a shared pointer to the robot
+  //visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC, robot_model_));
+  
+  moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -1018,14 +1043,14 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         // Let's try to display the robot movement:
         // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
         bool wait_for_trajectory = true;
-        ROS_ERROR("[DEBUG] Now it should play the traj %d !!",mp_res_before_exceeding.trajectory_.size());
+        ROS_ERROR("[DEBUG] Now it should play the traj %lu !!",mp_res_before_exceeding.trajectory_.size());
        
         if(visual_tools_){
         ROS_ERROR("[DEBUG] Visual tools exists");
         }
         if(mp_res_before_exceeding.trajectory_.size()!=0){
         if(mp_res_before_exceeding.trajectory_.back()){
-        ROS_ERROR("[DEBUG] Trajectory exists properly %d",mp_res_before_exceeding.trajectory_.back()->getWayPointCount());
+        ROS_ERROR("[DEBUG] Trajectory exists properly %lu",mp_res_before_exceeding.trajectory_.back()->getWayPointCount());
         }else{
         ROS_ERROR("[DEBUG] Trajectory doesn't exists properly");
         }

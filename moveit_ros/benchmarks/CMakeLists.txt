@@ -25,6 +25,7 @@ catkin_package(
     moveit_ros_warehouse
     roscpp
     moveit_visual_tools
+    moveit_ros_move_group
   DEPENDS
   INCLUDE_DIRS ${CMAKE_CURRENT_LIST_DIR}/include
 )
