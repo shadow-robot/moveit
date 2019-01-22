@@ -131,14 +131,8 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
 	robot_model_ = robot_model_loader_.getModel(); // Get a shared pointer to the robot
   //visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC, robot_model_));
   
-  moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
-  const robot_state::JointModelGroup* joint_model_group =
-																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-  // We can print the name of the reference frame for this robot.
-  ROS_INFO_NAMED("tutorial", "Reference frame: %s", move_group.getPlanningFrame().c_str());
-  // We can also print the name of the end-effector link for this group.
-	ROS_INFO_NAMED("tutorial", "End effector link: %s", move_group.getEndEffectorLink().c_str());
-	moveit_visual_tools::MoveItVisualTools visual_tools(BASE_LINK);
+  
+	moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK);
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -1047,6 +1041,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         double metrics_time = (ros::WallTime::now() - start).toSec();
         ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
         
+        
+        
         // Let's try to display the robot movement:
         // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
         bool wait_for_trajectory = true;
@@ -1058,24 +1054,37 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);*/
         // To start, we'll create an pointer that references the current robot's state.
   			// RobotState is the object that contains all the current position/velocity/acceleration data.
-				moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
+				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
         
         ROS_ERROR("[DEBUG] Now it should play the traj %lu !!",mp_res_before_exceeding.trajectory_.size());
        
         if(visual_tools_){
-        ROS_ERROR("[DEBUG] Visual tools exists");
+        	ROS_ERROR("[DEBUG] Visual tools exists");
         }
-        if(mp_res_before_exceeding.trajectory_.size()!=0){
-        if(mp_res_before_exceeding.trajectory_.back()){
-        ROS_ERROR("[DEBUG] Trajectory exists properly %lu",mp_res_before_exceeding.trajectory_.back()->getWayPointCount());
-        }else{
-        ROS_ERROR("[DEBUG] Trajectory doesn't exists properly");
-        }
-        visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+        if(mp_res_before_exceeding.trajectory_.size()!=0)
+        {
+        	if(mp_res_before_exceeding.trajectory_.back())
+        	{
+        		ROS_ERROR( "[DEBUG] Trajectory exists properly %lu",
+        							 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
+        	}else
+        	{
+        		ROS_ERROR("[DEBUG] Trajectory doesn't exists properly");
+        	}
+        	
+        	moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+  				// We can print the name of the reference frame for this robot.
+  				ROS_INFO_NAMED("tutorial", "Reference frame: %s", move_group.getPlanningFrame().c_str());
+  				// We can also print the name of the end-effector link for this group.
+					ROS_INFO_NAMED("tutorial", "End effector link: %s", move_group.getEndEffectorLink().c_str());
+  				const robot_state::JointModelGroup* joint_model_group =
+																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+        	visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
+        	visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
         }
         ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
-      }
-
+			}
+			
       // Planner completion events
       for (std::size_t j = 0; j < planner_completion_fns_.size(); ++j)
         planner_completion_fns_[j](request, planner_data);
