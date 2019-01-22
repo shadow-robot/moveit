@@ -132,6 +132,13 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   //visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC, robot_model_));
   
   moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+  const robot_state::JointModelGroup* joint_model_group =
+																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+  // We can print the name of the reference frame for this robot.
+  ROS_INFO_NAMED("tutorial", "Reference frame: %s", move_group.getPlanningFrame().c_str());
+  // We can also print the name of the end-effector link for this group.
+	ROS_INFO_NAMED("tutorial", "End effector link: %s", move_group.getEndEffectorLink().c_str());
+	moveit_visual_tools::MoveItVisualTools visual_tools(BASE_LINK);
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -1043,6 +1050,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         // Let's try to display the robot movement:
         // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
         bool wait_for_trajectory = true;
+        
+        /*// Now, we call the planner to compute the plan and visualize it.
+  			// Note that we are just planning, not asking move_group
+				// to actually move the robot.
+        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+        visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);*/
+        
         ROS_ERROR("[DEBUG] Now it should play the traj %lu !!",mp_res_before_exceeding.trajectory_.size());
        
         if(visual_tools_){
