@@ -1056,6 +1056,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				// to actually move the robot.
         moveit::planning_interface::MoveGroupInterface::Plan my_plan;
         visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);*/
+        // To start, we'll create an pointer that references the current robot's state.
+  			// RobotState is the object that contains all the current position/velocity/acceleration data.
+				moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
         
         ROS_ERROR("[DEBUG] Now it should play the traj %lu !!",mp_res_before_exceeding.trajectory_.size());
        
