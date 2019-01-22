@@ -88,8 +88,8 @@ static std::string getHostname()
   }
 }
 
-static const std::string BASE_LINK = "base_frame"; //TODO : try world
-static const std::string MARKER_TOPIC = "/moveit_visual_markers";
+static const std::string BASE_LINK = "/world"; //try world "base_frame"
+static const std::string MARKER_TOPIC = "/rviz_moveit_motion_planning_display/robot_interaction_interactive_marker_topic/update"; //"/moveit_visual_markers";
 
 //http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/quickstart_in_rviz/quickstart_in_rviz_tutorial.html
 static const std::string ROBOT_DESCRIPTION = "robot_description";
@@ -132,7 +132,10 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   //visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC, robot_model_));
   
   
-	moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK);
+  // http://docs.ros.org/kinetic/api/moveit_visual_tools/html/classmoveit__visual__tools_1_1MoveItVisualTools.html constructor & destructor documentation
+	//moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, *psm_);
+	// arg psm_ is not of nature PlanningSceneMonitorPtr, args &psm_ nor *psm_ work neither
+	moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, planning_scene_);
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -1058,8 +1061,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         
         ROS_ERROR("[DEBUG] Now it should play the traj %lu !!",mp_res_before_exceeding.trajectory_.size());
        
-        if(visual_tools_){
-        	ROS_ERROR("[DEBUG] Visual tools exists");
+        if(visual_tools_ == NULL){
+        	ROS_ERROR("[DEBUG] Visual tools DOESN'T EXIST !!!");
         }
         if(mp_res_before_exceeding.trajectory_.size()!=0)
         {
