@@ -88,7 +88,7 @@ static std::string getHostname()
   }
 }
 
-static const std::string BASE_LINK = "/world"; //try world "base_frame"
+static const std::string BASE_LINK = "/world"; //try "world" "base_frame" and with prefix "/..."
 static const std::string MARKER_TOPIC = "/rviz_moveit_motion_planning_displays/robot_interaction_interactive_marker_topic/update_full"; //"/moveit_visual_markers";
 
 //http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/quickstart_in_rviz/quickstart_in_rviz_tutorial.html
@@ -139,6 +139,9 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
 	//moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, *psm_);
 	// arg psm_ is not of nature PlanningSceneMonitorPtr, args &psm_ nor *psm_ work neither
 	moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, psm__);
+	ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
+	visual_tools_.publishCollisionFloor();
+	ROS_ERROR("[DEBUG] CollisionFloor gives this.");
 	
 	/*if(visual_tools_ == NULL)
   {
