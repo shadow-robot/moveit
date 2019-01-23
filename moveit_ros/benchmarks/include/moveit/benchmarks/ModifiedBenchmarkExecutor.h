@@ -225,7 +225,7 @@ protected:
                     const std::map<std::string, std::vector<std::string>>& planners, int runs,
                     const std::string& metricChoice, const std::string& sceneName);
 
-  planning_scene_monitor::PlanningSceneMonitor* psm_;
+  planning_scene_monitor::PlanningSceneMonitorPtr psm_;
   moveit_warehouse::PlanningSceneStorage* pss_;
   moveit_warehouse::PlanningSceneWorldStorage* psws_;
   moveit_warehouse::RobotStateStorage* rs_;
@@ -251,6 +251,7 @@ protected:
   
 	// For visualizing moves in rviz
 	moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
+	
 };
 }
 

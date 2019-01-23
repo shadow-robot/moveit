@@ -89,7 +89,10 @@ static std::string getHostname()
 }
 
 static const std::string BASE_LINK = "/world"; //try "world" "base_frame" and with prefix "/..."
-static const std::string MARKER_TOPIC = "/rviz_moveit_motion_planning_displays/robot_interaction_interactive_marker_topic/update_full"; //"/moveit_visual_markers";
+//static const std::string MARKER_TOPIC = "/rviz_moveit_motion_planning_displays/robot_interaction_interactive_marker_topic/update_full"; //"/moveit_visual_markers";
+//static const std::string MARKER_TOPIC = "/moveit_visual_markers";
+//static const std::string MARKER_TOPIC = "/execute_trajectory/action_topics";
+static const std::string MARKER_TOPIC = "/moveit_visual_markers";
 
 //http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/quickstart_in_rviz/quickstart_in_rviz_tutorial.html
 const std::string ROBOT_DESCRIPTION = "robot_description";
@@ -107,13 +110,27 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   rs_ = NULL;
   cs_ = NULL;
   tcs_ = NULL;
-  psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
-  planning_scene_ = psm_->getPlanningScene(); // pointer
+  //psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
+   // pointer
   
   ROBOT_DESCRIPTION_PARAM = robot_description_param; //test (TO POTENTIALLY REMOVE TODO)
   
-  planning_scene_monitor::PlanningSceneMonitorPtr psm__;
-	psm__.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param));
+  
+	psm_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param));
+	planning_scene_ = psm_->getPlanningScene();
+				//ROS_WARN("[DEBUG] ROBOT_DESCRIPTION_PARAM = %s", ROBOT_DESCRIPTION_PARAM.c_str());
+        visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC));
+        visual_tools_->loadPlanningSceneMonitor();
+    visual_tools_->loadMarkerPub(false,true);
+    visual_tools_->loadRobotStatePub("display_robot_state");
+//visual_tools_->setManualSceneUpdating();
+visual_tools_->deleteAllMarkers();
+    visual_tools_->removeAllCollisionObjects();
+    ROS_WARN_STREAM("STARTING!!");
+    Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
+    text_pose.translation().z() = 4;
+visual_tools_->publishText(text_pose, "MoveIt! Visual Tools", rviz_visual_tools::WHITE, rviz_visual_tools::XLARGE, /*static_id*/ false);
+visual_tools_->trigger();
 
   // Initialize the class loader for planner plugins
   try
@@ -142,10 +159,10 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   // http://docs.ros.org/kinetic/api/moveit_visual_tools/html/classmoveit__visual__tools_1_1MoveItVisualTools.html constructor & destructor documentation
 	//moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, *psm_);
 	// arg psm_ is not of nature PlanningSceneMonitorPtr, args &psm_ nor *psm_ work neither
-	moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, psm__);
+	/*moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, psm__);
 	ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
 	visual_tools_.publishCollisionFloor();
-	ROS_ERROR("[DEBUG] CollisionFloor gives this.");
+	ROS_ERROR("[DEBUG] CollisionFloor gives this.");*/
 	
 	/*if(visual_tools_ == NULL)
   {
@@ -173,7 +190,7 @@ ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
     delete cs_;
   if (tcs_)
     delete tcs_;
-  delete psm_;
+  //delete psm_;
 }
 
 void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
@@ -1086,15 +1103,14 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
         
         
-  			planning_scene_monitor::PlanningSceneMonitorPtr psm;
-				psm.reset(new planning_scene_monitor::PlanningSceneMonitor(ROBOT_DESCRIPTION_PARAM));
-				ROS_WARN("[DEBUG] ROBOT_DESCRIPTION_PARAM = %s", ROBOT_DESCRIPTION_PARAM.c_str());
-        moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, psm);
-				ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
+  			
+        /*moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, rviz_visual_tools::RVIZ_MARKER_TOPIC,
+        																										 robot_model::RobotModelConstPtr());*/
+				/*ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
 				visual_tools_.publishCollisionFloor();
-				ROS_ERROR("[DEBUG] CollisionFloor gives this.");
+				ROS_ERROR("[DEBUG] CollisionFloor gives this.");*/
         
-        ROS_ERROR("[DEBUG] Traj vector contains %lu elements (including postprocessed trajectories (smooth and all that stuff)",mp_res_before_exceeding.trajectory_.size());
+        //ROS_ERROR("[DEBUG] Traj vector contains %lu elements (including postprocessed trajectories (smooth and all that stuff)",mp_res_before_exceeding.trajectory_.size());
        
         //DOESN'T WORK, PUT IT IN THE BENCHMARKEXECUTOR CLASS CONSTRUCTOR, YOU'LL SEE COMPILATION ERRORS BOTH
         //WITH AND WITHOUT '==NULL' ...
@@ -1114,7 +1130,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         	{
         		ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");
         	}
-        	
+        	visual_tools_->deleteAllMarkers();
         	moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
   				// We can print the name of the reference frame for this robot.
   				ROS_WARN("[DEBUG] Reference frame: %s", move_group.getPlanningFrame().c_str());
@@ -1123,13 +1139,15 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
   				const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 					ROS_ERROR("[DEBUG] How goes Line?");
-        	visual_tools_.publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
+        	visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
 					ROS_ERROR("[DEBUG] How goes Path?");
-        	visual_tools_.publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+        	//visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+        	
+					visual_tools_->trigger();
 					ROS_ERROR("[DEBUG] Path gives this.");
         }
-        ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
+        //ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
 			}
 			
       // Planner completion events
