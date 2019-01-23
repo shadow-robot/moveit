@@ -89,7 +89,7 @@ static std::string getHostname()
 }
 
 static const std::string BASE_LINK = "/world"; //try world "base_frame"
-static const std::string MARKER_TOPIC = "/rviz_moveit_motion_planning_display/robot_interaction_interactive_marker_topic/update"; //"/moveit_visual_markers";
+static const std::string MARKER_TOPIC = "/rviz_moveit_motion_planning_displays/robot_interaction_interactive_marker_topic/update_full"; //"/moveit_visual_markers";
 
 //http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/quickstart_in_rviz/quickstart_in_rviz_tutorial.html
 static const std::string ROBOT_DESCRIPTION = "robot_description";
@@ -107,6 +107,9 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   tcs_ = NULL;
   psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
   planning_scene_ = psm_->getPlanningScene(); // pointer
+  
+  planning_scene_monitor::PlanningSceneMonitorPtr psm__;
+	psm__.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param));
 
   // Initialize the class loader for planner plugins
   try
@@ -135,7 +138,20 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   // http://docs.ros.org/kinetic/api/moveit_visual_tools/html/classmoveit__visual__tools_1_1MoveItVisualTools.html constructor & destructor documentation
 	//moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, *psm_);
 	// arg psm_ is not of nature PlanningSceneMonitorPtr, args &psm_ nor *psm_ work neither
-	moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, planning_scene_);
+	moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, psm__);
+	
+	/*if(visual_tools_ == NULL)
+  {
+  	ROS_ERROR("[DEBUG] Visual tools DOESN'T EXIST !!!");
+  }*/
+  
+  /* NOT CONCLUDING DEBUG:
+  // DOESN'T WORK SINCE IT'S DESIGNED FOR LOOKING AT TO SOME virtual_joint FOR SOME REASON...
+  //http://docs.ros.org/kinetic/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01457
+  ROS_ERROR("[DEBUG] Can hide the robot?");
+  visual_tools_.hideRobot();
+  ROS_ERROR("[DEBUG] Robot must be hidden now.");
+  */
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -944,9 +960,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	{
       	  solved_proof +=1; kept_proof +=1;
 					lastIterationIsConcluding = true;
+					mp_res_before_exceeding = mp_res; /*REMOVE THIS LINE IN ORDER TO ONLY DISPLAY IN RVIZ THE "TWEAKED"
+					PLANS AND NOT INCLUDE THE FIRST SUCCEEDING ONLY ONE BEFORE EXCEEDING*/
       	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
+      	
       	if (solved)
       	{ //putting the things that slow down the process outside the time measurement, as it will be removed sooner or later
 					ROS_WARN("FIRST CALL FOUND SOMETHING -- Current quality = %lf out of 1", planQuality); // TO BE REMOVED
@@ -1059,31 +1078,43 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
   			// RobotState is the object that contains all the current position/velocity/acceleration data.
 				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
         
-        ROS_ERROR("[DEBUG] Now it should play the traj %lu !!",mp_res_before_exceeding.trajectory_.size());
+        ROS_ERROR("[DEBUG] Traj vector contains %lu elements (including postprocessed trajectories (smooth and all that stuff)",mp_res_before_exceeding.trajectory_.size());
        
-        if(visual_tools_ == NULL){
+        //DOESN'T WORK, PUT IT IN THE BENCHMARKEXECUTOR CLASS CONSTRUCTOR, YOU'LL SEE COMPILATION ERRORS BOTH
+        //WITH AND WITHOUT '==NULL' ...
+        //TODO : TEST IF THE OBJECT visual_tools_ EXISTS : https://stackoverflow.com/questions/2099882/checking-for-a-null-object-in-c Nilesh' post
+        /*if(visual_tools_ == NULL)
+        {
         	ROS_ERROR("[DEBUG] Visual tools DOESN'T EXIST !!!");
-        }
+        }*/
+        
         if(mp_res_before_exceeding.trajectory_.size()!=0)
         {
         	if(mp_res_before_exceeding.trajectory_.back())
         	{
-        		ROS_ERROR( "[DEBUG] Trajectory exists properly %lu",
+        		ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
         							 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
         	}else
         	{
-        		ROS_ERROR("[DEBUG] Trajectory doesn't exists properly");
+        		ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");
         	}
         	
         	moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
   				// We can print the name of the reference frame for this robot.
-  				ROS_INFO_NAMED("tutorial", "Reference frame: %s", move_group.getPlanningFrame().c_str());
+  				ROS_WARN("[DEBUG] Reference frame: %s", move_group.getPlanningFrame().c_str());
   				// We can also print the name of the end-effector link for this group.
-					ROS_INFO_NAMED("tutorial", "End effector link: %s", move_group.getEndEffectorLink().c_str());
+					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());
   				const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+					ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
+					visual_tools_->publishCollisionFloor();
+					ROS_ERROR("[DEBUG] CollisionFloor gives this.");
+					ROS_ERROR("[DEBUG] How goes Line?");
         	visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
+					ROS_ERROR("[DEBUG] Line gives this.");
+					ROS_ERROR("[DEBUG] How goes Path?");
         	visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+					ROS_ERROR("[DEBUG] Path gives this.");
         }
         ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
 			}
