@@ -92,10 +92,12 @@ static const std::string BASE_LINK = "/world"; //try "world" "base_frame" and wi
 static const std::string MARKER_TOPIC = "/rviz_moveit_motion_planning_displays/robot_interaction_interactive_marker_topic/update_full"; //"/moveit_visual_markers";
 
 //http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/quickstart_in_rviz/quickstart_in_rviz_tutorial.html
-static const std::string ROBOT_DESCRIPTION = "robot_description";
+const std::string ROBOT_DESCRIPTION = "robot_description";
 // The :move_group_interface:`MoveGroup` class can be easily
 // setup using just the name of the planning group you would like to control and plan for.
-static const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
+const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
+
+std::string ROBOT_DESCRIPTION_PARAM;
 
 
 ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
@@ -107,6 +109,8 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   tcs_ = NULL;
   psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
   planning_scene_ = psm_->getPlanningScene(); // pointer
+  
+  ROBOT_DESCRIPTION_PARAM = robot_description_param; //test (TO POTENTIALLY REMOVE TODO)
   
   planning_scene_monitor::PlanningSceneMonitorPtr psm__;
 	psm__.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param));
@@ -1081,6 +1085,15 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
   			// RobotState is the object that contains all the current position/velocity/acceleration data.
 				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
         
+        
+  			planning_scene_monitor::PlanningSceneMonitorPtr psm;
+				psm.reset(new planning_scene_monitor::PlanningSceneMonitor(ROBOT_DESCRIPTION_PARAM));
+				ROS_WARN("[DEBUG] ROBOT_DESCRIPTION_PARAM = %s", ROBOT_DESCRIPTION_PARAM.c_str());
+        moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, psm);
+				ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
+				visual_tools_.publishCollisionFloor();
+				ROS_ERROR("[DEBUG] CollisionFloor gives this.");
+        
         ROS_ERROR("[DEBUG] Traj vector contains %lu elements (including postprocessed trajectories (smooth and all that stuff)",mp_res_before_exceeding.trajectory_.size());
        
         //DOESN'T WORK, PUT IT IN THE BENCHMARKEXECUTOR CLASS CONSTRUCTOR, YOU'LL SEE COMPILATION ERRORS BOTH
@@ -1109,14 +1122,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());
   				const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-					ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
-					visual_tools_->publishCollisionFloor();
-					ROS_ERROR("[DEBUG] CollisionFloor gives this.");
 					ROS_ERROR("[DEBUG] How goes Line?");
-        	visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
+        	visual_tools_.publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
 					ROS_ERROR("[DEBUG] How goes Path?");
-        	visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+        	visual_tools_.publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
 					ROS_ERROR("[DEBUG] Path gives this.");
         }
         ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
