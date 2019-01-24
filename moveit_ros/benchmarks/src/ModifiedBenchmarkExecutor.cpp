@@ -42,7 +42,9 @@
 // For getting the moves displayed in RViz trial1
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_model/robot_model.h>
-
+#include <moveit/robot_state/robot_state.h> //not sufficient for publishTrajectoryPath, maybe to REMOVE TODO
+#include <moveit/robot_state/conversions.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
 
 #include <boost/regex.hpp> // To search for letters or words
 #include <boost/progress.hpp>
@@ -122,14 +124,17 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
         visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC));
         visual_tools_->loadPlanningSceneMonitor();
     visual_tools_->loadMarkerPub(false,true);
+    
+    visual_tools_->loadSharedRobotState(); //(try for using publishTrajectoryPath())
+    
     visual_tools_->loadRobotStatePub("display_robot_state");
 //visual_tools_->setManualSceneUpdating();
 visual_tools_->deleteAllMarkers();
     visual_tools_->removeAllCollisionObjects();
     ROS_WARN_STREAM("STARTING!!");
-    Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
+    /*Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
     text_pose.translation().z() = 4;
-visual_tools_->publishText(text_pose, "MoveIt! Visual Tools", rviz_visual_tools::WHITE, rviz_visual_tools::XLARGE, /*static_id*/ false);
+visual_tools_->publishText(text_pose, "MoveIt! Visual Tools", rviz_visual_tools::WHITE, rviz_visual_tools::XLARGE, false);*/
 visual_tools_->trigger();
 
   // Initialize the class loader for planner plugins
@@ -154,6 +159,10 @@ visual_tools_->trigger();
 	//robot_model_loader_(ROBOT_DESCRIPTION); // load the URDF
 	robot_model_ = robot_model_loader_.getModel(); // Get a shared pointer to the robot
   //visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC, robot_model_));
+  
+  robot_state::RobotStatePtr shared_robot_state_;
+  shared_robot_state_.reset(new robot_state::RobotState(robot_model_)); // TODO: load this robot state from planning_scene instead
+	shared_robot_state_->setToDefaultValues();
   
   
   // http://docs.ros.org/kinetic/api/moveit_visual_tools/html/classmoveit__visual__tools_1_1MoveItVisualTools.html constructor & destructor documentation
@@ -1120,34 +1129,37 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         	ROS_ERROR("[DEBUG] Visual tools DOESN'T EXIST !!!");
         }*/
         
-        if(mp_res_before_exceeding.trajectory_.size()!=0)
-        {
-        	if(mp_res_before_exceeding.trajectory_.back())
-        	{
-        		ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
-        							 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
-        	}else
-        	{
-        		ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");
-        	}
-        	visual_tools_->deleteAllMarkers();
-        	moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
-  				// We can print the name of the reference frame for this robot.
-  				ROS_WARN("[DEBUG] Reference frame: %s", move_group.getPlanningFrame().c_str());
-  				// We can also print the name of the end-effector link for this group.
+				if(mp_res_before_exceeding.trajectory_.size()!=0)
+				{
+					if(mp_res_before_exceeding.trajectory_.back())
+					{
+						ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
+											 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
+					}else
+					{
+						ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");
+					}
+					visual_tools_->deleteAllMarkers();
+					moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+					// We can print the name of the reference frame for this robot.
+					ROS_WARN("[DEBUG] Reference frame: %s", move_group.getPlanningFrame().c_str());
+					// We can also print the name of the end-effector link for this group.
 					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());
-  				const robot_state::JointModelGroup* joint_model_group =
+					const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 					ROS_ERROR("[DEBUG] How goes Line?");
-        	visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
+					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
+					/*ROS_ERROR("[DEBUG] How goes RobotState?");
+					visual_tools_->publishRobotState(shared_robot_state_);
+					ROS_ERROR("[DEBUG] RobotState should be published now.");*/
 					ROS_WARN("[DEBUG] Group name contained in the traj: %s", (mp_res_before_exceeding.trajectory_.back())->getGroupName().c_str());
 					ROS_ERROR("[DEBUG] How goes Path?");
-        	/*visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);*/
-        	
+					visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+	
 					visual_tools_->trigger();
 					ROS_ERROR("[DEBUG] Path gives this.");
-        }
+				}
         //ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
 			}
 			

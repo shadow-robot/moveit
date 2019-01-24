@@ -252,6 +252,8 @@ protected:
 	// For visualizing moves in rviz
 	moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
 	
+	robot_state::RobotStatePtr shared_robot_state_;
+	
 };
 }
 
