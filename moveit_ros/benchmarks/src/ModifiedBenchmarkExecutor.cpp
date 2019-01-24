@@ -1141,8 +1141,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					ROS_ERROR("[DEBUG] How goes Line?");
         	visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
+					ROS_WARN("[DEBUG] Group name contained in the traj: %s", (mp_res_before_exceeding.trajectory_.back())->getGroupName().c_str());
 					ROS_ERROR("[DEBUG] How goes Path?");
-        	//visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+        	visual_tools_->publishTrajectoryPatRrh(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
         	
 					visual_tools_->trigger();
 					ROS_ERROR("[DEBUG] Path gives this.");
