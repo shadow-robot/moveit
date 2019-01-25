@@ -1100,7 +1100,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         
         // Let's try to display the robot movement:
         // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
-        bool wait_for_trajectory = true;
+        bool wait_for_trajectory = false;
         
         /*// Now, we call the planner to compute the plan and visualize it.
   			// Note that we are just planning, not asking move_group
@@ -1150,6 +1150,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					ROS_ERROR("[DEBUG] How goes Line?");
 					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
+
+					visual_tools_->trigger();
 					/*ROS_ERROR("[DEBUG] How goes RobotState?");
 					visual_tools_->publishRobotState(shared_robot_state_);
 					ROS_ERROR("[DEBUG] RobotState should be published now.");*/
@@ -1157,7 +1159,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					ROS_ERROR("[DEBUG] How goes Path?");
 					visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
 	
-					visual_tools_->trigger();
+					
 					ROS_ERROR("[DEBUG] Path gives this.");
 				}
         //ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
