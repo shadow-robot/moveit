@@ -1097,38 +1097,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
         
         
-        
         // Let's try to display the robot movement:
         // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
         bool wait_for_trajectory = false;
-        
-        /*// Now, we call the planner to compute the plan and visualize it.
-  			// Note that we are just planning, not asking move_group
-				// to actually move the robot.
-        moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-        visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);*/
-        // To start, we'll create an pointer that references the current robot's state.
+        /*// To start, we'll create an pointer that references the current robot's state.
   			// RobotState is the object that contains all the current position/velocity/acceleration data.
-				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();
-        
-        
-  			
-        /*moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, rviz_visual_tools::RVIZ_MARKER_TOPIC,
-        																										 robot_model::RobotModelConstPtr());*/
-				/*ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
-				visual_tools_.publishCollisionFloor();
-				ROS_ERROR("[DEBUG] CollisionFloor gives this.");*/
-        
-        //ROS_ERROR("[DEBUG] Traj vector contains %lu elements (including postprocessed trajectories (smooth and all that stuff)",mp_res_before_exceeding.trajectory_.size());
-       
-        //DOESN'T WORK, PUT IT IN THE BENCHMARKEXECUTOR CLASS CONSTRUCTOR, YOU'LL SEE COMPILATION ERRORS BOTH
-        //WITH AND WITHOUT '==NULL' ...
-        //TODO : TEST IF THE OBJECT visual_tools_ EXISTS : https://stackoverflow.com/questions/2099882/checking-for-a-null-object-in-c Nilesh' post
-        /*if(visual_tools_ == NULL)
-        {
-        	ROS_ERROR("[DEBUG] Visual tools DOESN'T EXIST !!!");
-        }*/
-        
+				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();*/
 				if(mp_res_before_exceeding.trajectory_.size()!=0)
 				{
 					if(mp_res_before_exceeding.trajectory_.back())
@@ -1139,12 +1113,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					{
 						ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");
 					}
+					
 					visual_tools_->deleteAllMarkers();
 					moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
-					// We can print the name of the reference frame for this robot.
-					ROS_WARN("[DEBUG] Reference frame: %s", move_group.getPlanningFrame().c_str());
-					// We can also print the name of the end-effector link for this group.
-					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());
+					
+					/*// We can also print the name of the end-effector link for this group.
+					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());*/
+					
 					const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 					ROS_ERROR("[DEBUG] How goes Line?");
@@ -1152,17 +1127,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					ROS_ERROR("[DEBUG] Line gives this.");
 
 					visual_tools_->trigger();
-					/*ROS_ERROR("[DEBUG] How goes RobotState?");
-					visual_tools_->publishRobotState(shared_robot_state_);
-					ROS_ERROR("[DEBUG] RobotState should be published now.");*/
-					ROS_WARN("[DEBUG] Group name contained in the traj: %s", (mp_res_before_exceeding.trajectory_.back())->getGroupName().c_str());
+					
 					ROS_ERROR("[DEBUG] How goes Path?");
 					visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
-	
-					
 					ROS_ERROR("[DEBUG] Path gives this.");
 				}
-        //ROS_ERROR("[DEBUG] segfault not caused by publish traj !!");
 			}
 			
       // Planner completion events
