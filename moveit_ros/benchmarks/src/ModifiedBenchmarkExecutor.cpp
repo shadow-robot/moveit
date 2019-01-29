@@ -754,9 +754,12 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
     // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/MotionPlanRequest.html
     queries.push_back(query);
     
-    ROS_ERROR("[DEBUG] queries.back().request.start_state.joint_state.position.size() = %lu",
+    ROS_ERROR("[EXPLORE] queries.back().request.start_state.joint_state.position.size() = %lu",
     queries.back().request.start_state.joint_state.position.size()); // To know whether a component has 6 or 12 values (only start or goal as well)
-    // Turns out q component has 15 joint values ??? Wtf?
+    // Turns out a component of queries has 15 joint values ??? Wtf?
+    std::vector<double> tmp = queries.back().request.start_state.joint_state.position;
+    for (int j=0; j<tmp.size(); ++j)
+    	ROS_ERROR("[EXPLORE] %f", tmp[j]);
     
   }
   ROS_INFO("Loaded queries successfully");
