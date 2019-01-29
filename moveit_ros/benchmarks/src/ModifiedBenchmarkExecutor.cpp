@@ -795,6 +795,13 @@ bool ModifiedBenchmarkExecutor::loadStates(const std::string& regex, std::vector
           continue;
         }
       }
+      
+      ROS_ERROR("[EXPLORE] start_states.back().state.joint_state.position.size() = %lu",
+    	start_states.back().state.joint_state.position.size()); // To know whether a component has 6 values (number of joint for the planning group)
+    	std::vector<double> tmp = start_states.back().state.joint_state.position;
+    	for (int j=0; j<tmp.size(); ++j)
+    		ROS_ERROR("[EXPLORE] %f", tmp[j]);
+      
     }
 
     if (start_states.empty())
@@ -829,6 +836,13 @@ bool ModifiedBenchmarkExecutor::loadPathConstraints(const std::string& regex, st
         continue;
       }
     }
+    
+    //TODO properly print here afterer comebacck from the thhe meeting
+    ROS_ERROR("[EXPLORE] constraints.back().constraints.joint_state.position.size() = %lu",
+  	constraints.back().constraints.joint_state.position.size()); // To know whether a component has 6 values (number of joint for the planning group)
+  	std::vector<double> tmp = constraints.back().constraints.joint_state.position;
+  	for (int j=0; j<tmp.size(); ++j)
+    	ROS_ERROR("[EXPLORE] %f", tmp[j]);
 
     if (constraints.empty())
       ROS_WARN("No path constraints found that match regex: '%s'", regex.c_str());
