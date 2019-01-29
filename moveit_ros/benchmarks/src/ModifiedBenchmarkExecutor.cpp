@@ -467,6 +467,8 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
   
   // 1) Create requests for combinations of start states,
   //    goal constraints, and path constraints
+  
+  ROS_ERROR("[EXPLORE] goal_constraints.size() = %lu", goal_constraints.size());//=0
   for (std::size_t i = 0; i < goal_constraints.size(); ++i)
   {
     // Common benchmark request properties
@@ -487,13 +489,16 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
 
     std::vector<BenchmarkRequest> request_combos;
     createRequestCombinations(brequest, start_states, path_constraints, request_combos);
+    ROS_ERROR("[EXPLORE] 1) request_combos.size() = %lu", request_combos.size());
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
 
   // 2) Existing queries are treated like goal constraints.
   //    Create all combos of query, start states, and path constraints
+  ROS_ERROR("[EXPLORE] queries.size() = %lu", queries.size());
   for (std::size_t i = 0; i < queries.size(); ++i)
   {
+  	ROS_ERROR("[EXPLORE] query i = %lu", i);
     // Common benchmark request properties
     BenchmarkRequest brequest;
     brequest.name = queries[i].name;
@@ -516,7 +521,23 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
 
     // Create all combinations of start states and path constraints
     std::vector<BenchmarkRequest> request_combos;
+    ROS_ERROR("[EXPLORE] 2) start_states.size() = %lu", start_states.size());
+    ROS_ERROR("[EXPLORE] 2) path_constraints.size() = %lu", path_constraints.size());
+    
+    ROS_ERROR("brequest.request.start_state.joint_state.position =");
+    std::vector<double> tmp1 = brequest.request.start_state.joint_state.position;
+    for (int j=0; j<tmp1.size(); ++j)
+    	ROS_ERROR("[EXPLORE] %f", tmp1[j]);
+    
     createRequestCombinations(brequest, start_states, path_constraints, request_combos);
+    
+    ROS_ERROR("[EXPLORE] 2) request_combos.size() = %lu", request_combos.size());
+    ROS_ERROR("request_combos[0].request.start_state.joint_state.position =");
+    std::vector<double> tmp2 = request_combos[0].request.start_state.joint_state.position;
+    for (int j=0; j<tmp2.size(); ++j)
+    	ROS_ERROR("[EXPLORE] %f", tmp2[j]);
+    
+    
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
 
@@ -541,6 +562,7 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     std::vector<BenchmarkRequest> request_combos;
     std::vector<PathConstraints> no_path_constraints;
     createRequestCombinations(brequest, start_states, no_path_constraints, request_combos);
+    ROS_ERROR("[EXPLORE] 3) request_combos.size() = %lu", request_combos.size());
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
 
@@ -579,6 +601,8 @@ void ModifiedBenchmarkExecutor::createRequestCombinations(const BenchmarkRequest
   if (start_states.empty())
   {
     // Adding path constraints
+    
+    ROS_ERROR("[EXPLORE] path_constraints.size() = %lu", path_constraints.size());// = 0s
     for (std::size_t k = 0; k < path_constraints.size(); ++k)
     {
       BenchmarkRequest new_brequest = brequest;
@@ -736,6 +760,7 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
 
   for (std::size_t i = 0; i < query_names.size(); ++i)
   {
+    ROS_ERROR("[EXPLORE] query's name i = %lu", i);
     moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
     try
     {
@@ -760,6 +785,7 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
     std::vector<double> tmp = queries.back().request.start_state.joint_state.position;
     for (int j=0; j<tmp.size(); ++j)
     	ROS_ERROR("[EXPLORE] %f", tmp[j]);
+    //And strangely some values aren't searchable into the file scene_ground_with_boxes.queries!! So I don't know from where come those datas
     
   }
   ROS_INFO("Loaded queries successfully");
@@ -837,12 +863,12 @@ bool ModifiedBenchmarkExecutor::loadPathConstraints(const std::string& regex, st
       }
     }
     
-    //TODO properly print here afterer comebacck from the thhe meeting
-    ROS_ERROR("[EXPLORE] constraints.back().constraints.joint_state.position.size() = %lu",
+    //The following is unachieved, as a ROS WARN is saying : Benchmark loaded 0 starts, 0 goals, 0 path constraints, 0 trajectory constraints, and 50 queries
+    /*ROS_ERROR("[EXPLORE] constraints.back().constraints.joint_state.position.size() = %lu",
   	constraints.back().constraints.joint_state.position.size()); // To know whether a component has 6 values (number of joint for the planning group)
   	std::vector<double> tmp = constraints.back().constraints.joint_state.position;
   	for (int j=0; j<tmp.size(); ++j)
-    	ROS_ERROR("[EXPLORE] %f", tmp[j]);
+    	ROS_ERROR("[EXPLORE] %f", tmp[j]);*/
 
     if (constraints.empty())
       ROS_WARN("No path constraints found that match regex: '%s'", regex.c_str());
