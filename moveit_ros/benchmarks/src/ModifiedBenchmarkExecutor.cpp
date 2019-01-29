@@ -442,9 +442,9 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     return false;
   }
 
-  ROS_INFO("Benchmark loaded %lu starts, %lu goals, %lu path constraints, %lu trajectory constraints, and %lu queries",
+  ROS_WARN("Benchmark loaded %lu starts, %lu goals, %lu path constraints, %lu trajectory constraints, and %lu queries",
            start_states.size(), goal_constraints.size(), path_constraints.size(), traj_constraints.size(),
-           queries.size());
+           queries.size()); //repass it as initially a ROS_INFO TODO
 
   moveit_msgs::WorkspaceParameters workspace_parameters = opts.getWorkspaceParameters();
   // Make sure that workspace_parameters are set
@@ -724,7 +724,7 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
   }
   catch (std::exception& ex)
   {
-    ROS_ERROR("Error loading motion planning queries: %s", ex.what());
+    ROS_ERROR("Error loading motion planning query names: %s", ex.what());
     return false;
   }
 
@@ -740,6 +740,7 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
     try
     {
       pss_->getPlanningQuery(planning_query, scene_name, query_names[i]);
+      // https://docs.ros.org/api/moveit_ros_warehouse/html/planning__scene__storage_8cpp_source.html#l00233
     }
     catch (std::exception& ex)
     {
@@ -749,8 +750,14 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
 
     BenchmarkRequest query;
     query.name = query_names[i];
-    query.request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query);
+    query.request = static_cast<moveit_msgs::MotionPlanRequest>(*planning_query); // key point
+    // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/MotionPlanRequest.html
     queries.push_back(query);
+    
+    ROS_ERROR("[DEBUG] queries.back().request.start_state.joint_state.position.size() = %lu",
+    queries.back().request.start_state.joint_state.position.size()); // To know whether a component has 6 or 12 values (only start or goal as well)
+    // Turns out q component has 15 joint values ??? Wtf?
+    
   }
   ROS_INFO("Loaded queries successfully");
   return true;
@@ -1099,7 +1106,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         
         // Let's try to display the robot movement:
         // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
-        bool wait_for_trajectory = false;
+        bool stop_at_first_move = false;
         /*// To start, we'll create an pointer that references the current robot's state.
   			// RobotState is the object that contains all the current position/velocity/acceleration data.
 				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();*/
@@ -1123,14 +1130,18 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 					ROS_ERROR("[DEBUG] How goes Line?");
+					//trajectory markers
 					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
 
-					visual_tools_->trigger();
+					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 					
 					ROS_ERROR("[DEBUG] How goes Path?");
-					visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), wait_for_trajectory);
+					//robot's movement
+					visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 					ROS_ERROR("[DEBUG] Path gives this.");
+					
+					visual_tools_->triggerPlanningSceneUpdate(); //forces a refresh with the new trajectory markers
 				}
 			}
 			
