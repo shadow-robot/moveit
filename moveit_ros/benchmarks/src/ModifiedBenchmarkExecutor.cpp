@@ -1195,10 +1195,6 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					//trajectory markers
 					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
-
-					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-					
-					
 					
 					ROS_ERROR("[DEBUG] How goes some start/goal conf?");
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
@@ -1207,10 +1203,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
     			visual_tools_->loadSharedRobotState(); // trial
 					visual_tools_->publishRobotState( tmp4 , joint_model_group );
 					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");
+
+					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 					
 					ROS_ERROR("[DEBUG] How goes Path?");
 					//robot's movement
-					visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
+					if ( !visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move) );
+    				ROS_ERROR("Some error after calling 'publishTrajectoryPath('");
 					ROS_ERROR("[DEBUG] Path gives this.");
 					
 					//visual_tools_->triggerPlanningSceneUpdate(); //forces a refresh with the new trajectory markers
