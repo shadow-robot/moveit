@@ -1199,29 +1199,21 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
 					
-					std::chrono::seconds dura(15);
-					std::cout << "About to wait 15s after line\n";
-    			std::this_thread::sleep_for( dura );
-    			std::cout << "Waited 15s\n";
+					// Finally I found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
+					// value for its size was doing the job (of displaying start and goal confs)
+					// THOUGH I'M STILL UNSURE ABOUT HOW OR WHERE THE RANDOM START AND GOAL STATES ARE SAMPLED,
+					// AND NEITHER HOW THEY ARE ENSURED TO BE FEASIBLE BUT ANYWAY LET'S TRUST HUMANS...
 					
-					ROS_ERROR("[DEBUG] How goes some start/goal conf?");
+					// So this code portion can be commented even though idk why it wasn't working...
+					/*ROS_ERROR("[DEBUG] How goes some start/goal conf?");
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
 					for (int j=0; j<tmp4.size(); ++j)
     				ROS_ERROR("[DEBUG] %f", tmp4[j]);
     			//visual_tools_->loadSharedRobotState(); // trial
 					visual_tools_->publishRobotState( tmp4 , joint_model_group );
-					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");
-					
-					std::cout << "About to wait 15s after conf\n";
-					std::this_thread::sleep_for( dura );
-    			std::cout << "Waited 15s\n";
+					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");*/
 
 					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-					
-					
-    			std::cout << "About to wait 15s after triggering\n";
-					std::this_thread::sleep_for( dura );
-    			std::cout << "Waited 15s after triggering\n";
 					
 					ROS_ERROR("[DEBUG] How goes Path?");
 					//robot's movement
@@ -1229,11 +1221,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
     				ROS_ERROR("Some error after calling 'publishTrajectoryPath('");
 					ROS_ERROR("[DEBUG] Path gives this.");
 					
-					std::cout << "About to wait 15s after path\n";
+					std::chrono::seconds dura(10);
+					std::cout << "About to wait 10s while movement animation finishes\n";
 					std::this_thread::sleep_for( dura );
-    			std::cout << "Waited 15s after path\n";
-					
-					//visual_tools_->triggerPlanningSceneUpdate(); //forces a refresh with the new trajectory markers
+    			std::cout << "Waited 10s after path\n";
 				}
 			}
 			
