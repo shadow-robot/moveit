@@ -73,6 +73,9 @@
 //#include <unistd.h> 
 #include <sys/types.h> */
 
+#include <chrono> // for debug purpose (should prevent the sequential execution to do the following actions)
+#include <thread>
+
 
 using namespace moveit_ros_benchmarks;
 
@@ -1196,21 +1199,39 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
 					
+					std::chrono::seconds dura(15);
+					std::cout << "About to wait 15s after line\n";
+    			std::this_thread::sleep_for( dura );
+    			std::cout << "Waited 15s\n";
+					
 					ROS_ERROR("[DEBUG] How goes some start/goal conf?");
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
 					for (int j=0; j<tmp4.size(); ++j)
     				ROS_ERROR("[DEBUG] %f", tmp4[j]);
-    			visual_tools_->loadSharedRobotState(); // trial
+    			//visual_tools_->loadSharedRobotState(); // trial
 					visual_tools_->publishRobotState( tmp4 , joint_model_group );
 					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");
+					
+					std::cout << "About to wait 15s after conf\n";
+					std::this_thread::sleep_for( dura );
+    			std::cout << "Waited 15s\n";
 
 					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+					
+					
+    			std::cout << "About to wait 15s after triggering\n";
+					std::this_thread::sleep_for( dura );
+    			std::cout << "Waited 15s after triggering\n";
 					
 					ROS_ERROR("[DEBUG] How goes Path?");
 					//robot's movement
 					if ( !visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move) );
     				ROS_ERROR("Some error after calling 'publishTrajectoryPath('");
 					ROS_ERROR("[DEBUG] Path gives this.");
+					
+					std::cout << "About to wait 15s after path\n";
+					std::this_thread::sleep_for( dura );
+    			std::cout << "Waited 15s after path\n";
 					
 					//visual_tools_->triggerPlanningSceneUpdate(); //forces a refresh with the new trajectory markers
 				}
