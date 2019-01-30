@@ -329,6 +329,7 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 
     for (std::size_t i = 0; i < queries.size(); ++i)
     {
+    	ROS_ERROR("[EXPLORE] query i = %lu", i);
       // Configure planning scene
       if (scene_msg.robot_model_name != planning_scene_->getRobotModel()->getName())
       {
@@ -343,6 +344,8 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
         planning_scene_->usePlanningSceneMsg(scene_msg); //Apply changes to this planning scene, e.g the robot state is overwritten
 
       // Calling query start events // QUITE DONT UNDERSTAND  for what index j stands.. nb runs??
+      ROS_ERROR("[EXPLORE] query_start_fns_.size() = %lu", query_start_fns_.size());
+      // Doesn't matter since it's never filled
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
       
@@ -351,6 +354,12 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       ROS_WARN("QUERY '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size()); // (Note that queries are benchmarked in disorder)
       ROS_WARN("--------------------------------");
       ROS_WARN("--------------------------------");
+      
+      ROS_ERROR("[EXPLORE] queries[%lu].request =", i);
+    	std::vector<double> tmp3 = queries[i].request.start_state.joint_state.position;
+    	for (int j=0; j<tmp3.size(); ++j)
+    		ROS_ERROR("[EXPLORE] %f", tmp3[j]);
+      
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request, 
 		   queries[i].name, 
@@ -914,6 +923,16 @@ bool ModifiedBenchmarkExecutor::loadTrajectoryConstraints(const std::string& reg
   return true;
 }
 
+template<typename T>
+static std::vector<T> slice(std::vector<T> const &v, int m, int n)
+{
+    auto first = v.cbegin() + m;
+    auto last = v.cbegin() + n + 1;
+
+    std::vector<T> vec(first, last);
+    return vec;
+}
+
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
 					     const std::string& queryName,
 					     const std::map<std::string, std::vector<std::string>>& planners, 
@@ -1179,12 +1198,22 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 
 					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 					
+					
+					
+					ROS_ERROR("[DEBUG] How goes some start/goal conf?");
+					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
+					for (int j=0; j<tmp4.size(); ++j)
+    				ROS_ERROR("[DEBUG] %f", tmp4[j]);
+    			visual_tools_->loadSharedRobotState(); // trial
+					visual_tools_->publishRobotState( tmp4 , joint_model_group );
+					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");
+					
 					ROS_ERROR("[DEBUG] How goes Path?");
 					//robot's movement
 					visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 					ROS_ERROR("[DEBUG] Path gives this.");
 					
-					visual_tools_->triggerPlanningSceneUpdate(); //forces a refresh with the new trajectory markers
+					//visual_tools_->triggerPlanningSceneUpdate(); //forces a refresh with the new trajectory markers
 				}
 			}
 			
