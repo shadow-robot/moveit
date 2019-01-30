@@ -130,7 +130,7 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
     
     visual_tools_->loadSharedRobotState(); //(try for using publishTrajectoryPath())
     
-    visual_tools_->loadRobotStatePub("display_robot_state");
+    visual_tools_->loadRobotStatePub("/display_robot_state");
 //visual_tools_->setManualSceneUpdating();
 visual_tools_->deleteAllMarkers();
     visual_tools_->removeAllCollisionObjects();
@@ -1202,16 +1202,20 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					// Finally I found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
 					// value for its size was doing the job (of displaying start and goal confs)
 					// THOUGH I'M STILL UNSURE ABOUT HOW OR WHERE THE RANDOM START AND GOAL STATES ARE SAMPLED,
+					// TODO investigate the goal_constraints here http://docs.ros.org/kinetic/api/moveit_msgs/html/definePlanningRequest.html
+					// (but I think I did.)
 					// AND NEITHER HOW THEY ARE ENSURED TO BE FEASIBLE BUT ANYWAY LET'S TRUST HUMANS...
 					
-					// So this code portion can be commented even though idk why it wasn't working...
-					/*ROS_ERROR("[DEBUG] How goes some start/goal conf?");
+					// https://answers.ros.org/question/11845/rviz-configuration-file-format/ <- where to get and set the RViz latest config
+					// I try to save the biggest modifications in benchmarks folder of this moveit fork
+					
+					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
+					ROS_ERROR("[DEBUG] How goes some start/goal conf?");
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
 					for (int j=0; j<tmp4.size(); ++j)
     				ROS_ERROR("[DEBUG] %f", tmp4[j]);
-    			//visual_tools_->loadSharedRobotState(); // trial
 					visual_tools_->publishRobotState( tmp4 , joint_model_group );
-					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");*/
+					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");
 
 					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 					
