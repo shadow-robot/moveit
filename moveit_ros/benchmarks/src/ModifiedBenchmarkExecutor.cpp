@@ -1164,7 +1164,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       	if ((solved_proof > 0) && (lastIterationIsConcluding == true))
       	{ //then the iteration that exceeded the countdown is concluding and we appended a useless line to the saving file that has to be removed since it exceeded the countdown!
       	  finally_solved = true;
-      	  ROS_INFO("It exists some iteration which has managed to solve the problem. And the one 											which best solves it, is stored");
+      	  ROS_INFO("It exists some iteration which has managed to solve the problem. And the one 											which best solves it, is stored"); 
 					//temporary switch to C language to remove the last line:
 				  deleteLastLine(logfileName.c_str(), bufLengthMax);
 				  // just to be sure that we indeed removed the last line: (comeback to C++)
