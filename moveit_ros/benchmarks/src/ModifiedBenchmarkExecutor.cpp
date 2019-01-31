@@ -1012,7 +1012,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 									"you did not set any metric over which do the optimization process." 
 									"In parameters list, please add metric_choice: relevancy OR energy");
 			}
-      						      
+      			      
       for (int j = 0; j < runs; ++j)
       {
         ROS_WARN("--------------------------------");
@@ -1196,7 +1196,22 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         //Let's display the real result! (robot movements)
         visual_tools_->deleteAllMarkers();
         
-        if (kept_proof >= first_solved+1) // this this algo leaded to either : 
+  			// the start conf:
+				// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
+				std::vector<double> start_config_current = slice<double>(request.start_state.joint_state.position,0,5);
+				for (int j=0; j<start_config_current.size(); ++j)
+  				ROS_ERROR("[DEBUG] %f rad", start_config_current[j]);
+        
+        // the goal conf:
+        std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
+				std::vector<double> goal_config_current;
+  			for (int j=0; j<tmp6.size(); ++j)
+  			{
+  				ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);
+  				goal_config_current.push_back(tmp6[j].position);
+  			}
+        
+        if (kept_proof >= first_solved+1) // this algo leaded to either : 
         // obtain a solution where classic planner couldn't after 1 call,
         // or took the risk to improve the first solution (which could have lead in an enhanced one, or a worse but still drafted one)
         {// And then it's legit to be curious about the result of this algo. 
@@ -1204,12 +1219,20 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 		      // Legend above the scene
 		      std::vector<std::string> texts;
 		      texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
-		      texts.push_back(queryName);
-		      texts.push_back("motion planner : " + plannerToBeWritten); //TODO not forget to remove the "wrapped" in the ModifiedBenchmarkExecutorWithoutTweaksAndRestarts
-		      texts.push_back("allocated countdown T = " + std::to_string(countdown) + "seconds");
-		      texts.push_back("acceptance(t) := " + acceptanceFuncExpression);
+		      for (unsigned int i = goal_config_current.size(); i-- > 0; )
+		      //for (auto i = goal_config_current.rbegin(); i != goal_config_current.rend(); ++i)
+		      	// https://stackoverflow.com/questions/3610933/iterating-c-vector-from-the-end-to-the-begin
+		      	// doesn't work here, I will have *iterator for goal config but not for start config!
+		      	// so : https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
+		      	texts.push_back(std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) + " radians");
+		      texts.push_back("pair start/goal of joint configurations : '" + queryName + "'");
+		      texts.push_back("motion planner : " + plannerToBeWritten);
+		      texts.push_back("allocated countdown T = " + std::to_string(countdown) + " seconds");
+		      texts.push_back(std::to_string(j+1) + "th experiment replica"); //j+1 = the number of the run (out of 5 currently)
+		      texts.push_back("acceptance(t) := " + acceptanceFuncExpression); //TODO not forget to remove this in the ModifiedBenchmarkExecutorWithoutTweaksAndRestarts
+		      // TODO Though it may also be interesting to launch the animation of both moves (configDefault and wrapped) into the same scene
 		      
-		      double alti_min = 1.7, alti_step = 0.1;
+		      double alti_min = 1.7, alti_step = 0.05;
 		      Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
 		      for (std::size_t i = 0; i < texts.size(); ++i)
 		      {
@@ -1245,23 +1268,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					const rviz_visual_tools::colors traj_rope_color = rviz_visual_tools::CYAN; //or PINK
 				
 					ROS_ERROR("[DEBUG] How is start conf?");
-					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
-					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
-					for (int j=0; j<tmp4.size(); ++j)
-	  				ROS_ERROR("[DEBUG] %f rad", tmp4[j]);
 					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
-					visual_tools_->publishRobotState(tmp4, joint_model_group, start_conf_color);
+					visual_tools_->publishRobotState(start_config_current, joint_model_group, start_conf_color);
 					ROS_ERROR("[DEBUG] Start conf gives this.");
 				
 					ROS_ERROR("[DEBUG] How is goal conf?");
-					std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
-					std::vector<double> goal_config_current;
-	  			for (int j=0; j<tmp6.size(); ++j)
-	  			{
-	  				ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);
-	  				goal_config_current.push_back(tmp6[j].position);
-	  			}
 					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
