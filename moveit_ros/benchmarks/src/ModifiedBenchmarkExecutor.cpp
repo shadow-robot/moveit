@@ -1218,21 +1218,22 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
          // (And logically the previous_ saved values are for sure not the values resulting from the first successful call)
 		      // Legend above the scene
 		      std::vector<std::string> texts;
-		      texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
 		      for (unsigned int i = goal_config_current.size(); i-- > 0; )
 		      //for (auto i = goal_config_current.rbegin(); i != goal_config_current.rend(); ++i)
 		      	// https://stackoverflow.com/questions/3610933/iterating-c-vector-from-the-end-to-the-begin
 		      	// doesn't work here, I will have *iterator for goal config but not for start config!
 		      	// so : https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
 		      	texts.push_back(std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) + " radians");
+		      texts.push_back("(top of the list <-> base, bottom <-> towards the wrist)");
 		      texts.push_back("pair start/goal of joint configurations : '" + queryName + "'");
 		      texts.push_back("motion planner : " + plannerToBeWritten);
 		      texts.push_back("allocated countdown T = " + std::to_string(countdown) + " seconds");
-		      texts.push_back(std::to_string(j+1) + "th experiment replica"); //j+1 = the number of the run (out of 5 currently)
+		      texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
+		      texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently)
 		      texts.push_back("acceptance(t) := " + acceptanceFuncExpression); //TODO not forget to remove this in the ModifiedBenchmarkExecutorWithoutTweaksAndRestarts
 		      // TODO Though it may also be interesting to launch the animation of both moves (configDefault and wrapped) into the same scene
 		      
-		      double alti_min = 1.7, alti_step = 0.05;
+		      double alti_min = 1.7, alti_step = 0.075;
 		      Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
 		      for (std::size_t i = 0; i < texts.size(); ++i)
 		      {
