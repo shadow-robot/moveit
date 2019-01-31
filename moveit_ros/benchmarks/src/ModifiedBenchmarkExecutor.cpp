@@ -533,6 +533,7 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
 
     // Create all combinations of start states and path constraints
     std::vector<BenchmarkRequest> request_combos;
+    
     ROS_ERROR("[EXPLORE] 2) start_states.size() = %lu", start_states.size());
     ROS_ERROR("[EXPLORE] 2) path_constraints.size() = %lu", path_constraints.size());
     
@@ -540,9 +541,27 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     std::vector<double> tmp1 = brequest.request.start_state.joint_state.position;
     for (int j=0; j<tmp1.size(); ++j)
     	ROS_ERROR("[EXPLORE] %f", tmp1[j]);
+    	
+    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints.size() = %lu", brequest.request.goal_constraints.size());//=1
+    // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/Constraints.html :
+    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.size() = %lu", brequest.request.goal_constraints[0].joint_constraints.size());//=6
+    std::vector<moveit_msgs::JointConstraint> tmp5 = brequest.request.goal_constraints[0].joint_constraints;
+    for (int j=0; j<tmp5.size(); ++j)
+    	ROS_WARN("[EXPLORE] %f", tmp5[j].position);
+    ROS_ERROR("[EXPLORE] 2) brequest.request.goal_constraints[0].position_constraints.size() = %lu", brequest.request.goal_constraints[0].position_constraints.size());//=0
+    ROS_ERROR("[EXPLORE] 2) brequest.request.goal_constraints[0].orientation_constraints.size() = %lu", brequest.request.goal_constraints[0].orientation_constraints.size());//=0
+    ROS_ERROR("[EXPLORE] 2) brequest.request.goal_constraints[0].visibility_constraints.size() = %lu", brequest.request.goal_constraints[0].visibility_constraints.size());//=0
+    
+    
+    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.joint_constraints.size() = %lu", brequest.request.path_constraints.joint_constraints.size());//=0
+    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.position_constraints.size() = %lu", brequest.request.path_constraints.position_constraints.size());//=0
+    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.orientation_constraints.size() = %lu", brequest.request.path_constraints.orientation_constraints.size());//=0
+    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.visibility_constraints.size() = %lu", brequest.request.path_constraints.visibility_constraints.size());//=0
+    ROS_WARN("[EXPLORE] 2) brequest.request.trajectory_constraints.constraints.size() = %lu", brequest.request.trajectory_constraints.constraints.size());//=0
     
     createRequestCombinations(brequest, start_states, path_constraints, request_combos);
     
+    //This shows that request_combos are actually nothing more than a copy of or brequest...
     ROS_ERROR("[EXPLORE] 2) request_combos.size() = %lu", request_combos.size());
     ROS_ERROR("request_combos[0].request.start_state.joint_state.position =");
     std::vector<double> tmp2 = request_combos[0].request.start_state.joint_state.position;
@@ -1209,11 +1228,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					// https://answers.ros.org/question/11845/rviz-configuration-file-format/ <- where to get and set the RViz latest config
 					// I try to save the biggest modifications in benchmarks folder of this moveit fork
 					
-					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
 					ROS_ERROR("[DEBUG] How goes some start/goal conf?");
+					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
 					for (int j=0; j<tmp4.size(); ++j)
     				ROS_ERROR("[DEBUG] %f", tmp4[j]);
+					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
 					visual_tools_->publishRobotState( tmp4 , joint_model_group );
 					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");
 
