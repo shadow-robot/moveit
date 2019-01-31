@@ -139,12 +139,6 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
 	//visual_tools_->setManualSceneUpdating();
 	visual_tools_->deleteAllMarkers();
   visual_tools_->removeAllCollisionObjects();
-  
-  ROS_WARN_STREAM("STARTING!!");
-  /*Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
-  text_pose.translation().z() = 4;
-	visual_tools_->publishText(text_pose, "MoveIt! Visual Tools", rviz_visual_tools::WHITE, rviz_visual_tools::XLARGE, false);*/
-	visual_tools_->trigger();
 
   // Initialize the class loader for planner plugins
   try
@@ -1081,17 +1075,22 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
     			space, but also create a super annoying mess into my matlab postprocess (precisely in the way 
     			it handles the n axis associated to the n params) to show the evolution !*/
 				initializePlannerParameters(pathPlannerParameters, paramBoundariesAndSteps_Xml, vecPlannerParamNames);
-				unsigned int solved_proof = 0, kept_proof = 0;
+				unsigned int solved_proof = 0, kept_proof = 0, first_solved = 0;
       	// Solve problem, once, as before,
       	ros::WallTime start = ros::WallTime::now();
 				lastIterationIsConcluding = false;
       	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
       	if (solved)
       	{
-      	  solved_proof +=1; kept_proof +=1;
+      	  solved_proof +=1; kept_proof +=1; first_solved +=1;
+      		// solved_ = calls that found a solution,
+      		// kept_ = solved_ that : not exceed the countdown + improve the quality + or are drafted (FR: etre repeche)
+      		// first_ = have been solved already before entering the while-tweaking loop
 					lastIterationIsConcluding = true;
+					
 					mp_res_before_exceeding = mp_res; /*REMOVE THIS LINE IN ORDER TO ONLY DISPLAY IN RVIZ THE "TWEAKED"
 					PLANS AND NOT INCLUDE THE FIRST SUCCEEDING ONLY ONE BEFORE EXCEEDING*/
+					
       	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
@@ -1194,32 +1193,39 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
         
         
-        // Let's try to display the robot movement:
-        // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp
-        bool stop_at_first_move = false;
-        /*// To start, we'll create an pointer that references the current robot's state.
-  			// RobotState is the object that contains all the current position/velocity/acceleration data.
-				//moveit::core::RobotStatePtr current_state = move_group.getCurrentState();*/
-				if(mp_res_before_exceeding.trajectory_.size()!=0)
-				{
-					if(mp_res_before_exceeding.trajectory_.back())
-					{
-						ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
-											 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
-					}else
-					{
-						ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");
-					}
-					
-					visual_tools_->deleteAllMarkers();
+        //Let's display the real result! (robot movements)
+        visual_tools_->deleteAllMarkers();
+        
+        if (kept_proof >= first_solved+1) // this this algo leaded to either : 
+        // obtain a solution where classic planner couldn't after 1 call,
+        // or took the risk to improve the first solution (which could have lead in an enhanced one, or a worse but still drafted one)
+        {// And then it's legit to be curious about the result of this algo. 
+         // (And logically the previous_ saved values are for sure not the values resulting from the first successful call)
+		      // Legend above the scene
+		      std::vector<std::string> texts;
+		      texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
+		      texts.push_back(queryName);
+		      texts.push_back("motion planner : " + plannerToBeWritten); //TODO not forget to remove the "wrapped" in the ModifiedBenchmarkExecutorWithoutTweaksAndRestarts
+		      texts.push_back("allocated countdown T = " + std::to_string(countdown) + "seconds");
+		      texts.push_back("acceptance(t) := " + acceptanceFuncExpression);
+		      
+		      double alti_min = 1.7, alti_step = 0.1;
+		      Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+		      for (std::size_t i = 0; i < texts.size(); ++i)
+		      {
+		      	pose.translation().z() = alti_min + i*alti_step;
+		      	visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
+		      }
+		      
+		      //visual_tools_->deleteAllMarkers();
 					moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
-					
+				
 					/*// We can also print the name of the end-effector link for this group.
 					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());*/
-					
+				
 					const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-					
+				
 					// Btw I also found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
 					// value for its size was doing the job (of displaying start and goal confs),
 					// even though the start conf was first displayed, frozen, and only then (at the end of the movement) was frozen the goal conf
@@ -1229,51 +1235,66 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					// TODO investigate the goal_constraints here http://docs.ros.org/kinetic/api/moveit_msgs/html/definePlanningRequest.html
 					// (but I think I did.)
 					// AND NEITHER HOW THEY ARE ENSURED TO BE FEASIBLE BUT ANYWAY LET'S TRUST HUMANS...
-					
+				
 					// https://answers.ros.org/question/11845/rviz-configuration-file-format/ <- where to get and set the RViz latest config
 					// I try to save the biggest modifications in benchmarks folder of this moveit fork
-					
+				
+					// https://github.com/PickNikRobotics/rviz_visual_tools
 					const rviz_visual_tools::colors start_conf_color = rviz_visual_tools::GREEN;
 					const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
 					const rviz_visual_tools::colors traj_rope_color = rviz_visual_tools::CYAN; //or PINK
-					
+				
 					ROS_ERROR("[DEBUG] How is start conf?");
 					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
 					for (int j=0; j<tmp4.size(); ++j)
-    				ROS_ERROR("[DEBUG] %f rad", tmp4[j]);
+	  				ROS_ERROR("[DEBUG] %f rad", tmp4[j]);
 					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools_->publishRobotState(tmp4, joint_model_group, start_conf_color);
 					ROS_ERROR("[DEBUG] Start conf gives this.");
-					
+				
 					ROS_ERROR("[DEBUG] How is goal conf?");
 					std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
 					std::vector<double> goal_config_current;
-    			for (int j=0; j<tmp6.size(); ++j)
-    			{
-    				ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);
-    				goal_config_current.push_back(tmp6[j].position);
-    			}
+	  			for (int j=0; j<tmp6.size(); ++j)
+	  			{
+	  				ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);
+	  				goal_config_current.push_back(tmp6[j].position);
+	  			}
 					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
 					ROS_ERROR("[DEBUG] Goal conf gives this.");
+		      
+		      //visual_tools_->trigger();
+					if(mp_res_before_exceeding.trajectory_.size()!=0)
+					{
+						if(mp_res_before_exceeding.trajectory_.back())
+						{
+							ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
+												 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
+						}else
+						{
+							ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");
+						}
 					
-					ROS_ERROR("[DEBUG] How is traj Line?");
-					//trajectory markers
-					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color);
-					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-					ROS_ERROR("[DEBUG] Line gives this.");
+						ROS_ERROR("[DEBUG] How is traj Line?");
+						//trajectory markers
+						visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color);
+						visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+						ROS_ERROR("[DEBUG] Line gives this.");
 					
-					ROS_ERROR("[DEBUG] How is Path (= animated movement) ?");
-					if ( !visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move) );
-    				ROS_ERROR("Some error after calling 'publishTrajectoryPath('");
-					ROS_ERROR("[DEBUG] Path gives this.");
-					std::chrono::seconds dura(10);
-					std::cout << "About to wait 10s while movement animation finishes\n";
-					std::this_thread::sleep_for( dura );
-    			std::cout << "Waited 10s after path\n";
+						ROS_ERROR("[DEBUG] How is Path (= animated movement) ?");
+						bool stop_at_first_move = false;
+						if ( !visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move) );
+		  				ROS_ERROR("Some error after calling 'publishTrajectoryPath('");
+						ROS_ERROR("[DEBUG] Path gives this.");
+						std::chrono::seconds dura(10);
+						std::cout << "About to wait 10s while movement animation finishes\n";
+						std::this_thread::sleep_for( dura );
+		  			std::cout << "Waited 10s after path\n";
+					}
 				}
 			}
 			
