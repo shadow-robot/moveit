@@ -1219,14 +1219,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					
 					const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-					ROS_ERROR("[DEBUG] How is traj Line?");
-					//trajectory markers
-					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
-					ROS_ERROR("[DEBUG] Line gives this.");
 					
-					// Finally I found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
-					// value for its size was doing the job (of displaying start and goal confs)
-					// THOUGH I'M STILL UNSURE ABOUT HOW OR WHERE THE RANDOM START AND GOAL STATES ARE SAMPLED,
+					// Btw I also found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
+					// value for its size was doing the job (of displaying start and goal confs),
+					// even though the start conf was first displayed, frozen, and only then (at the end of the movement) was frozen the goal conf
+					// so it didn't feel like the query was already known beforehand.
+					// THOUGH I'M STILL UNSURE ABOUT HOW OR WHERE THE RANDOM START AND GOAL STATES ARE SAMPLED
+					// (IT IS FOR SURE NOT IN THIS FILE WHEN WE SEARCH FOR 'combo'),
 					// TODO investigate the goal_constraints here http://docs.ros.org/kinetic/api/moveit_msgs/html/definePlanningRequest.html
 					// (but I think I did.)
 					// AND NEITHER HOW THEY ARE ENSURED TO BE FEASIBLE BUT ANYWAY LET'S TRUST HUMANS...
@@ -1236,13 +1235,15 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					
 					const rviz_visual_tools::colors start_conf_color = rviz_visual_tools::GREEN;
 					const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
+					const rviz_visual_tools::colors traj_rope_color = rviz_visual_tools::CYAN; //or PINK
 					
 					ROS_ERROR("[DEBUG] How is start conf?");
 					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
 					for (int j=0; j<tmp4.size(); ++j)
     				ROS_ERROR("[DEBUG] %f rad", tmp4[j]);
-					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
+					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
+					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools_->publishRobotState(tmp4, joint_model_group, start_conf_color);
 					ROS_ERROR("[DEBUG] Start conf gives this.");
 					
@@ -1254,18 +1255,21 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
     				ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);
     				goal_config_current.push_back(tmp6[j].position);
     			}
-					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
+					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
+					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
 					ROS_ERROR("[DEBUG] Goal conf gives this.");
-
-					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 					
-					ROS_ERROR("[DEBUG] How is Path (movement) ?");
-					//robot's movement
+					ROS_ERROR("[DEBUG] How is traj Line?");
+					//trajectory markers
+					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color);
+					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+					ROS_ERROR("[DEBUG] Line gives this.");
+					
+					ROS_ERROR("[DEBUG] How is Path (= animated movement) ?");
 					if ( !visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move) );
     				ROS_ERROR("Some error after calling 'publishTrajectoryPath('");
 					ROS_ERROR("[DEBUG] Path gives this.");
-					
 					std::chrono::seconds dura(10);
 					std::cout << "About to wait 10s while movement animation finishes\n";
 					std::this_thread::sleep_for( dura );

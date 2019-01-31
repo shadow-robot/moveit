@@ -6,46 +6,9 @@ Panels:
       Expanded:
         - /MotionPlanning1
         - /MotionPlanning1/Planned Path1
-        - /RobotState1
-        - /RobotState1/Links1/H0_F0_base_link1
-        - /RobotState1/Links1/H0_F0_link_11
-        - /RobotState1/Links1/H0_F0_link_21
-        - /RobotState1/Links1/H0_F0_optoforce1
-        - /RobotState1/Links1/H0_F0_palm_link1
-        - /RobotState1/Links1/H0_F0_tip1
-        - /RobotState1/Links1/H0_F1_base_link1
-        - /RobotState1/Links1/H0_F1_link_11
-        - /RobotState1/Links1/H0_F1_link_21
-        - /RobotState1/Links1/H0_F1_optoforce1
-        - /RobotState1/Links1/H0_F1_palm_link1
-        - /RobotState1/Links1/H0_F1_tip1
-        - /RobotState1/Links1/H0_F2_base_link1
-        - /RobotState1/Links1/H0_F2_link_11
-        - /RobotState1/Links1/H0_F2_link_21
-        - /RobotState1/Links1/H0_F2_optoforce1
-        - /RobotState1/Links1/H0_F2_palm_link1
-        - /RobotState1/Links1/H0_F2_tip1
-        - /RobotState1/Links1/H0_base_attach1
-        - /RobotState1/Links1/H0_base_link1
-        - /RobotState1/Links1/H0_insert_F01
-        - /RobotState1/Links1/H0_insert_F11
-        - /RobotState1/Links1/H0_insert_F21
-        - /RobotState1/Links1/H0_mounting_plate1
-        - /RobotState1/Links1/H0_wrist_attach1
-        - /RobotState1/Links1/fh_manipulator1
-        - /RobotState1/Links1/ra_base1
-        - /RobotState1/Links1/ra_base_link1
-        - /RobotState1/Links1/ra_ee_link1
-        - /RobotState1/Links1/ra_forearm_link1
-        - /RobotState1/Links1/ra_shoulder_link1
-        - /RobotState1/Links1/ra_tool01
-        - /RobotState1/Links1/ra_upper_arm_link1
-        - /RobotState1/Links1/ra_wrist_1_link1
-        - /RobotState1/Links1/ra_wrist_2_link1
-        - /RobotState1/Links1/ra_wrist_3_link1
-        - /RobotState1/Links1/world1
+        - /MarkerArray (path line)1/Namespaces1
       Splitter Ratio: 0.742560029
-    Tree Height: 173
+    Tree Height: 163
   - Class: rviz/Help
     Name: Help
   - Class: rviz/Views
@@ -278,13 +241,13 @@ Visualization Manager:
             Show Axes: false
             Show Trail: false
         Loop Animation: false
-        Robot Alpha: 0.300000012
+        Robot Alpha: 1
         Robot Color: 150; 50; 150
         Show Robot Collision: false
         Show Robot Visual: true
         Show Trail: false
         State Display Time: 0.05 s
-        Trail Step Size: 30000
+        Trail Step Size: 12
         Trajectory Topic: move_group/display_planned_path
       Planning Metrics:
         Payload: 1
@@ -500,7 +463,7 @@ Visualization Manager:
     - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /moveit_visual_markers
-      Name: MarkerArray
+      Name: MarkerArray (path line)
       Namespaces:
         Cylinder: true
         Sphere: true
@@ -512,9 +475,9 @@ Visualization Manager:
       Enabled: true
       Links:
         All Links Enabled: true
-        Expand Joint Details: true
-        Expand Link Details: true
-        Expand Tree: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
         H0_F0_base_link:
           Alpha: 1
           Show Axes: false
@@ -534,7 +497,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_F0_palm_link:
           Alpha: 1
           Show Axes: false
@@ -544,7 +506,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_F1_base_link:
           Alpha: 1
           Show Axes: false
@@ -564,7 +525,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_F1_palm_link:
           Alpha: 1
           Show Axes: false
@@ -574,7 +534,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_F2_base_link:
           Alpha: 1
           Show Axes: false
@@ -594,7 +553,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_F2_palm_link:
           Alpha: 1
           Show Axes: false
@@ -604,12 +562,10 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_base_attach:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_base_link:
           Alpha: 1
           Show Axes: false
@@ -619,17 +575,14 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_insert_F1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_insert_F2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         H0_mounting_plate:
           Alpha: 1
           Show Axes: false
@@ -639,18 +592,15 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
-        Link Tree Style: true
+        Link Tree Style: Links in Alphabetic Order
         fh_manipulator:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         ra_base:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         ra_base_link:
           Alpha: 1
           Show Axes: false
@@ -675,7 +625,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         ra_upper_arm_link:
           Alpha: 1
           Show Axes: false
@@ -700,13 +649,200 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
-      Name: RobotState
+      Name: RobotState (start conf)
       Robot Alpha: 1
       Robot Description: robot_description
-      Robot State Topic: display_robot_state
+      Robot State Topic: display_start_configuration
       Show All Links: true
-      Show Highlights: false
+      Show Highlights: true
+      Value: true
+      Visual Enabled: true
+    - Attached Body Color: 150; 50; 150
+      Class: moveit_rviz_plugin/RobotState
+      Collision Enabled: false
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        H0_F0_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F0_link_1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F0_link_2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F0_optoforce:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_F0_palm_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F0_tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_F1_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F1_link_1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F1_link_2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F1_optoforce:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_F1_palm_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F1_tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_F2_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F2_link_1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F2_link_2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F2_optoforce:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_F2_palm_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_F2_tip:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_base_attach:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_insert_F0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_insert_F1:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_insert_F2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        H0_mounting_plate:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        H0_wrist_attach:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        Link Tree Style: Links in Alphabetic Order
+        fh_manipulator:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        ra_base:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        ra_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ra_ee_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ra_forearm_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ra_shoulder_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ra_tool0:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        ra_upper_arm_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ra_wrist_1_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ra_wrist_2_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ra_wrist_3_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        world:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+      Name: RobotState (goal conf)
+      Robot Alpha: 1
+      Robot Description: robot_description
+      Robot State Topic: display_goal_configuration
+      Show All Links: true
+      Show Highlights: true
       Value: true
       Visual Enabled: true
   Enabled: true
@@ -725,41 +861,41 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 3.55914092
+      Distance: 3.08990836
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.293223381
-        Y: 0.320516109
-        Z: -5.7369466e-06
+        X: 0.146642745
+        Y: 0.973712206
+        Z: -5.67734196e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.0500000007
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.609795809
+      Pitch: 0.00479568634
       Target Frame: world
       Value: XYOrbit (rviz)
-      Yaw: 0.411765724
+      Yaw: 1.6317687
     Saved: ~
 Window Geometry:
   Displays:
-    collapsed: false
-  Height: 744
+    collapsed: true
+  Height: 716
   Help:
     collapsed: false
-  Hide Left Dock: false
+  Hide Left Dock: true
   Hide Right Dock: true
   MotionPlanning:
-    collapsed: false
+    collapsed: true
   MotionPlanning - Trajectory Slider:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000001000000000000027400000294fc020000000afb000000100044006900730070006c006100790073010000003a000000e7000000c600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a0056006900650077007300000003b0000000b00000009e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e0067010000021a000001d00000000000000000fb0000002e004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d00200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e00670100000127000001a70000016b00fffffffb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000003e00fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006701000002770000016b0000000000000000000002b30000029400000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000001000000000000027400000278fc020000000afb000000100044006900730070006c006100790073000000003a000000dd000000c600fffffffb0000000800480065006c00700000000342000000bb0000006e00fffffffb0000000a0056006900650077007300000003b0000000b00000009e00fffffffb0000000c00430061006d00650072006100000002ff000001610000000000000000fb0000001e004d006f00740069006f006e00200050006c0061006e006e0069006e0067010000021a000001d00000000000000000fb0000002e004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d00200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e0067000000011d000001950000016b00fffffffb00000044004d006f00740069006f006e0050006c0061006e006e0069006e00670020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000003e00fffffffb000000280020002d0020005400720061006a006500630074006f0072007900200053006c00690064006500720000000000ffffffff0000000000000000fb0000001c004d006f00740069006f006e0050006c0061006e006e0069006e006701000002770000016b00000000000000000000029a0000027800000001000000020000000100000002fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: false
-  Width: 1325
+  Width: 666
   X: 41
   Y: 24
