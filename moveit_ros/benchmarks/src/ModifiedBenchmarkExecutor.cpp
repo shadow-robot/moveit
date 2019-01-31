@@ -123,22 +123,28 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   
 	psm_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param));
 	planning_scene_ = psm_->getPlanningScene();
-				//ROS_WARN("[DEBUG] ROBOT_DESCRIPTION_PARAM = %s", ROBOT_DESCRIPTION_PARAM.c_str());
-        visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC));
-        visual_tools_->loadPlanningSceneMonitor();
-    visual_tools_->loadMarkerPub(false,true);
+	//ROS_WARN("[DEBUG] ROBOT_DESCRIPTION_PARAM = %s", ROBOT_DESCRIPTION_PARAM.c_str());
+  visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC));
+  visual_tools2_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC)); //additional layer to display the goal
+  //as publishRobotState seems to erase the previous one : https://docs.ros.org/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01382 (only one shared robot state that is updated each time)
+  visual_tools_->loadPlanningSceneMonitor();
+  visual_tools_->loadMarkerPub(false,true);
     
-    visual_tools_->loadSharedRobotState(); //(try for using publishTrajectoryPath())
-    
-    visual_tools_->loadRobotStatePub("/display_robot_state");
-//visual_tools_->setManualSceneUpdating();
-visual_tools_->deleteAllMarkers();
-    visual_tools_->removeAllCollisionObjects();
-    ROS_WARN_STREAM("STARTING!!");
-    /*Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
-    text_pose.translation().z() = 4;
-visual_tools_->publishText(text_pose, "MoveIt! Visual Tools", rviz_visual_tools::WHITE, rviz_visual_tools::XLARGE, false);*/
-visual_tools_->trigger();
+  visual_tools_->loadSharedRobotState(); //(try for using publishTrajectoryPath())
+  visual_tools2_->loadSharedRobotState(); //additional layer to display the goal
+  
+  visual_tools_->loadRobotStatePub("/display_start_configuration");
+  visual_tools2_->loadRobotStatePub("/display_goal_configuration"); //additional layer to display the goal
+  
+	//visual_tools_->setManualSceneUpdating();
+	visual_tools_->deleteAllMarkers();
+  visual_tools_->removeAllCollisionObjects();
+  
+  ROS_WARN_STREAM("STARTING!!");
+  /*Eigen::Isometry3d text_pose = Eigen::Isometry3d::Identity();
+  text_pose.translation().z() = 4;
+	visual_tools_->publishText(text_pose, "MoveIt! Visual Tools", rviz_visual_tools::WHITE, rviz_visual_tools::XLARGE, false);*/
+	visual_tools_->trigger();
 
   // Initialize the class loader for planner plugins
   try
@@ -1246,7 +1252,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
     				goal_config_current.push_back(tmp6[j].position);
     			}
 					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
-					visual_tools_->publishRobotState(goal_config_current, joint_model_group );
+					visual_tools2_->publishRobotState(goal_config_current, joint_model_group );
 					ROS_ERROR("[DEBUG] Goal conf gives this.");
 
 					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
