@@ -1213,7 +1213,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					
 					const robot_state::JointModelGroup* joint_model_group =
 																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-					ROS_ERROR("[DEBUG] How goes Line?");
+					ROS_ERROR("[DEBUG] How is traj Line?");
 					//trajectory markers
 					visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group);
 					ROS_ERROR("[DEBUG] Line gives this.");
@@ -1228,18 +1228,30 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					// https://answers.ros.org/question/11845/rviz-configuration-file-format/ <- where to get and set the RViz latest config
 					// I try to save the biggest modifications in benchmarks folder of this moveit fork
 					
-					ROS_ERROR("[DEBUG] How goes some start/goal conf?");
+					ROS_ERROR("[DEBUG] How is start conf?");
 					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
 					std::vector<double> tmp4 = slice<double>(request.start_state.joint_state.position,0,5);
 					for (int j=0; j<tmp4.size(); ++j)
-    				ROS_ERROR("[DEBUG] %f", tmp4[j]);
+    				ROS_ERROR("[DEBUG] %f rad", tmp4[j]);
 					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
-					visual_tools_->publishRobotState( tmp4 , joint_model_group );
-					ROS_ERROR("[DEBUG] Some start/goal conf gives this.");
+					visual_tools_->publishRobotState(tmp4, joint_model_group );
+					ROS_ERROR("[DEBUG] Start conf gives this.");
+					
+					ROS_ERROR("[DEBUG] How is goal conf?");
+					std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
+					std::vector<double> goal_config_current;
+    			for (int j=0; j<tmp6.size(); ++j)
+    			{
+    				ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);
+    				goal_config_current.push_back(tmp6[j].position);
+    			}
+					// Requires to add a RobotState plugin in RViz listening to the topic "/display_robot_state":
+					visual_tools_->publishRobotState(goal_config_current, joint_model_group );
+					ROS_ERROR("[DEBUG] Goal conf gives this.");
 
 					visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 					
-					ROS_ERROR("[DEBUG] How goes Path?");
+					ROS_ERROR("[DEBUG] How is Path (movement) ?");
 					//robot's movement
 					if ( !visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move) );
     				ROS_ERROR("Some error after calling 'publishTrajectoryPath('");
