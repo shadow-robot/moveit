@@ -1340,6 +1340,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								pose.translation().z() = alti_min + i*alti_step;
 								visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
 							}
+							visual_tools_->trigger();
 						
 							if(mp_res_before_exceeding.trajectory_.size()!=0)
 							{
@@ -1379,6 +1380,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								pose.translation().z() = alti_min + i*alti_step;
 								visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
 							}
+							visual_tools_->trigger();
 						
 							if(mp_res_before_exceeding.trajectory_.size()!=0)
 							{
@@ -1407,6 +1409,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	else if (kept_proof > 1)
 			    	{ //original planner found smthg + the algo had time to take over, let's compare the moves!
 			    		continue;
+			    		ROS_WARN("[DEBUG] ONLY HAVE TO WRITE THE VERSUS CASE");
 			    	}
 			    } //end animation
 		      
