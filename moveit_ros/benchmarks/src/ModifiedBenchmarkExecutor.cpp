@@ -1371,7 +1371,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	if (kept_proof==1)
 			    	{ //the first call to the original planner found smthg, but the algo didn't had time to take over, or failed
 			    		previous_size = texts.size();
-							texts.push_back(metricChoice + " (metric) : " + std::to_string(first_PlanQuality*100.) + "%");
+							texts.push_back(metricChoice + " (metric) : " + std::to_string(first_planQuality*100.) + "%");
 							texts.push_back("motion planner : " + planner);
 							texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently)
 							for (std::size_t i = previous_size; i < texts.size(); ++i)
