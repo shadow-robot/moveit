@@ -1248,15 +1248,15 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					// construct the start conf:
 					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
 					std::vector<double> start_config_current = slice<double>(request.start_state.joint_state.position,0,5);
-					for (int j=0; j<start_config_current.size(); ++j)
-						ROS_ERROR("[DEBUG] %f rad", start_config_current[j]);
+					/*for (int j=0; j<start_config_current.size(); ++j)
+						ROS_ERROR("[DEBUG] %f rad", start_config_current[j]);*/
 		      
 		      // construct the goal conf:
 		      std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
 					std::vector<double> goal_config_current;
 					for (int j=0; j<tmp6.size(); ++j)
 					{
-						ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);
+						/*ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);*/
 						goal_config_current.push_back(tmp6[j].position);
 					}
 					
@@ -1350,13 +1350,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 														 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
 								}else{ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
-								ROS_ERROR("[DEBUG] How is wrapped only traj Line?");
 								//trajectory markers
 								visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
 								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-								ROS_ERROR("[DEBUG] Wrapped only line gives this.");
+								ROS_ERROR("[DEBUG] Wrapped only line gave this.");
 			
-								ROS_ERROR("[DEBUG] How is wrapped only Path (= animated movement) ?");
 								visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 								ROS_ERROR("[DEBUG] Wrapped only path gives this.");
 					
@@ -1390,13 +1388,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 														 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
 								}else{ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
-								ROS_ERROR("[DEBUG] How is orig only traj Line?");
 								//trajectory markers
 								visual_tools2_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
 								visual_tools2_->trigger(); //forces a refresh with the new trajectory markers
-								ROS_ERROR("[DEBUG] Orig only line gives this.");
+								ROS_ERROR("[DEBUG] Orig only line gave this.");
 			
-								ROS_ERROR("[DEBUG] How is orig only Path (= animated movement) ?");
 								visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
 								ROS_ERROR("[DEBUG] Orig only path gives this.");
 					
@@ -1409,7 +1405,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	else if (kept_proof > 1)
 			    	{ //original planner found smthg + the algo had time to take over, let's compare the moves!
 			    		continue;
-			    		ROS_WARN("[DEBUG] ONLY HAVE TO WRITE THE VERSUS CASE");
+			    		ROS_ERROR("[DEBUG] ONLY HAVE TO WRITE THE VERSUS CASE");
 			    	}
 			    } //end animation
 		      
