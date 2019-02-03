@@ -1325,6 +1325,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    
 			    visual_tools_->trigger();
 			    
+			    ROS_WARN("FIRST_SOLVED = %d");
+			    
 			    //the movement animation:
 					bool stop_at_first_move = false; //true blocks the whole benchmark process at the first ever found move
 			    if (first_solved==0)
