@@ -1363,6 +1363,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								std::cout << "About to wait 10s while movement animation finishes\n";
 								std::this_thread::sleep_for( dura );
 								std::cout << "Waited 10s after path\n";
+								
+								std::this_thread::sleep_for( 15 );
+								std::cout << "These are 15sec for debugging (to remove!!)\n";
 							}
 			    	}
 			    }
@@ -1390,11 +1393,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								}else{ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
 								//trajectory markers
-								visual_tools2_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
-								visual_tools2_->trigger(); //forces a refresh with the new trajectory markers
+								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
+								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 								ROS_ERROR("[DEBUG] Orig only line gave this.");
 			
-								visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
+								visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
 								ROS_ERROR("[DEBUG] Orig only path gives this.");
 					
 								std::chrono::seconds dura(10);
