@@ -1373,7 +1373,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    		previous_size = texts.size();
 							texts.push_back(metricChoice + " (metric) : " + std::to_string(first_planQuality*100.) + "%");
 							texts.push_back("motion planner : " + planner);
-							texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently)
+							texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently, see the python file findOptimal...)
 							for (std::size_t i = previous_size; i < texts.size(); ++i)
 							{
 								pose.translation().z() = alti_min + i*alti_step;
