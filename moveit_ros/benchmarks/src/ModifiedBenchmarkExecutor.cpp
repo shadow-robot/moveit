@@ -1356,7 +1356,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 								ROS_ERROR("[DEBUG] Wrapped only line gave this.");
 			
-								visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(),true);//, stop_at_first_move); // TODO DEBUG TO REMOVE
+								visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 								ROS_ERROR("[DEBUG] Wrapped only path gives this.");
 					
 								std::chrono::seconds dura(10);
@@ -1364,7 +1364,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								std::this_thread::sleep_for( dura );
 								std::cout << "Waited 10s after path\n";
 								
-								std::this_thread::sleep_for( 15 );
+								std::chrono::seconds dura2(15);
+								std::this_thread::sleep_for( dura2 );
 								std::cout << "These are 15sec for debugging (to remove!!)\n";
 							}
 			    	}
@@ -1384,12 +1385,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							}
 							visual_tools_->trigger();
 						
-							if(mp_res_before_exceeding.trajectory_.size()!=0)
+							if(first_mp_res.trajectory_.size()!=0)
 							{
-								if(mp_res_before_exceeding.trajectory_.back())
+								if(first_mp_res.trajectory_.back())
 								{
 									ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
-														 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
+														 first_mp_res.trajectory_.back()->getWayPointCount() );
 								}else{ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
 								//trajectory markers
