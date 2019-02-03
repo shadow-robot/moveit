@@ -1163,6 +1163,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
 							kept_proof +=1;
 							lastIterationIsConcluding = true;
+							ROS_WARN("AND IT IMPROVES THE QUALITY METRIC");
 						}
 						else //(planQuality <= previousPlanQuality)
       	    { 
@@ -1355,7 +1356,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 								ROS_ERROR("[DEBUG] Wrapped only line gave this.");
 			
-								visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
+								visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(),true);//, stop_at_first_move); // TODO DEBUG TO REMOVE
 								ROS_ERROR("[DEBUG] Wrapped only path gives this.");
 					
 								std::chrono::seconds dura(10);
@@ -1588,7 +1589,7 @@ void ModifiedBenchmarkExecutor::alterPlannerParameter(XmlRpc::XmlRpcValue& param
       	       		 			 std::to_string((T)parametersSet_toUpdate[plannerParamName]).c_str() );
     }
     if ((T)parametersSet_toUpdate[plannerParamName] < 0)
-      ROS_ERROR("LLLLLLLLLLLLLLLLLOOOOOOOOOOOOOOOOOOOOOOKKKKKKKKKKKKKKKKKKKK");
+      ROS_ERROR("LLLLLLLLLLLLLLLLLOOOOOOOOOOOOOOOOOOOOOOKKKKKKKKKKKKKKKKKKKK"); //TODO investigate
   }
 }
 
