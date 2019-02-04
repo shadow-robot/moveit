@@ -105,6 +105,9 @@ const std::string ROBOT_DESCRIPTION = "robot_description";
 // setup using just the name of the planning group you would like to control and plan for.
 const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
 
+const std::string DISPLAY_PLANNED_PATH_PARALLEL = "/display_planned_path_parallel"; //trick to get a channel to publish on another trajPath,
+//if the default one (/move_group/display_planned_path) is already occupied and one wants to launch several trajs simultaneously
+
 ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
 {
   pss_ = NULL;
@@ -128,6 +131,9 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   
   visual_tools_->loadRobotStatePub("/display_start_configuration");
   visual_tools2_->loadRobotStatePub("/display_goal_configuration"); //additional layer to display the goal
+  
+  visual_tools2_->loadTrajectoryPub(DISPLAY_PLANNED_PATH_PARALLEL);//trick to get a channel to publish on another trajPath,
+	//if the default one (/move_group/display_planned_path) is already occupied and one wants to launch several trajs simultaneously
   
 	visual_tools_->deleteAllMarkers();
   visual_tools_->removeAllCollisionObjects();
@@ -1400,12 +1406,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							std::this_thread::sleep_for( dura );
 							std::cout << "Waited 10s after pathes launching\n";
 							
-							visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
+							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
 							ROS_INFO("[DEBUG] Orig only path gives this.");
-				
-							std::chrono::seconds dura1(10);
+							
 							std::cout << "About to wait 10s while movement animations finish\n";
-							std::this_thread::sleep_for( dura1 );
+							//other way to wait!! :
+							sleep(10.); //http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/move_group_interface_tutorial.html
 							std::cout << "Waited 10s after pathes launching\n";
 			    	}
 			    } //end animation
