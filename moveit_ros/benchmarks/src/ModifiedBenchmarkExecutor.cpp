@@ -1279,16 +1279,18 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
 					const rviz_visual_tools::colors traj_rope_color_opti = rviz_visual_tools::CYAN;
 					const rviz_visual_tools::colors traj_rope_color_orig = rviz_visual_tools::PINK;
+					const rviz_visual_tools::colors text_color = rviz_visual_tools::BLACK;
+					rviz_visual_tools::colors color;
 					
 					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools_->publishRobotState(start_config_current, joint_model_group, start_conf_color);
-					ROS_INFO("[DEBUG] Start conf gives this.");
+					ROS_INFO("Start conf gives this.");
 					
 					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
-					ROS_INFO("[DEBUG] Goal conf gives this.");
+					ROS_INFO("Goal conf gives this.");
 					
 					// legend above the scene
 			    std::vector<std::string> texts;
@@ -1307,14 +1309,14 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    for (std::size_t i = 0; i < texts.size(); ++i)
 			    {
 			    	pose.translation().z() = alti_min + i*alti_step;
-			    	visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
+			    	visual_tools_->publishText(pose, texts[i], text_color, rviz_visual_tools::XXLARGE, false);
 			    }
 			    std::size_t previous_size;
 			    
 			    visual_tools_->trigger();
 			    
-			    ROS_WARN("[DEBUG] first_solved = %d", first_solved);
-			    ROS_WARN("[DEBUG] kept_proof = %d", kept_proof);
+			    /*ROS_WARN("[DEBUG] first_solved = %d", first_solved);
+			    ROS_WARN("[DEBUG] kept_proof = %d", kept_proof);*/
 			    
 			    //the movement animation:
 					bool stop_at_first_move = false; //true blocks the whole benchmark process at the first ever found move
@@ -1343,37 +1345,35 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							for (std::size_t i = previous_size; i < texts.size(); ++i)
 							{
 								pose.translation().z() = alti_min + i*alti_step;
-								visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
+								if (i != texts.size())
+								{
+									color = traj_rope_color_orig;
+								} else
+								{
+									color = text_color;
+								}
+								visual_tools_->publishText(pose, texts[i], color, rviz_visual_tools::XXLARGE, false);
 							}
 							visual_tools_->trigger();
-						
-							if(first_mp_res.trajectory_.size()!=0)
-							{
-								if(first_mp_res.trajectory_.back())
-								{
-									ROS_WARN( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
-														 first_mp_res.trajectory_.back()->getWayPointCount() );
-								}else{ROS_WARN("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
-								//trajectory markers
-								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
-								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-								ROS_INFO("[DEBUG] Orig only line gave this.");
-			
-								visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
-								ROS_INFO("[DEBUG] Orig only path gives this.");
-					
-								std::chrono::seconds dura(10);
-								std::cout << "About to wait 10s while movement animation finishes\n";
-								std::this_thread::sleep_for( dura );
-								std::cout << "Waited 10s after path\n";
-							}
+							//trajectory markers
+							visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
+							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+							ROS_INFO("(Originally parametrized planner solution EE path gave this)");
+		
+							visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
+							ROS_INFO("Originally parametrized planner solution movement gives this");
+				
+							std::chrono::seconds dura(10);
+							std::cout << "About to wait 10s while movement animation finishes\n";
+							std::this_thread::sleep_for( dura );
+							std::cout << "Waited 10s after path\n";
 			    	}
 			    	else if (kept_proof > 1)
 			    	{ //original planner found smthg + the algo had time to take over, let's compare the moves!
 			    	
-			    		ROS_ERROR("[DEBUG] first_solved == 1");
-			    		ROS_ERROR("[DEBUG] kept_proof > 1");
+			    		/*ROS_ERROR("[DEBUG] first_solved == 1");
+			    		ROS_ERROR("[DEBUG] kept_proof > 1");*/
 			    	
 			    		previous_size = texts.size();
 			    		texts.push_back(planner + " (pink) : " + std::to_string(first_planQuality*100.) + "%");
@@ -1385,24 +1385,32 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							for (std::size_t i = previous_size; i < texts.size(); ++i)
 							{
 								pose.translation().z() = alti_min + i*alti_step;
-								visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
+								switch(i)
+								{
+									case 9: color = traj_rope_color_orig; //case previous_size and previous_size+2 didnt want to compile :'(
+																			break;
+									case 11: color = traj_rope_color_opti;
+																				break;
+									default: color = text_color;
+								}
+								visual_tools_->publishText(pose, texts[i], color, rviz_visual_tools::XXLARGE, false);
 							}
 							visual_tools_->trigger();
 						
 							//trajectory markers
 							visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
 							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-							ROS_ERROR("[DEBUG] Wrapped only line gave this.");
+							ROS_INFO("(Wrapped planner solution EE path gave this)");
 							
 							visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
 							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-							ROS_INFO("[DEBUG] Orig only line gave this.");
+							ROS_INFO("(Originally parametrized planner solution EE path gave this)");
 		
 							visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
-							ROS_ERROR("[DEBUG] Wrapped only path gives this.");
+							ROS_INFO("Wrapped planner solution movement gives this");
 							
 							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
-							ROS_INFO("[DEBUG] Orig only path gives this.");
+							ROS_INFO("Originally parametrized planner solution movement gives this");
 				
 							std::chrono::seconds dura(10);
 							// not use sleep() as here :
