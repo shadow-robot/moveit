@@ -147,43 +147,16 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
     ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
   }
   
-  // https://github.com/ros-planning/moveit_visual_tools
-  // visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools("base_frame","/moveit_visual_markers"));
-  
+  //an example that may be useful:
   // https://github.com/davetcoleman/moveit_hrp2/blob/master/hrp2jsknt_moveit_demos/src/hrp2_demos.cpp#L160
-  // TODO : to investigate!! may need to pass the robot model into the constructor
+  
   // Load the robot model
 	robot_model_loader::RobotModelLoader robot_model_loader_;
-	robot_model::RobotModelPtr robot_model_;
-	//robot_model_loader_(ROBOT_DESCRIPTION); // load the URDF
-	robot_model_ = robot_model_loader_.getModel(); // Get a shared pointer to the robot
-  //visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC, robot_model_));
+	robot_model::RobotModelPtr robot_model_ = robot_model_loader_.getModel(); // Get a shared pointer to the robot
   
   robot_state::RobotStatePtr shared_robot_state_;
   shared_robot_state_.reset(new robot_state::RobotState(robot_model_)); // TODO: load this robot state from planning_scene instead
 	shared_robot_state_->setToDefaultValues();
-  
-  
-  // http://docs.ros.org/kinetic/api/moveit_visual_tools/html/classmoveit__visual__tools_1_1MoveItVisualTools.html constructor & destructor documentation
-	//moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, *psm_);
-	// arg psm_ is not of nature PlanningSceneMonitorPtr, args &psm_ nor *psm_ work neither
-	/*moveit_visual_tools::MoveItVisualTools visual_tools_(BASE_LINK, MARKER_TOPIC, psm__);
-	ROS_ERROR("[DEBUG] How goes fictionnal CollisionFloor?");
-	visual_tools_.publishCollisionFloor();
-	ROS_ERROR("[DEBUG] CollisionFloor gives this.");*/
-	
-	/*if(visual_tools_ == NULL)
-  {
-  	ROS_ERROR("[DEBUG] Visual tools DOESN'T EXIST !!!");
-  }*/
-  
-  /* NOT CONCLUDING DEBUG:
-  // DOESN'T WORK SINCE IT'S DESIGNED FOR LOOKING AT TO SOME virtual_joint FOR SOME REASON...
-  //http://docs.ros.org/kinetic/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01457
-  ROS_ERROR("[DEBUG] Can hide the robot?");
-  visual_tools_.hideRobot();
-  ROS_ERROR("[DEBUG] Robot must be hidden now.");
-  */
 }
 
 ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
@@ -198,7 +171,7 @@ ModifiedBenchmarkExecutor::~ModifiedBenchmarkExecutor()
     delete cs_;
   if (tcs_)
     delete tcs_;
-  //delete psm_;
+  //delete psm_; //error expecting a pointer otherwise
 }
 
 void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
