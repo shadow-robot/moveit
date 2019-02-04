@@ -1400,19 +1400,18 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 		
 							visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 							ROS_ERROR("[DEBUG] Wrapped only path gives this.");
+							
+							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
+							ROS_INFO("[DEBUG] Orig only path gives this.");
 				
 							std::chrono::seconds dura(10);
+							// not use sleep() as here :
+							// http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/move_group_interface_tutorial.html
+							// reason : https://stackoverflow.com/questions/49071285/sleep-vs-sleep-for
 							std::cout << "About to wait 10s while movement animations finish\n";
 							std::this_thread::sleep_for( dura );
 							std::cout << "Waited 10s after pathes launching\n";
 							
-							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
-							ROS_INFO("[DEBUG] Orig only path gives this.");
-							
-							std::cout << "About to wait 10s while movement animations finish\n";
-							//other way to wait!! :
-							sleep(10.); //http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/move_group_interface_tutorial.html
-							std::cout << "Waited 10s after pathes launching\n";
 			    	}
 			    } //end animation
 		      
