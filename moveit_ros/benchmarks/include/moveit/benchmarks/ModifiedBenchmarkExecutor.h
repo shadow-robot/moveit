@@ -224,7 +224,8 @@ protected:
   void runBenchmark(moveit_msgs::MotionPlanRequest request, const std::string& queryName,
                     const std::map<std::string, std::vector<std::string>>& planners, int runs,
                     const std::string& metricChoice, const std::string& sceneName,
-                    const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ);
+                    const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ,
+                    unsigned int& no_first_kept_restart);
 
   planning_scene_monitor::PlanningSceneMonitorPtr psm_;
   moveit_warehouse::PlanningSceneStorage* pss_;

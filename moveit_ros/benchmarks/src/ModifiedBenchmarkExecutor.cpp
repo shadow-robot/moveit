@@ -316,6 +316,10 @@ void ModifiedBenchmarkExecutor::addQueryCompletionEvent(QueryCompletionEventFunc
 
 bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& opts)
 {
+
+	//debug: TODO to be removed
+	unsigned int ever_wasnt_first_solved_but_kept_restarts = 0;
+
   if (planner_interfaces_.size() == 0)
   {
     ROS_ERROR("No planning interfaces configured.  Did you call ModifiedBenchmarkExecutor::initialize?");
@@ -347,7 +351,7 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
         planning_scene_->usePlanningSceneMsg(scene_msg); //Apply changes to this planning scene, e.g the robot state is overwritten
 
       // Calling query start events // QUITE DONT UNDERSTAND  for what index j stands.. nb runs??
-      ROS_ERROR("[EXPLORE] query_start_fns_.size() = %lu", query_start_fns_.size());
+      /*ROS_ERROR("[EXPLORE] query_start_fns_.size() = %lu", query_start_fns_.size());//=0 always currently*/
       // Doesn't matter since it's never filled
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
@@ -358,10 +362,10 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       ROS_WARN("--------------------------------");
       ROS_WARN("--------------------------------");
       
-      ROS_ERROR("[EXPLORE] queries[%lu].request =", i);
+      /*ROS_ERROR("[EXPLORE] queries[%lu].request =", i);
     	std::vector<double> tmp3 = queries[i].request.start_state.joint_state.position;
     	for (int j=0; j<tmp3.size(); ++j)
-    		ROS_ERROR("[EXPLORE] %f", tmp3[j]);
+    		ROS_ERROR("[EXPLORE] %f", tmp3[j]);*/
       
       
 			const bool GENERATE_LOGS = false; //TODO default true but currently I'm working on the animation part.
@@ -371,6 +375,8 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       const bool GENERATE_ANIMATION_RVIZ = true;
       
       ros::WallTime start_time = ros::WallTime::now();
+      
+      unsigned int no_first_kept_restart = 0; //debug TODO to be removed
       runBenchmark(queries[i].request, 
 		   						 queries[i].name, 
 		    					 options_.getPlannerConfigurations(), 
@@ -378,10 +384,14 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 		   						 options_.getMetricChoice(), 
 		   						 options_.getSceneName(),
 		   						 GENERATE_LOGS,
-		   						 GENERATE_ANIMATION_RVIZ);
+		   						 GENERATE_ANIMATION_RVIZ,
+		   						 no_first_kept_restart); //debug
       double duration = (ros::WallTime::now() - start_time).toSec();
       
       ROS_INFO("Benchmark took '%f' seconds.", duration);
+      
+      //debug:
+      ever_wasnt_first_solved_but_kept_restarts = ever_wasnt_first_solved_but_kept_restarts + no_first_kept_restart;
 
       for (std::size_t j = 0; j < query_end_fns_.size(); ++j)
         query_end_fns_[j](queries[i].request, planning_scene_);
@@ -389,7 +399,10 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 			if (GENERATE_LOGS)
       	writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
-
+		
+		//debug:
+		ROS_ERROR("[DEBUG] ever_wasnt_first_solved_but_kept_restarts = %lu", ever_wasnt_first_solved_but_kept_restarts);
+		
     return true; //All has gone well //Be careful here well =1, different from return 0 (issues)!!
   }
   return false;
@@ -863,11 +876,11 @@ bool ModifiedBenchmarkExecutor::loadStates(const std::string& regex, std::vector
         }
       }
       
-      ROS_ERROR("[EXPLORE] start_states.back().state.joint_state.position.size() = %lu",
+      /*ROS_ERROR("[EXPLORE] start_states.back().state.joint_state.position.size() = %lu",
     	start_states.back().state.joint_state.position.size()); // To know whether a component has 6 values (number of joint for the planning group)
     	std::vector<double> tmp = start_states.back().state.joint_state.position;
     	for (int j=0; j<tmp.size(); ++j)
-    		ROS_ERROR("[EXPLORE] %f", tmp[j]);
+    		ROS_ERROR("[EXPLORE] %f", tmp[j]);*/
       
     }
 
@@ -972,7 +985,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					     const std::string& metricChoice, 
 					     const std::string& sceneName,
 					     const bool GENERATE_LOGS,
-					     const bool GENERATE_ANIMATION_RVIZ)
+					     const bool GENERATE_ANIMATION_RVIZ,
+					     unsigned int& no_first_kept_restart)
 {
   benchmark_data_.clear();
 
@@ -1162,6 +1176,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							if (GENERATE_LOGS)
 								writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
 							kept_proof +=1;
+							ROS_ERROR("kept_proof +=1");
 							lastIterationIsConcluding = true;
 							ROS_WARN("AND IT IMPROVES THE QUALITY METRIC");
 						}
@@ -1179,6 +1194,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								if (GENERATE_LOGS)
 									writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
 								kept_proof +=1;
+								ROS_ERROR("kept_proof +=1");
 								lastIterationIsConcluding = true;
       	      	ROS_WARN("Current time = %f from the beginning of the run -- "
       	      				 	 "This is a worse quality than the previous one (%f) which was found and kept in memory, "
@@ -1335,6 +1351,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	if (kept_proof >=1)
 			    	{//this algo leaded to obtain a solution where classic planner couldn't after 1 call
 			    		ROS_ERROR("[DEBUG] kept_proof >=1");
+			    		no_first_kept_restart = 1;
 			    	
 							previous_size = texts.size();
 							texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
