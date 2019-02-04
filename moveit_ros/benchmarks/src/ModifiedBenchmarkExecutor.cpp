@@ -402,6 +402,9 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 		
 		//debug:
 		ROS_ERROR("[DEBUG] ever_wasnt_first_solved_but_kept_restarts = %lu", ever_wasnt_first_solved_but_kept_restarts);
+		//conclusion : the dumb nonoptimal fast planners, when not finding any solution, do use the whole countdown we allow them,
+		//they are content with not using the whole countdown only when they solve the problem!
+		//So never expect to plot a tweaked movement alone on the scene without an initial succeeding first shot to compare with!
 		
     return true; //All has gone well //Be careful here well =1, different from return 0 (issues)!!
   }
@@ -1345,68 +1348,23 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    //the movement animation:
 					bool stop_at_first_move = false; //true blocks the whole benchmark process at the first ever found move
 			    if (first_solved==0)
-			    { 
-			    	ROS_ERROR("[DEBUG] first_solved == 0");
-			    	
+			    {
 			    	if (kept_proof >=1)
 			    	{//this algo leaded to obtain a solution where classic planner couldn't after 1 call
+			    	
+			    		//observation!!! : the dumb nonoptimal fast planners, when not finding any solution, do use the whole countdown
+			    		//we allow them, they are content with not using the whole countdown only when they solve the problem!
+							//So never expect to plot a tweaked movement alone on the scene without an initial succeeding first shot to compare with!
+			    	
+			    		ROS_ERROR("[DEBUG] first_solved == 0");
 			    		ROS_ERROR("[DEBUG] kept_proof >=1");
 			    		no_first_kept_restart = 1;
-			    	
-							previous_size = texts.size();
-							texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
-							texts.push_back("motion planner : " + plannerToBeWritten);
-							texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently)
-							texts.push_back("acceptance(t) := " + acceptanceFuncExpression);
-							for (std::size_t i = previous_size; i < texts.size(); ++i)
-							{
-								pose.translation().z() = alti_min + i*alti_step;
-								visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
-							}
-							visual_tools_->trigger();
-						
-							if(mp_res_before_exceeding.trajectory_.size()!=0)
-							{
-								if(mp_res_before_exceeding.trajectory_.back())
-								{
-									ROS_WARN( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
-														 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
-								}else{ROS_WARN("[DEBUG] Last trajectory in the vector doesn't exists properly");}
-			
-								//trajectory markers
-								visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
-								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-								ROS_ERROR("[DEBUG] Wrapped only line gave this.");
-			
-								visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
-								ROS_ERROR("[DEBUG] Wrapped only path gives this.");
-					
-								std::chrono::seconds dura(10);
-								std::cout << "About to wait 10s while movement animation finishes\n";
-								std::this_thread::sleep_for( dura );
-								std::cout << "Waited 10s after path\n";
-								
-								std::chrono::seconds dura2(15);
-								std::this_thread::sleep_for( dura2 );
-								std::cout << "These are 15sec for debugging (to remove!!)\n";
-							}
-			    	} else
-			    	{
-			    		ROS_WARN("[DEBUG] kept_proof == 0");
-		    		}
+			    	}
 			    }
 			    else // first_solved ==1
 			    {
-			    
-			    	continue; //DEBUG TODO to remove (to see if it can fall into the case no 1stShot but improvments
-			    
-			    	ROS_WARN("[DEBUG] first_solved == 1");
-			    
 			    	if (kept_proof==1)
 			    	{ //the first call to the original planner found smthg, but the algo didn't had time to take over, or failed
-			    	
-			    		ROS_WARN("[DEBUG] kept_proof == 1");
-			    	
 			    		previous_size = texts.size();
 							texts.push_back(metricChoice + " (metric) : " + std::to_string(first_planQuality*100.) + "%");
 							texts.push_back("motion planner : " + planner);
@@ -1442,10 +1400,39 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	}
 			    	else if (kept_proof > 1)
 			    	{ //original planner found smthg + the algo had time to take over, let's compare the moves!
-			    	
-			    		ROS_WARN("[DEBUG] kept_proof > 1");
-			    		ROS_ERROR("[DEBUG] ONLY HAVE TO WRITE THE VERSUS CASE");
-			    		continue;
+			    		previous_size = texts.size();
+							texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
+							texts.push_back("motion planners : " + plannerToBeWritten + " (cyan) Vs. " + planner + " (pink)");
+							texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently)
+							texts.push_back("acceptance(t) := " + acceptanceFuncExpression);
+							for (std::size_t i = previous_size; i < texts.size(); ++i)
+							{
+								pose.translation().z() = alti_min + i*alti_step;
+								visual_tools_->publishText(pose, texts[i], rviz_visual_tools::BLACK, rviz_visual_tools::XXLARGE, false);
+							}
+							visual_tools_->trigger();
+						
+							if(mp_res_before_exceeding.trajectory_.size()!=0)
+							{
+								if(mp_res_before_exceeding.trajectory_.back())
+								{
+									ROS_WARN( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
+														 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
+								}else{ROS_WARN("[DEBUG] Last trajectory in the vector doesn't exists properly");}
+			
+								//trajectory markers
+								visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
+								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+								ROS_ERROR("[DEBUG] Wrapped only line gave this.");
+			
+								visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
+								ROS_ERROR("[DEBUG] Wrapped only path gives this.");
+					
+								std::chrono::seconds dura(10);
+								std::cout << "About to wait 10s while movement animation finishes\n";
+								std::this_thread::sleep_for( dura );
+								std::cout << "Waited 10s after path\n";
+							}
 			    	}
 			    } //end animation
 		      
