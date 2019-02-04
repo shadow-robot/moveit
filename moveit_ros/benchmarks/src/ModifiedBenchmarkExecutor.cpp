@@ -103,7 +103,8 @@ static const std::string MARKER_TOPIC = "/moveit_visual_markers";
 const std::string ROBOT_DESCRIPTION = "robot_description";
 // The :move_group_interface:`MoveGroup` class can be easily
 // setup using just the name of the planning group you would like to control and plan for.
-const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
+const std::string PLANNING_GROUP1 = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
+const std::string PLANNING_GROUP2 = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
 
 std::string ROBOT_DESCRIPTION_PARAM;
 
@@ -115,28 +116,23 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   rs_ = NULL;
   cs_ = NULL;
   tcs_ = NULL;
-  //psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
-   // pointer
+  psm_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param)); //pointer
   
-  ROBOT_DESCRIPTION_PARAM = robot_description_param; //test (TO POTENTIALLY REMOVE TODO)
-  
-  
-	psm_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param));
 	planning_scene_ = psm_->getPlanningScene();
-	//ROS_WARN("[DEBUG] ROBOT_DESCRIPTION_PARAM = %s", ROBOT_DESCRIPTION_PARAM.c_str());
+	
   visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC));
   visual_tools2_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC)); //additional layer to display the goal
   //as publishRobotState seems to erase the previous one : https://docs.ros.org/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01382 (only one shared robot state that is updated each time)
+  
   visual_tools_->loadPlanningSceneMonitor();
   visual_tools_->loadMarkerPub(false,true);
     
-  visual_tools_->loadSharedRobotState(); //(try for using publishTrajectoryPath())
+  visual_tools_->loadSharedRobotState();
   visual_tools2_->loadSharedRobotState(); //additional layer to display the goal
   
   visual_tools_->loadRobotStatePub("/display_start_configuration");
   visual_tools2_->loadRobotStatePub("/display_goal_configuration"); //additional layer to display the goal
   
-	//visual_tools_->setManualSceneUpdating();
 	visual_tools_->deleteAllMarkers();
   visual_tools_->removeAllCollisionObjects();
 
@@ -1282,13 +1278,16 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					
 					
 					// display the start and goal confs:
-					moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+					moveit::planning_interface::MoveGroupInterface move_group1(PLANNING_GROUP1);
+					moveit::planning_interface::MoveGroupInterface move_group2(PLANNING_GROUP2);
 				
 					/*// We can also print the name of the end-effector link for this group.
 					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());*/
 			
-					const robot_state::JointModelGroup* joint_model_group =
-																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+					const robot_state::JointModelGroup* joint_model_group1 =
+																						move_group1.getCurrentState()->getJointModelGroup(PLANNING_GROUP1);
+					const robot_state::JointModelGroup* joint_model_group2 =
+																						move_group2.getCurrentState()->getJointModelGroup(PLANNING_GROUP2);
 			
 					// Btw I also found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
 					// value for its size was doing the job (of displaying start and goal confs),
@@ -1311,12 +1310,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					
 					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
-					visual_tools_->publishRobotState(start_config_current, joint_model_group, start_conf_color);
+					visual_tools_->publishRobotState(start_config_current, joint_model_group1, start_conf_color);
 					ROS_INFO("[DEBUG] Start conf gives this.");
 					
 					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
-					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
+					visual_tools2_->publishRobotState(goal_config_current, joint_model_group2, goal_conf_color);
 					ROS_INFO("[DEBUG] Goal conf gives this.");
 					
 					// legend above the scene
@@ -1385,7 +1384,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								}else{ROS_WARN("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
 								//trajectory markers
-								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
+								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group1, traj_rope_color_orig);
 								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 								ROS_INFO("[DEBUG] Orig only line gave this.");
 			
@@ -1419,11 +1418,11 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							visual_tools_->trigger();
 						
 							//trajectory markers
-							visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
+							visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group2, traj_rope_color_opti);
 							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 							ROS_ERROR("[DEBUG] Wrapped only line gave this.");
 							
-							visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
+							visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group1, traj_rope_color_orig);
 							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 							ROS_INFO("[DEBUG] Orig only line gave this.");
 		
