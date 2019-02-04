@@ -1395,15 +1395,20 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 							ROS_INFO("[DEBUG] Orig only line gave this.");
 		
-							visual_tools2_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
+							visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 							ROS_ERROR("[DEBUG] Wrapped only path gives this.");
-							
-							visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
-							ROS_INFO("[DEBUG] Orig only path gives this.");
 				
 							std::chrono::seconds dura(10);
 							std::cout << "About to wait 10s while movement animations finish\n";
 							std::this_thread::sleep_for( dura );
+							std::cout << "Waited 10s after pathes launching\n";
+							
+							visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
+							ROS_INFO("[DEBUG] Orig only path gives this.");
+				
+							std::chrono::seconds dura1(10);
+							std::cout << "About to wait 10s while movement animations finish\n";
+							std::this_thread::sleep_for( dura1 );
 							std::cout << "Waited 10s after pathes launching\n";
 			    	}
 			    } //end animation
