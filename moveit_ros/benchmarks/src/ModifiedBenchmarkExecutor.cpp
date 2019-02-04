@@ -105,9 +105,6 @@ const std::string ROBOT_DESCRIPTION = "robot_description";
 // setup using just the name of the planning group you would like to control and plan for.
 const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
 
-std::string ROBOT_DESCRIPTION_PARAM;
-
-
 ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
 {
   pss_ = NULL;
@@ -369,7 +366,7 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
     }
 		
 		//debug:
-		ROS_ERROR("[DEBUG] ever_wasnt_first_solved_but_kept_restarts = %lu", ever_wasnt_first_solved_but_kept_restarts);
+		ROS_ERROR("[DEBUG] ever_wasnt_first_solved_but_kept_restarts = %u", ever_wasnt_first_solved_but_kept_restarts);
 		//conclusion : the dumb nonoptimal fast planners, when not finding any solution, do use the whole countdown we allow them,
 		//they are content with not using the whole countdown only when they solve the problem!
 		//So never expect to plot a tweaked movement alone on the scene without an initial succeeding first shot to compare with!
