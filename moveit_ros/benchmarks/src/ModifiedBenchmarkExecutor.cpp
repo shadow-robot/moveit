@@ -1289,18 +1289,16 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
 					const rviz_visual_tools::colors traj_rope_color_opti = rviz_visual_tools::CYAN;
 					const rviz_visual_tools::colors traj_rope_color_orig = rviz_visual_tools::PINK;
-			
-					ROS_ERROR("[DEBUG] How is start conf?");
+					
 					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools_->publishRobotState(start_config_current, joint_model_group, start_conf_color);
-					ROS_ERROR("[DEBUG] Start conf gives this.");
-			
-					ROS_ERROR("[DEBUG] How is goal conf?");
+					ROS_INFO("[DEBUG] Start conf gives this.");
+					
 					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
 					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
 					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
-					ROS_ERROR("[DEBUG] Goal conf gives this.");
+					ROS_INFO("[DEBUG] Goal conf gives this.");
 					
 					// legend above the scene
 			    std::vector<std::string> texts;
@@ -1325,14 +1323,19 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    
 			    visual_tools_->trigger();
 			    
-			    ROS_WARN("FIRST_SOLVED = %d");
+			    ROS_WARN("[DEBUG] first_solved = %d", first_solved);
+			    ROS_WARN("[DEBUG] kept_proof = %d", kept_proof);
 			    
 			    //the movement animation:
 					bool stop_at_first_move = false; //true blocks the whole benchmark process at the first ever found move
 			    if (first_solved==0)
-			    {
+			    { 
+			    	ROS_ERROR("[DEBUG] first_solved == 0");
+			    	
 			    	if (kept_proof >=1)
 			    	{//this algo leaded to obtain a solution where classic planner couldn't after 1 call
+			    		ROS_ERROR("[DEBUG] kept_proof >=1");
+			    	
 							previous_size = texts.size();
 							texts.push_back(metricChoice + " (metric) : " + std::to_string(previousPlanQuality*100.) + "%");
 							texts.push_back("motion planner : " + plannerToBeWritten);
@@ -1349,9 +1352,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							{
 								if(mp_res_before_exceeding.trajectory_.back())
 								{
-									ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
+									ROS_WARN( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
 														 mp_res_before_exceeding.trajectory_.back()->getWayPointCount() );
-								}else{ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");}
+								}else{ROS_WARN("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
 								//trajectory markers
 								visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
@@ -1370,12 +1373,23 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								std::this_thread::sleep_for( dura2 );
 								std::cout << "These are 15sec for debugging (to remove!!)\n";
 							}
-			    	}
+			    	} else
+			    	{
+			    		ROS_WARN("[DEBUG] kept_proof == 0");
+		    		}
 			    }
 			    else // first_solved ==1
 			    {
+			    
+			    	continue; //DEBUG TODO to remove (to see if it can fall into the case no 1stShot but improvments
+			    
+			    	ROS_WARN("[DEBUG] first_solved == 1");
+			    
 			    	if (kept_proof==1)
 			    	{ //the first call to the original planner found smthg, but the algo didn't had time to take over, or failed
+			    	
+			    		ROS_WARN("[DEBUG] kept_proof == 1");
+			    	
 			    		previous_size = texts.size();
 							texts.push_back(metricChoice + " (metric) : " + std::to_string(first_planQuality*100.) + "%");
 							texts.push_back("motion planner : " + planner);
@@ -1391,17 +1405,17 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							{
 								if(first_mp_res.trajectory_.back())
 								{
-									ROS_ERROR( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
+									ROS_WARN( "[DEBUG] Most filtered trajectory exists properly and has %lu points",
 														 first_mp_res.trajectory_.back()->getWayPointCount() );
-								}else{ROS_ERROR("[DEBUG] Last trajectory in the vector doesn't exists properly");}
+								}else{ROS_WARN("[DEBUG] Last trajectory in the vector doesn't exists properly");}
 			
 								//trajectory markers
 								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
 								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
-								ROS_ERROR("[DEBUG] Orig only line gave this.");
+								ROS_INFO("[DEBUG] Orig only line gave this.");
 			
 								visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
-								ROS_ERROR("[DEBUG] Orig only path gives this.");
+								ROS_INFO("[DEBUG] Orig only path gives this.");
 					
 								std::chrono::seconds dura(10);
 								std::cout << "About to wait 10s while movement animation finishes\n";
@@ -1411,8 +1425,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	}
 			    	else if (kept_proof > 1)
 			    	{ //original planner found smthg + the algo had time to take over, let's compare the moves!
-			    		continue;
+			    	
+			    		ROS_WARN("[DEBUG] kept_proof > 1");
 			    		ROS_ERROR("[DEBUG] ONLY HAVE TO WRITE THE VERSUS CASE");
+			    		continue;
 			    	}
 			    } //end animation
 		      
