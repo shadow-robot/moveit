@@ -124,13 +124,15 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   //as publishRobotState seems to erase the previous one : https://docs.ros.org/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01382 (only one shared robot state that is updated each time)
   
   visual_tools_->loadPlanningSceneMonitor();
-  visual_tools_->loadMarkerPub(false,true);
+	visual_tools2_->loadPlanningSceneMonitor();
+	
+  visual_tools_->loadMarkerPub(false,true); //for the traj lines
     
   visual_tools_->loadSharedRobotState();
   visual_tools2_->loadSharedRobotState(); //additional layer to display the goal
   
   visual_tools_->loadRobotStatePub("/display_start_configuration");
-  visual_tools2_->loadRobotStatePub("/display_goal_configuration"); //additional layer to display the goal
+  visual_tools2_->loadRobotStatePub("/display_goal_configuration"); //additional layer to pop the goal conf simultaneously with the start one
   
   visual_tools2_->loadTrajectoryPub(DISPLAY_PLANNED_PATH_PARALLEL);//trick to get a channel to publish on another trajPath,
 	//if the default one (/move_group/display_planned_path) is already occupied and one wants to launch several trajs simultaneously
@@ -1081,6 +1083,92 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
     			space, but also create a super annoying mess into my matlab postprocess (precisely in the way 
     			it handles the n axis associated to the n params) to show the evolution !*/
 				initializePlannerParameters(pathPlannerParameters, paramBoundariesAndSteps_Xml, vecPlannerParamNames);
+				
+	      ////////////////////////////////////////////////////////////
+	      //Let's display the inputed current query (start+goal confs)
+	      ////////////////////////////////////////////////////////////
+		    std::vector<std::string> texts;
+		    std::size_t previous_size;// https://github.com/PickNikRobotics/rviz_visual_tools
+		    //
+				const rviz_visual_tools::colors start_conf_color = rviz_visual_tools::GREEN;
+				const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
+				const rviz_visual_tools::colors traj_rope_color_opti = rviz_visual_tools::CYAN;
+				const rviz_visual_tools::colors traj_rope_color_orig = rviz_visual_tools::PINK;
+				const rviz_visual_tools::colors text_color = rviz_visual_tools::BLACK;
+				rviz_visual_tools::colors color;
+				//
+		    double alti_min = 1.7, alti_step = 0.075;
+		    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+		    //
+				moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+				/*// We can also print the name of the end-effector link for this group.
+				ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());*/
+				const robot_state::JointModelGroup* joint_model_group =
+																					move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+				if (GENERATE_ANIMATION_RVIZ)
+        {
+		      //What is always displayed: start and goal confs,
+		      //no matter if everything failed:
+		      visual_tools_->deleteAllMarkers();
+		      
+					// construct the start conf:
+					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
+					std::vector<double> start_config_current = slice<double>(request.start_state.joint_state.position,0,5);
+					/*for (int j=0; j<start_config_current.size(); ++j)
+						ROS_ERROR("[DEBUG] %f rad", start_config_current[j]);*/
+		      
+		      // construct the goal conf:
+		      std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
+					std::vector<double> goal_config_current;
+					for (int j=0; j<tmp6.size(); ++j)
+					{
+						/*ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);*/
+						goal_config_current.push_back(tmp6[j].position);
+					}
+			
+					// Btw I also found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
+					// value for its size was doing the job (of displaying start and goal confs),
+					// even though the start conf was first displayed, frozen, and only then (at the end of the movement) was frozen the goal conf
+					// so it didn't feel like the query was already known beforehand.
+					// THOUGH I'M STILL UNSURE ABOUT HOW OR WHERE THE RANDOM START AND GOAL STATES ARE SAMPLED
+					// (IT IS FOR SURE NOT IN THIS FILE WHEN WE SEARCH FOR 'combo'),
+					// TODO investigate the goal_constraints here http://docs.ros.org/kinetic/api/moveit_msgs/html/definePlanningRequest.html
+					// (but I think I did.)
+					// AND NEITHER HOW THEY ARE ENSURED TO BE FEASIBLE BUT ANYWAY LET'S TRUST HUMANS...
+			
+					// https://answers.ros.org/question/11845/rviz-configuration-file-format/ <- where to get and set the RViz latest config
+					// I try to save the biggest modifications in benchmarks folder of this moveit fork
+					
+					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
+					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
+					visual_tools_->publishRobotState(start_config_current, joint_model_group, start_conf_color);
+					ROS_INFO("Start conf gives this.");
+					
+					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
+					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
+					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
+					ROS_INFO("Goal conf gives this.");
+					
+					// legend above the scene
+			    for (unsigned int i = goal_config_current.size(); i-- > 0; )
+			    //for (auto i = goal_config_current.rbegin(); i != goal_config_current.rend(); ++i)
+			    	// https://stackoverflow.com/questions/3610933/iterating-c-vector-from-the-end-to-the-begin
+			    	// doesn't work here, I will have *iterator for goal config but not for start config!
+			    	// so : https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
+			    	texts.push_back(std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) + " rad");
+			    texts.push_back("(from base (top of the list) to wrist)");
+			    texts.push_back("start/goal joint configurations : (query '" + queryName + "')");
+			    texts.push_back("plan computation countdown T = " + std::to_string(countdown) + " sec");
+			    
+			    for (std::size_t i = 0; i < texts.size(); ++i)
+			    {
+			    	pose.translation().z() = alti_min + i*alti_step;
+			    	visual_tools_->publishText(pose, texts[i], text_color, rviz_visual_tools::XXLARGE, false);
+			    }
+			    
+			    visual_tools_->trigger();
+		    }
+				
 				unsigned int solved_proof = 0, kept_proof = 0, first_solved = 0;
       	// Solve problem, once, as before,
       	ros::WallTime start = ros::WallTime::now();
@@ -1229,92 +1317,6 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         
         if (GENERATE_ANIMATION_RVIZ)
         {
-		      ///////////////////////////////////////////////////
-		      //Let's display the real result! (robot movements)
-		      ///////////////////////////////////////////////////
-		      //What is always displayed: start and goal confs,
-		      //no matter if everything failed:
-		      visual_tools_->deleteAllMarkers();
-		      
-					// construct the start conf:
-					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
-					std::vector<double> start_config_current = slice<double>(request.start_state.joint_state.position,0,5);
-					/*for (int j=0; j<start_config_current.size(); ++j)
-						ROS_ERROR("[DEBUG] %f rad", start_config_current[j]);*/
-		      
-		      // construct the goal conf:
-		      std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
-					std::vector<double> goal_config_current;
-					for (int j=0; j<tmp6.size(); ++j)
-					{
-						/*ROS_ERROR("[DEBUG] %f rad", tmp6[j].position);*/
-						goal_config_current.push_back(tmp6[j].position);
-					}
-					
-					
-					// display the start and goal confs:
-					moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
-				
-					/*// We can also print the name of the end-effector link for this group.
-					ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());*/
-			
-					const robot_state::JointModelGroup* joint_model_group =
-																						move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-			
-					// Btw I also found that whithin the RViz 'Motion PLanning' display tree, tick 'Show Trail' and put a tremendous
-					// value for its size was doing the job (of displaying start and goal confs),
-					// even though the start conf was first displayed, frozen, and only then (at the end of the movement) was frozen the goal conf
-					// so it didn't feel like the query was already known beforehand.
-					// THOUGH I'M STILL UNSURE ABOUT HOW OR WHERE THE RANDOM START AND GOAL STATES ARE SAMPLED
-					// (IT IS FOR SURE NOT IN THIS FILE WHEN WE SEARCH FOR 'combo'),
-					// TODO investigate the goal_constraints here http://docs.ros.org/kinetic/api/moveit_msgs/html/definePlanningRequest.html
-					// (but I think I did.)
-					// AND NEITHER HOW THEY ARE ENSURED TO BE FEASIBLE BUT ANYWAY LET'S TRUST HUMANS...
-			
-					// https://answers.ros.org/question/11845/rviz-configuration-file-format/ <- where to get and set the RViz latest config
-					// I try to save the biggest modifications in benchmarks folder of this moveit fork
-			
-					// https://github.com/PickNikRobotics/rviz_visual_tools
-					const rviz_visual_tools::colors start_conf_color = rviz_visual_tools::GREEN;
-					const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
-					const rviz_visual_tools::colors traj_rope_color_opti = rviz_visual_tools::CYAN;
-					const rviz_visual_tools::colors traj_rope_color_orig = rviz_visual_tools::PINK;
-					const rviz_visual_tools::colors text_color = rviz_visual_tools::BLACK;
-					rviz_visual_tools::colors color;
-					
-					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
-					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
-					visual_tools_->publishRobotState(start_config_current, joint_model_group, start_conf_color);
-					ROS_INFO("Start conf gives this.");
-					
-					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
-					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
-					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
-					ROS_INFO("Goal conf gives this.");
-					
-					// legend above the scene
-			    std::vector<std::string> texts;
-			    for (unsigned int i = goal_config_current.size(); i-- > 0; )
-			    //for (auto i = goal_config_current.rbegin(); i != goal_config_current.rend(); ++i)
-			    	// https://stackoverflow.com/questions/3610933/iterating-c-vector-from-the-end-to-the-begin
-			    	// doesn't work here, I will have *iterator for goal config but not for start config!
-			    	// so : https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
-			    	texts.push_back(std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) + " radians");
-			    texts.push_back("(top of the list <-> base, bottom <-> towards the wrist)");
-			    texts.push_back("pair start/goal of joint configurations : '" + queryName + "'");
-			    texts.push_back("allocated countdown T = " + std::to_string(countdown) + " seconds");
-			    
-			    double alti_min = 1.7, alti_step = 0.075;
-			    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
-			    for (std::size_t i = 0; i < texts.size(); ++i)
-			    {
-			    	pose.translation().z() = alti_min + i*alti_step;
-			    	visual_tools_->publishText(pose, texts[i], text_color, rviz_visual_tools::XXLARGE, false);
-			    }
-			    std::size_t previous_size;
-			    
-			    visual_tools_->trigger();
-			    
 			    /*ROS_WARN("[DEBUG] first_solved = %d", first_solved);
 			    ROS_WARN("[DEBUG] kept_proof = %d", kept_proof);*/
 			    
@@ -1399,7 +1401,6 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 						
 							//trajectory markers
 							visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
-							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 							ROS_INFO("(Wrapped planner solution EE path gave this)");
 							
 							visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
@@ -1419,11 +1420,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							std::cout << "About to wait 10s while movement animations finish\n";
 							std::this_thread::sleep_for( dura );
 							std::cout << "Waited 10s after pathes launching\n";
-							
 			    	}
 			    } //end animation
-		      
-					
 				} //end of RViz part
 				
 			}
