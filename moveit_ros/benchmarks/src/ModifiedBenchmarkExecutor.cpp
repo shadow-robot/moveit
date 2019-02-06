@@ -124,7 +124,6 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   //as publishRobotState seems to erase the previous one : https://docs.ros.org/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01382 (only one shared robot state that is updated each time)
   
   visual_tools_->loadPlanningSceneMonitor();
-	visual_tools2_->loadPlanningSceneMonitor();
 	
   visual_tools_->loadMarkerPub(false,true); //for the traj lines
     
