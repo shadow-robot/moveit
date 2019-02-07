@@ -532,23 +532,24 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     // Create all combinations of start states and path constraints
     std::vector<BenchmarkRequest> request_combos;
     
-    ROS_ERROR("[EXPLORE] 2) start_states.size() = %lu", start_states.size());
-    ROS_ERROR("[EXPLORE] 2) path_constraints.size() = %lu", path_constraints.size());
+    ROS_WARN("[EXPLORE] 2) start_states.size() = %lu", start_states.size());
+    ROS_WARN("[EXPLORE] 2) path_constraints.size() = %lu", path_constraints.size());
     
-    ROS_ERROR("brequest.request.start_state.joint_state.position =");
+    ROS_WARN("[EXPLORE] brequest.request.start_state.joint_state.position =");
     std::vector<double> tmp1 = brequest.request.start_state.joint_state.position;
     for (int j=0; j<tmp1.size(); ++j)
-    	ROS_ERROR("[EXPLORE] %f", tmp1[j]);
+    	ROS_WARN("[EXPLORE] %f", tmp1[j]);
     	
     ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints.size() = %lu", brequest.request.goal_constraints.size());//=1
     // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/Constraints.html :
     ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.size() = %lu", brequest.request.goal_constraints[0].joint_constraints.size());//=6
+    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.position/tolerance_below/above =");
     std::vector<moveit_msgs::JointConstraint> tmp5 = brequest.request.goal_constraints[0].joint_constraints;
     for (int j=0; j<tmp5.size(); ++j)
-    	ROS_WARN("[EXPLORE] %f", tmp5[j].position);
-    ROS_ERROR("[EXPLORE] 2) brequest.request.goal_constraints[0].position_constraints.size() = %lu", brequest.request.goal_constraints[0].position_constraints.size());//=0
-    ROS_ERROR("[EXPLORE] 2) brequest.request.goal_constraints[0].orientation_constraints.size() = %lu", brequest.request.goal_constraints[0].orientation_constraints.size());//=0
-    ROS_ERROR("[EXPLORE] 2) brequest.request.goal_constraints[0].visibility_constraints.size() = %lu", brequest.request.goal_constraints[0].visibility_constraints.size());//=0
+    	ROS_ERROR("[EXPLORE] %f (tol: below %f / above %f rad)", tmp5[j].position, tmp5[j].tolerance_below, tmp5[j].tolerance_above);
+    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].position_constraints.size() = %lu", brequest.request.goal_constraints[0].position_constraints.size());//=0
+    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].orientation_constraints.size() = %lu", brequest.request.goal_constraints[0].orientation_constraints.size());//=0
+    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].visibility_constraints.size() = %lu", brequest.request.goal_constraints[0].visibility_constraints.size());//=0
     
     
     ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.joint_constraints.size() = %lu", brequest.request.path_constraints.joint_constraints.size());//=0
@@ -560,8 +561,8 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     createRequestCombinations(brequest, start_states, path_constraints, request_combos);
     
     //This shows that request_combos are actually nothing more than a copy of or brequest...
-    ROS_ERROR("[EXPLORE] 2) request_combos.size() = %lu", request_combos.size());
-    ROS_ERROR("request_combos[0].request.start_state.joint_state.position =");
+    ROS_WARN("[EXPLORE] 2) request_combos.size() = %lu", request_combos.size());
+    ROS_WARN("[EXPLORE] request_combos[0].request.start_state.joint_state.position =");
     std::vector<double> tmp2 = request_combos[0].request.start_state.joint_state.position;
     for (int j=0; j<tmp2.size(); ++j)
     	ROS_ERROR("[EXPLORE] %f", tmp2[j]);
@@ -591,7 +592,7 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     std::vector<BenchmarkRequest> request_combos;
     std::vector<PathConstraints> no_path_constraints;
     createRequestCombinations(brequest, start_states, no_path_constraints, request_combos);
-    ROS_ERROR("[EXPLORE] 3) request_combos.size() = %lu", request_combos.size());
+    ROS_WARN("[EXPLORE] 3) request_combos.size() = %lu", request_combos.size());
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
 
@@ -631,7 +632,7 @@ void ModifiedBenchmarkExecutor::createRequestCombinations(const BenchmarkRequest
   {
     // Adding path constraints
     
-    ROS_ERROR("[EXPLORE] path_constraints.size() = %lu", path_constraints.size());// = 0s
+    ROS_WARN("[EXPLORE] path_constraints.size() = %lu", path_constraints.size());// = 0s
     for (std::size_t k = 0; k < path_constraints.size(); ++k)
     {
       BenchmarkRequest new_brequest = brequest;
@@ -1237,7 +1238,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							if (GENERATE_LOGS)
 								writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
 							kept_proof +=1;
-							ROS_ERROR("kept_proof +=1");
+							ROS_ERROR("[DEBUG] kept_proof +=1");
 							lastIterationIsConcluding = true;
 							ROS_WARN("AND IT IMPROVES THE QUALITY METRIC");
 						}
@@ -1255,7 +1256,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								if (GENERATE_LOGS)
 									writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
 								kept_proof +=1;
-								ROS_ERROR("kept_proof +=1");
+								ROS_ERROR("[DEBUG] kept_proof +=1");
 								lastIterationIsConcluding = true;
       	      	ROS_WARN("Current time = %f from the beginning of the run -- "
       	      				 	 "This is a worse quality than the previous one (%f) which was found and kept in memory, "
@@ -1632,7 +1633,7 @@ double ModifiedBenchmarkExecutor::evaluate_plan(const robot_trajectory::RobotTra
   std::vector<int> weights(num_of_joints, 0);
   for(int k = 0; k<num_of_joints; k++){
     weights[k] = num_of_joints - k;
-  }
+  } //TODO generate it from outside both the evaluate_plan and the run benchmark recorded in time (to speed up)
   
   std::vector<std::vector <double> > plan_array (p.getWayPointCount(), std::vector<double>(num_of_joints));
   for (size_t i = 0 ; i < p.getWayPointCount() ; ++i){
@@ -1646,7 +1647,7 @@ double ModifiedBenchmarkExecutor::evaluate_plan(const robot_trajectory::RobotTra
     for (size_t j = 0 ; j < num_of_joints ; ++j){
       deltas[i][j] = plan_array[i+1][j] - plan_array[i][j];
       if(deltas[i][j] < 0) // abs() only works for integers. We can also use fabs() from math.h
-	deltas[i][j] = - deltas[i][j];
+				deltas[i][j] = - deltas[i][j];
     }
   }
 
