@@ -532,41 +532,64 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     // Create all combinations of start states and path constraints
     std::vector<BenchmarkRequest> request_combos;
     
-    ROS_WARN("[EXPLORE] 2) start_states.size() = %lu", start_states.size());
-    ROS_WARN("[EXPLORE] 2) path_constraints.size() = %lu", path_constraints.size());
+    //ROS_WARN("[EXPLORE] 2) start_states.size() = %lu", start_states.size());
+    //ROS_WARN("[EXPLORE] 2) path_constraints.size() = %lu", path_constraints.size());
     
     ROS_WARN("[EXPLORE] brequest.request.start_state.joint_state.position =");
     std::vector<double> tmp1 = brequest.request.start_state.joint_state.position;
     for (int j=0; j<tmp1.size(); ++j)
     	ROS_WARN("[EXPLORE] %f", tmp1[j]);
     	
-    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints.size() = %lu", brequest.request.goal_constraints.size());//=1
+    //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints.size() = %lu", brequest.request.goal_constraints.size());//=1
     // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/Constraints.html :
-    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.size() = %lu", brequest.request.goal_constraints[0].joint_constraints.size());//=6
+    //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.size() = %lu", brequest.request.goal_constraints[0].joint_constraints.size());//=6
     ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.position/tolerance_below/above =");
     std::vector<moveit_msgs::JointConstraint> tmp5 = brequest.request.goal_constraints[0].joint_constraints;
     for (int j=0; j<tmp5.size(); ++j)
-    	ROS_ERROR("[EXPLORE] %f (tol: below %f / above %f rad)", tmp5[j].position, tmp5[j].tolerance_below, tmp5[j].tolerance_above);
-    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].position_constraints.size() = %lu", brequest.request.goal_constraints[0].position_constraints.size());//=0
-    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].orientation_constraints.size() = %lu", brequest.request.goal_constraints[0].orientation_constraints.size());//=0
-    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].visibility_constraints.size() = %lu", brequest.request.goal_constraints[0].visibility_constraints.size());//=0
+    	ROS_WARN("[EXPLORE] %f (tol: below %f / above %f rad)", tmp5[j].position, tmp5[j].tolerance_below, tmp5[j].tolerance_above);
+    //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].position_constraints.size() = %lu", brequest.request.goal_constraints[0].position_constraints.size());//=0
+    //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].orientation_constraints.size() = %lu", brequest.request.goal_constraints[0].orientation_constraints.size());//=0
+    //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].visibility_constraints.size() = %lu", brequest.request.goal_constraints[0].visibility_constraints.size());//=0
     
+    //std::vector<moveit_msgs::JointConstraint> tmp7 = brequest.request.path_constraints.joint_constraints;
+    //ROS_WARN("[EXPLORE] 2bis) brequest.request.path_constraints.joint_constraints.size() = %lu", tmp7.size());//=0
+    //std::vector<moveit_msgs::Constraints> tmp8 = brequest.request.trajectory_constraints.constraints;
+    //ROS_WARN("[EXPLORE] 2bis) brequest.request.trajectory_constraints.constraints.size() = %lu", tmp8.size());//=0
+    ////ROS_ERROR("[EXPLORE] 2bis) brequest.request.trajectory_constraints.constraints[0].joint_constraints.tolerance_below/above =");
+    ////std::vector<moveit_msgs::JointConstraint> tmp9 = brequest.request.trajectory_constraints.constraints[0].joint_constraints;
+    ////ROS_ERROR("[EXPLORE] 2bis) brequest.request.trajectory_constraints.constraints[0].joint_constraints.tolerance_below/above.size() = %lu", tmp9.size());
+    ////for (int j=0; j<tmp9.size(); ++j)
+    ////	ROS_ERROR("[EXPLORE] (min %f / max %f rad)", tmp9[j].tolerance_below, tmp9[j].tolerance_above);
+    // https://answers.ros.org/question/252573/ignored-joint-limits-by-moveit/
+    // https://github.com/ros-industrial/universal_robot/issues/112
+    // https://answers.ros.org/question/249253/temporarily-changing-of-joint-limits-in-robotstate/
+    //CONCLUSION: I'm gonna have to add manually the angle limits to the fh_2_ur10_moveit_config/config/joint_limits.yaml
+    //to overwrite the ones in the urdf and make them loaded to the ros param server
+    // https://answers.ros.org/question/310376/why-dont-overridden-joints-limits-via-joint_limitsyaml-get-passed-to-moveit-ik-plugins/
+    //AND THUS also have to somehow plot a marker to check that the limits are not violated ! :(
+    //Unfortunately again I'm waiting shadow for making the versioning of this repo possible but they seem too busy
+    //THey have to add my metric formulas mapped in 0 1 into a tab of their GUI
+    //+ I git inited and forked the repo containing the URDF on my github, then giving them the ownance rights and deleting it, as their
+    //hand may be private, but still nothing in even their private repos...
+    // SO one should have to try this workaround manually.
+    //see with
+    //rostopic echo /move_group/display_planned_path
+    //to ensure the robot is well bounded
     
-    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.joint_constraints.size() = %lu", brequest.request.path_constraints.joint_constraints.size());//=0
-    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.position_constraints.size() = %lu", brequest.request.path_constraints.position_constraints.size());//=0
-    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.orientation_constraints.size() = %lu", brequest.request.path_constraints.orientation_constraints.size());//=0
-    ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.visibility_constraints.size() = %lu", brequest.request.path_constraints.visibility_constraints.size());//=0
-    ROS_WARN("[EXPLORE] 2) brequest.request.trajectory_constraints.constraints.size() = %lu", brequest.request.trajectory_constraints.constraints.size());//=0
+    //ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.joint_constraints.size() = %lu", brequest.request.path_constraints.joint_constraints.size());//=0
+    //ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.position_constraints.size() = %lu", brequest.request.path_constraints.position_constraints.size());//=0
+    //ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.orientation_constraints.size() = %lu", brequest.request.path_constraints.orientation_constraints.size());//=0
+    //ROS_WARN("[EXPLORE] 2) brequest.request.path_constraints.visibility_constraints.size() = %lu", brequest.request.path_constraints.visibility_constraints.size());//=0
+    //ROS_WARN("[EXPLORE] 2) brequest.request.trajectory_constraints.constraints.size() = %lu", brequest.request.trajectory_constraints.constraints.size());//=0
     
     createRequestCombinations(brequest, start_states, path_constraints, request_combos);
     
-    //This shows that request_combos are actually nothing more than a copy of or brequest...
-    ROS_WARN("[EXPLORE] 2) request_combos.size() = %lu", request_combos.size());
-    ROS_WARN("[EXPLORE] request_combos[0].request.start_state.joint_state.position =");
-    std::vector<double> tmp2 = request_combos[0].request.start_state.joint_state.position;
-    for (int j=0; j<tmp2.size(); ++j)
-    	ROS_ERROR("[EXPLORE] %f", tmp2[j]);
-    
+    ////This shows that request_combos are actually nothing more than a copy of or brequest...
+    //ROS_WARN("[EXPLORE] 2) request_combos.size() = %lu", request_combos.size());
+    //ROS_WARN("[EXPLORE] request_combos[0].request.start_state.joint_state.position =");
+    //std::vector<double> tmp2 = request_combos[0].request.start_state.joint_state.position;
+    //for (int j=0; j<tmp2.size(); ++j)
+    //	ROS_ERROR("[EXPLORE] %f", tmp2[j]);
     
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
@@ -632,7 +655,7 @@ void ModifiedBenchmarkExecutor::createRequestCombinations(const BenchmarkRequest
   {
     // Adding path constraints
     
-    ROS_WARN("[EXPLORE] path_constraints.size() = %lu", path_constraints.size());// = 0s
+    //ROS_WARN("[EXPLORE] path_constraints.size() = %lu", path_constraints.size());// = 0s
     for (std::size_t k = 0; k < path_constraints.size(); ++k)
     {
       BenchmarkRequest new_brequest = brequest;
