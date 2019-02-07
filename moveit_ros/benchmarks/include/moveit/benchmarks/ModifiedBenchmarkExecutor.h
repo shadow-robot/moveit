@@ -149,8 +149,14 @@ public:
   template <typename T>
   void alterPlannerParameter(XmlRpc::XmlRpcValue& parametersSet_toUpdate, 
 			     XmlRpc::XmlRpcValue& parametersBoundaries, 
-			     const std::string& plannerParamName);		     
+			     const std::string& plannerParamName);
   bool accepted(double t, double Tmax);
+  template<typename T>
+	T Mod(T x, T y);
+	inline double AnyRadToMpiPiExc(double angle);
+	inline double AnyRadToZeroTwoPiExc(double angle);
+	inline double AnyDegToM180180(double angle);
+	inline double AnyDegTo0360(double angle);
 
   //C language: (these ones are for removing last line of a given file)
   long fsize(FILE *binaryStream);
