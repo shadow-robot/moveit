@@ -108,6 +108,8 @@ const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator o
 const std::string DISPLAY_PLANNED_PATH_PARALLEL = "/display_planned_path_parallel"; //trick to get a channel to publish on another trajPath,
 //if the default one (/move_group/display_planned_path) is already occupied and one wants to launch several trajs simultaneously
 
+bool JOINT_ANGLE_RESTRICTED;
+
 ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
 {
   pss_ = NULL;
@@ -471,6 +473,67 @@ inline double ModifiedBenchmarkExecutor::AnyDegTo0360(double angle)
 	return Mod(angle ,360.);
 }
 
+bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
+			std::set<std::string>& limitedInAngleActuatedJointsNames,
+			std::vector<std::vector<double>>& jointAnglesMinMax)
+{
+	//////////////////////////////////////////////////////////////////
+  // Get the joint angle limits for laterly bringing back the queries into -pi pi IF the joint angles are restricted by the .yaml
+  //RETURNS restricted or not (bool)
+  //////////////////////////////////////////////////////////////////
+  // Here I ASSUME every joint of the move_group are angle limited
+  const std::string pathJointLimits =
+  "/robot_description_planning/joint_limits";
+  XmlRpc::XmlRpcValue jointLimits_Xml = getServerParameters(pathJointLimits);
+  //ROS_ERROR("[ENSURE] /robot_description_planning/joint_limits.size() = %d", jointLimits_Xml.size());//=15
+  //I skip steps here as one should properly retrieve the joints belonging to the move_group (TODO):
+  std::set<std::string> move_group_joints_names{"ra_shoulder_pan_joint","ra_shoulder_lift_joint","ra_elbow_joint",
+ "ra_wrist_1_joint","ra_wrist_2_joint","ra_wrist_3_joint"};
+	// https://stackoverflow.com/questions/6277646/in-c-check-if-stdvectorstring-contains-a-certain-value alex B
+  //Get the keys of a map:
+  //std::set<std::string> limitedInAngleActuatedJointsNames;
+  //std::vector<std::vector<double>> jointAnglesMinMax;
+  for(auto const& imap: jointLimits_Xml)
+  {
+  	std::string joint_name = imap.first;
+  	if (move_group_joints_names.find(joint_name)
+  			!= move_group_joints_names.end())
+  		if (!(limitedInAngleActuatedJointsNames.find(joint_name)
+						!= limitedInAngleActuatedJointsNames.end()))
+			{ //if (() && ()) doesn't like bool and iterator cohabiting..
+		  	limitedInAngleActuatedJointsNames.insert(joint_name);
+		  	XmlRpc::XmlRpcValue tmpJointMultiConstraints_Xml = jointLimits_Xml[joint_name];
+		  	std::vector<double> minMax;
+		  	minMax.push_back((double)tmpJointMultiConstraints_Xml["min_position"]);
+		  	minMax.push_back((double)tmpJointMultiConstraints_Xml["max_position"]);
+		  	jointAnglesMinMax.push_back(minMax);
+		  }
+  }
+  /*//Dunno why this check doesnt work:
+  ROS_ERROR("[ENSURE] Verify joint_angle_lims: it");
+  for (auto it = limitedInAngleActuatedJointsNames.begin();
+			 it != limitedInAngleActuatedJointsNames.end(); ++it)
+ 	{
+ 		int i = std::distance(limitedInAngleActuatedJointsNames.begin(), it); //convert it to touble
+ 		ROS_ERROR("[DEBUG] i = %d", i);
+ 		ROS_ERROR("[ENSURE] %s: min %f, max %f rad", it->c_str(),
+							jointAnglesMinMax[i][1], jointAnglesMinMax[i][2]);
+	} //But this one does so it's ok I trust it:
+	ROS_ERROR("[ENSURE] Verify joint_angle_lims:");
+	for (int i = 0; i < jointAnglesMinMax.size(); i++)
+    for (int j = 0; j < jointAnglesMinMax[i].size(); j++)
+      ROS_ERROR("[DEBUG] i = %f", jointAnglesMinMax[i][j]);*/
+  // Test whether joint angle are unrestricted or not
+  double maximum = 0.;
+	for(int i=0; i<jointAnglesMinMax.size(); ++i)
+		for(int j=0; j<jointAnglesMinMax[i].size(); ++j)
+		  maximum = std::max(std::fabs(jointAnglesMinMax[i][j]), maximum);
+  if (maximum < _PI)
+  	return true;
+	else
+		return false;
+} //TODO generalize to it to be able to get velocity_limit and acceleration_limits as well, but I'm into a rush so no time
+
 bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
                                              std::vector<BenchmarkRequest>& requests)
 {
@@ -569,7 +632,12 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     ROS_ERROR("[EXPLORE] 1) request_combos.size() = %lu", request_combos.size());
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
-
+  
+  std::vector<std::vector<double>> jointAnglesMinMax;
+  std::set<std::string> limitedInAngleActuatedJointsNames;
+	JOINT_ANGLE_RESTRICTED = getActuatedJointAngleLimits(
+	limitedInAngleActuatedJointsNames, jointAnglesMinMax);
+  
   // 2) Existing queries are treated like goal constraints.
   //    Create all combos of query, start states, and path constraints
   ROS_ERROR("[EXPLORE] queries.size() = %lu", queries.size());
@@ -1257,7 +1325,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    }
 			    
 			    visual_tools_->trigger();
-		    }
+		    } //end display of the queries
 				
 				unsigned int solved_proof = 0, kept_proof = 0, first_solved = 0;
       	// Solve problem, once, as before,

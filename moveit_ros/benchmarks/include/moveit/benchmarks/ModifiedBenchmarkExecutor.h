@@ -157,6 +157,10 @@ public:
 	inline double AnyRadToZeroTwoPiExc(double angle);
 	inline double AnyDegToM180180(double angle);
 	inline double AnyDegTo0360(double angle);
+	
+	bool getActuatedJointAngleLimits(
+			std::set<std::string>& limitedInAngleActuatedJointsNames,
+			std::vector<std::vector<double>>& jointAnglesMinMax);
 
   //C language: (these ones are for removing last line of a given file)
   long fsize(FILE *binaryStream);
