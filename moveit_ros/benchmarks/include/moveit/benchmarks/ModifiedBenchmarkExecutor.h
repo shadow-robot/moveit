@@ -161,6 +161,8 @@ public:
 	bool getActuatedJointAngleLimits(
 			std::set<std::string>& limitedInAngleActuatedJointsNames,
 			std::vector<std::vector<double>>& jointAnglesMinMax);
+			
+	void AdaptJointSpaceQueryMpiPi(moveit_msgs::MotionPlanRequest& query);
 
   //C language: (these ones are for removing last line of a given file)
   long fsize(FILE *binaryStream);

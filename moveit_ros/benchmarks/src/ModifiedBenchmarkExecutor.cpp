@@ -109,6 +109,7 @@ const std::string DISPLAY_PLANNED_PATH_PARALLEL = "/display_planned_path_paralle
 //if the default one (/move_group/display_planned_path) is already occupied and one wants to launch several trajs simultaneously
 
 bool JOINT_ANGLE_RESTRICTED;
+bool ADAPT_QUERIES;
 
 ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
 {
@@ -310,7 +311,12 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 
     for (std::size_t i = 0; i < queries.size(); ++i)
     {
-    	ROS_ERROR("[EXPLORE] query i = %lu", i);
+      ROS_WARN("--------------------------------");
+      ROS_WARN("--------------------------------");
+      ROS_WARN("QUERY '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size()); // (Note that queries are benchmarked in disorder)
+      ROS_WARN("--------------------------------");
+      ROS_WARN("--------------------------------");
+      
       // Configure planning scene
       if (scene_msg.robot_model_name != planning_scene_->getRobotModel()->getName())
       {
@@ -329,12 +335,6 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
       // Doesn't matter since it's never filled
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
-      
-      ROS_WARN("--------------------------------");
-      ROS_WARN("--------------------------------");
-      ROS_WARN("QUERY '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size()); // (Note that queries are benchmarked in disorder)
-      ROS_WARN("--------------------------------");
-      ROS_WARN("--------------------------------");
       
       /*ROS_ERROR("[EXPLORE] queries[%lu].request =", i);
     	std::vector<double> tmp3 = queries[i].request.start_state.joint_state.position;
@@ -528,6 +528,7 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
 	for(int i=0; i<jointAnglesMinMax.size(); ++i)
 		for(int j=0; j<jointAnglesMinMax[i].size(); ++j)
 		  maximum = std::max(std::fabs(jointAnglesMinMax[i][j]), maximum);
+  ROS_ERROR("[DEBUG] maximum = %f", maximum);
   if (maximum < _PI)
   	return true;
 	else
@@ -648,6 +649,11 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     BenchmarkRequest brequest;
     brequest.name = queries[i].name;
     brequest.request = queries[i].request;
+    
+    ROS_ERROR("[DEBUG] JOINT_ANGLE_RESTRICTED = %d", JOINT_ANGLE_RESTRICTED);
+    if (JOINT_ANGLE_RESTRICTED)
+    	AdaptJointSpaceQueryMpiPi(brequest.request);
+    
     brequest.request.group_name = opts.getGroupName();
     brequest.request.allowed_planning_time = opts.getTimeout();
     brequest.request.num_planning_attempts = 1;
@@ -678,10 +684,10 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints.size() = %lu", brequest.request.goal_constraints.size());//=1
     // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/Constraints.html :
     //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.size() = %lu", brequest.request.goal_constraints[0].joint_constraints.size());//=6
-    ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.position/tolerance_below/above =");
+    /*ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].joint_constraints.position/tolerance_below/above =");
     std::vector<moveit_msgs::JointConstraint> tmp5 = brequest.request.goal_constraints[0].joint_constraints;
     for (int j=0; j<tmp5.size(); ++j)
-    	ROS_WARN("[EXPLORE] %f (tol: below %f / above %f rad)", tmp5[j].position, tmp5[j].tolerance_below, tmp5[j].tolerance_above);
+    	ROS_WARN("[EXPLORE] %f (tol: below %f / above %f rad)", tmp5[j].position, tmp5[j].tolerance_below, tmp5[j].tolerance_above);*/
     //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].position_constraints.size() = %lu", brequest.request.goal_constraints[0].position_constraints.size());//=0
     //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].orientation_constraints.size() = %lu", brequest.request.goal_constraints[0].orientation_constraints.size());//=0
     //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints[0].visibility_constraints.size() = %lu", brequest.request.goal_constraints[0].visibility_constraints.size());//=0
@@ -756,6 +762,27 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
 
   options_ = opts;
   return true;
+}
+
+void ModifiedBenchmarkExecutor::AdaptJointSpaceQueryMpiPi(moveit_msgs::MotionPlanRequest& query)
+{//start and goal configurations in joint space
+	//start:
+	const std::vector<double> tmpo1 = query.start_state.joint_state.position;
+  for (int j=0; j<tmpo1.size(); ++j)
+  {
+  	ROS_ERROR("[ENSURE] start conf, before : %f rad", tmpo1[j]);
+  	query.start_state.joint_state.position[j] = AnyRadToMpiPiExc(tmpo1[j]);
+  	ROS_ERROR("[ENSURE] start conf, after : %f rad", query.start_state.joint_state.position[j]);
+	}
+	
+	//goal:
+	std::vector<moveit_msgs::JointConstraint> tmpo2 = query.goal_constraints[0].joint_constraints;
+    for (int j=0; j<tmpo2.size(); ++j)
+    {
+    	ROS_ERROR("[ENSURE] goal conf, before : %f rad", tmpo2[j].position);
+    	query.goal_constraints[0].joint_constraints[j].position = AnyRadToMpiPiExc(tmpo2[j].position);
+    	ROS_ERROR("[ENSURE] goal conf, after : %f rad", query.goal_constraints[0].joint_constraints[j].position);
+  	}
 }
 
 void ModifiedBenchmarkExecutor::shiftConstraintsByOffset(moveit_msgs::Constraints& constraints,
