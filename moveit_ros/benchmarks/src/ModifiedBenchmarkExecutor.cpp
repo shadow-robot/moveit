@@ -488,11 +488,10 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
   //ROS_ERROR("[ENSURE] /robot_description_planning/joint_limits.size() = %d", jointLimits_Xml.size());//=15
   //I skip steps here as one should properly retrieve the joints belonging to the move_group (TODO):
   std::set<std::string> move_group_joints_names{"ra_shoulder_pan_joint","ra_shoulder_lift_joint","ra_elbow_joint",
- "ra_wrist_1_joint","ra_wrist_2_joint","ra_wrist_3_joint"};
+ "ra_wrist_1_joint","ra_wrist_2_joint","ra_wrist_3_joint"};//ordered
+ 	//such that it goes from base to wrist
 	// https://stackoverflow.com/questions/6277646/in-c-check-if-stdvectorstring-contains-a-certain-value alex B
   //Get the keys of a map:
-  //std::set<std::string> limitedInAngleActuatedJointsNames;
-  //std::vector<std::vector<double>> jointAnglesMinMax;
   for(auto const& imap: jointLimits_Xml)
   {
   	std::string joint_name = imap.first;
@@ -506,7 +505,7 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
 		  	std::vector<double> minMax;
 		  	minMax.push_back((double)tmpJointMultiConstraints_Xml["min_position"]);
 		  	minMax.push_back((double)tmpJointMultiConstraints_Xml["max_position"]);
-		  	jointAnglesMinMax.push_back(minMax);
+		  	jointAnglesMinMax.push_back(minMax); //ordered s.t it follows the alphabetical order of the joint names because of the rosparam server! :(
 		  }
   }
   /*//Dunno why this check doesnt work:
