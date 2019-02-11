@@ -1549,12 +1549,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							
 							//test : trial to plot each path linking each joints of the start/goal conf
 							// http://docs.ros.org/kinetic/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01327
-							std::vector<const moveit::core::LinkModel*> tips;
-							joint_model_group->getEndEffectorTips(tips);
-							ROS_ERROR("[DEBUG] tips.size() = %lu", tips.size());
-							//Conclusion this does only work for parallel robots
-							// For each end effector
-							for (const moveit::core::LinkModel* ee_parent_link : tips)
+							std::vector<const moveit::core::LinkModel*> subEEs = joint_model_group->getLinkModels();
+							ROS_ERROR("[DEBUG] subEEs.size() = %lu", subEEs.size());
+							for (const moveit::core::LinkModel* ee_parent_link : subEEs)
 							{
 								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), ee_parent_link, traj_rope_color_orig);
 								visual_tools_->trigger();
