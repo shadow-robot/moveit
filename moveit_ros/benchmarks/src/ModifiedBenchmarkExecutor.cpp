@@ -111,6 +111,9 @@ const std::string DISPLAY_PLANNED_PATH_PARALLEL = "/display_planned_path_paralle
 bool JOINT_ANGLE_RESTRICTED;
 bool ADAPT_QUERIES;
 
+bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = false;
+//Depending on the use of either relevancy metric (which focus on the end effector only) or energy one (which sums over all joints and try to minimize), only the EE traj or all sub joints traj will be displayed)
+
 ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_description_param)
 {
   pss_ = NULL;
@@ -1187,6 +1190,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				qualityFcnPtr = &evaluate_plan;
 				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   					 "Currently you can change it by acting on iplanr_description/" 
 						 		 "benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
+				DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = true;
 			} else if (metricChoice.compare(metric2)==0)
 			{
 				qualityFcnPtr = &evaluate_plan_cart;
@@ -1545,29 +1549,39 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							visual_tools_->trigger();
 			
 							//trajectory markers
-							visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
-							
-							//test : trial to plot each path linking each joints of the start/goal conf
-							// http://docs.ros.org/kinetic/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01327
-							std::vector<const moveit::core::LinkModel*> subEEs = joint_model_group->getLinkModels();
-							ROS_ERROR("[DEBUG] subEEs.size() = %lu", subEEs.size());
-							for (const moveit::core::LinkModel* ee_parent_link : subEEs)
+							if (!DISPLAY_JOINT_CARTESIAN_TRAJECTORIES)
 							{
-								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), ee_parent_link, traj_rope_color_orig);
+								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
+								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+							} else
+							{
+								std::vector<const moveit::core::LinkModel*> subEEs = joint_model_group->getLinkModels();
+								//ROS_ERROR("[DEBUG] subEEs.size() = %lu", subEEs.size());
+								for (const moveit::core::LinkModel* ee_parent_link : subEEs)
+									visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), ee_parent_link, traj_rope_color_orig);
 								visual_tools_->trigger();
 							}
-							//end test
-							
-							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+								
 							ROS_INFO("(Originally parametrized planner solution EE path gave this)");
 		
 							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
+							visual_tools2_->trigger();
 							ROS_INFO("Originally parametrized planner solution movement gives this");
+							
+							/*
+							//For understanding why enabling blocking leads to so long waiting times:
+							moveit_msgs::RobotTrajectory trajectory_msg;
+							robot_trajectory::RobotTrajectoryPtr& trajectoryPtr = first_mp_res.trajectory_.back();
+							trajectoryPtr->getRobotTrajectoryMsg(trajectory_msg);
+							ROS_ERROR("[DEBUG] trajectory_msg.joint_trajectory.points.back().time_from_start.toSec() = %f sec", trajectory_msg.joint_trajectory.points.back().time_from_start.toSec());
+							//end understanding : because it has 0sec duration!
+							//let's just wait 15sec instead of 10 for the exceptionally long paths then
+							*/
 				
-							std::chrono::seconds dura(10);
-							std::cout << "About to wait 10s while movement animation finishes\n";
+							std::chrono::seconds dura(15);
+							std::cout << "About to wait 15s while movement animation finishes\n";
 							std::this_thread::sleep_for( dura );
-							std::cout << "Waited 10s after path\n";
+							std::cout << "Waited 15s after path\n";
 			    	}
 			    	else if (kept_proof > 1)
 			    	{ //original planner found smthg + the algo had time to take over, let's compare the moves!
@@ -1598,26 +1612,41 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							visual_tools_->trigger();
 						
 							//trajectory markers
-							visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
-							ROS_INFO("(Wrapped planner solution EE path gave this)");
+							if (!DISPLAY_JOINT_CARTESIAN_TRAJECTORIES)
+							{
+								visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
 							
-							visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
-							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
+								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+							} else
+							{
+								std::vector<const moveit::core::LinkModel*> subEEs = joint_model_group->getLinkModels();
+								//ROS_ERROR("[DEBUG] subEEs.size() = %lu", subEEs.size());
+								for (const moveit::core::LinkModel* ee_parent_link : subEEs)
+								{
+									visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), ee_parent_link, traj_rope_color_orig);
+									visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), ee_parent_link, traj_rope_color_opti);
+								}
+								visual_tools_->trigger();				
+							}
+							ROS_INFO("(Wrapped planner solution EE path gave this)");
 							ROS_INFO("(Originally parametrized planner solution EE path gave this)");
 		
 							visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 							ROS_INFO("Wrapped planner solution movement gives this");
+							visual_tools_->trigger();
 							
 							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
 							ROS_INFO("Originally parametrized planner solution movement gives this");
+							visual_tools2_->trigger();
 				
-							std::chrono::seconds dura(10);
+							std::chrono::seconds dura(15);
 							// not use sleep() as here :
 							// http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/move_group_interface_tutorial.html
 							// reason : https://stackoverflow.com/questions/49071285/sleep-vs-sleep-for
-							std::cout << "About to wait 10s while movement animations finish\n";
+							std::cout << "About to wait 15s while movement animations finish\n";
 							std::this_thread::sleep_for( dura );
-							std::cout << "Waited 10s after pathes launching\n";
+							std::cout << "Waited 15s after pathes launching\n";
 			    	}
 			    } //end animation
 				} //end of RViz part
