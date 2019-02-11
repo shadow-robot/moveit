@@ -195,7 +195,7 @@ protected:
   };
 
   virtual bool initializeBenchmarks(const ModifiedBenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
-                                    std::vector<BenchmarkRequest>& queries);
+                                    std::vector<BenchmarkRequest>& queries, std::vector<std::vector<double>>& jointAnglesMinMax);
 
   virtual void collectMetrics(PlannerRunData& metrics, const planning_interface::MotionPlanDetailedResponse& mp_res,
                               bool solved, double total_time);
@@ -237,6 +237,7 @@ protected:
                     const std::map<std::string, std::vector<std::string>>& planners, int runs,
                     const std::string& metricChoice, const std::string& sceneName,
                     const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ,
+                    const std::vector<std::vector<double>>& jointAnglesMinMax,
                     unsigned int& no_first_kept_restart); //this stands for behaviour exploration only
 
   planning_scene_monitor::PlanningSceneMonitorPtr psm_;

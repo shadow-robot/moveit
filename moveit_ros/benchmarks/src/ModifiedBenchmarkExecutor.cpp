@@ -303,8 +303,9 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 
   std::vector<BenchmarkRequest> queries;
   moveit_msgs::PlanningScene scene_msg;
+  std::vector<std::vector<double>> jointAnglesMinMax;
 
-  if (initializeBenchmarks(opts, scene_msg, queries))
+  if (initializeBenchmarks(opts, scene_msg, queries, jointAnglesMinMax))
   {
     if (!queriesAndPlannersCompatible(queries, opts.getPlannerConfigurations()))
       return false;
@@ -359,6 +360,7 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 		   						 options_.getSceneName(),
 		   						 GENERATE_LOGS,
 		   						 GENERATE_ANIMATION_RVIZ,
+		   						 jointAnglesMinMax,
 		   						 no_first_kept_restart); //debug
       double duration = (ros::WallTime::now() - start_time).toSec();
       
@@ -487,21 +489,19 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
   XmlRpc::XmlRpcValue jointLimits_Xml = getServerParameters(pathJointLimits);
   //ROS_ERROR("[ENSURE] /robot_description_planning/joint_limits.size() = %d", jointLimits_Xml.size());//=15
   //I skip steps here as one should properly retrieve the joints belonging to the move_group (TODO):
-  std::set<std::string> move_group_joints_names{"ra_shoulder_pan_joint","ra_shoulder_lift_joint","ra_elbow_joint",
+  std::list<std::string> move_group_joints_names{"ra_shoulder_pan_joint","ra_shoulder_lift_joint","ra_elbow_joint",
  "ra_wrist_1_joint","ra_wrist_2_joint","ra_wrist_3_joint"};//ordered
  	//such that it goes from base to wrist
- 	for(auto const& iset: move_group_joints_names)
+ 	for(auto const& ilist: move_group_joints_names)
   {
-  	ROS_ERROR("iset = %s", iset.c_str());
-  	limitedInAngleActuatedJointsNames.insert(iset);
-  	ROS_ERROR("DEBUG1");
-  	XmlRpc::XmlRpcValue tmpJointMultiConstraints_Xml = jointLimits_Xml[iset]; //TODO add robustness (if iset isn't a key of the Xml map, tell the user to double check the joint_limits.yaml!)
-  	ROS_ERROR("DEBUG2");
+  	ROS_ERROR("[ENSURE] ilist = %s", ilist.c_str());
+  	limitedInAngleActuatedJointsNames.insert(ilist);
+  	XmlRpc::XmlRpcValue tmpJointMultiConstraints_Xml = jointLimits_Xml[ilist.c_str()]; //TODO add robustness (if ilist isn't a key of the Xml map, tell the user to double check the joint_limits.yaml!)
+  	ROS_ERROR("[DEBUG] min %f, max %f", (double)tmpJointMultiConstraints_Xml["min_position"], (double)tmpJointMultiConstraints_Xml["max_position"]);
   	std::vector<double> minMax;
   	minMax.push_back((double)tmpJointMultiConstraints_Xml["min_position"]);
   	minMax.push_back((double)tmpJointMultiConstraints_Xml["max_position"]);
   	jointAnglesMinMax.push_back(minMax); //ordered s.t it follows the geometrical order of the joint names (base to wrist) and not the alphabetical one of the rosparam server! :) (useful for displaying in RViz later in the same order than the queries)
-  	ROS_ERROR("DEBUG3");
   }
   /*//Dunno why this check doesnt work:
   ROS_ERROR("[ENSURE] Verify joint_angle_lims: it");
@@ -530,8 +530,10 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
 		return false;
 } //TODO generalize to it to be able to get velocity_limit and acceleration_limits as well, but I'm into a rush so no time
 
-bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
-                                             std::vector<BenchmarkRequest>& requests)
+bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOptions& opts,
+																										 moveit_msgs::PlanningScene& scene_msg,
+																										 std::vector<BenchmarkRequest>& requests,
+																										 std::vector<std::vector<double>>& jointAnglesMinMax)
 {
   if (!plannerConfigurationsExist(opts.getPlannerConfigurations(), opts.getGroupName()))
     return false;
@@ -629,7 +631,6 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
   
-  std::vector<std::vector<double>> jointAnglesMinMax;
   std::set<std::string> limitedInAngleActuatedJointsNames;
 	JOINT_ANGLE_RESTRICTED = getActuatedJointAngleLimits(
 	limitedInAngleActuatedJointsNames, jointAnglesMinMax);
@@ -1142,6 +1143,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					     const std::string& sceneName,
 					     const bool GENERATE_LOGS,
 					     const bool GENERATE_ANIMATION_RVIZ,
+					     const std::vector<std::vector<double>>& jointAnglesMinMax,
 					     unsigned int& no_first_kept_restart)
 {
   benchmark_data_.clear();
@@ -1335,9 +1337,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	// https://stackoverflow.com/questions/3610933/iterating-c-vector-from-the-end-to-the-begin
 			    	// doesn't work here, I will have *iterator for goal config but not for start config!
 			    	// so : https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
-			    	texts.push_back(std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) + " rad");
-			    texts.push_back("(from base (top of the list) to wrist)");
-			    texts.push_back("start/goal joint configurations : (query '" + queryName + "')");
+			    	texts.push_back(std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) +
+			    	" rad (min : " + std::to_string(jointAnglesMinMax[i][0]) + ", max : " + std::to_string(jointAnglesMinMax[i][1]) + ")");
+			    texts.push_back("start/goal joint configurations + angle limits : (query '" + queryName + "')");
 			    texts.push_back("plan computation countdown T = " + std::to_string(countdown) + " sec");
 			    
 			    for (std::size_t i = 0; i < texts.size(); ++i)
