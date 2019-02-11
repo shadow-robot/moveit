@@ -1507,6 +1507,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         
         if (GENERATE_ANIMATION_RVIZ)
         {
+        	int sleep = 10; //sec : rtime to give to the trajectories
+        	std::chrono::seconds dura(sleep);
 			    /*ROS_WARN("[DEBUG] first_solved = %d", first_solved);
 			    ROS_WARN("[DEBUG] kept_proof = %d", kept_proof);*/
 			    
@@ -1564,9 +1566,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								
 							ROS_INFO("(Originally parametrized planner solution EE path gave this)");
 		
-							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
-							visual_tools2_->trigger();
-							ROS_INFO("Originally parametrized planner solution movement gives this");
+							if (visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move))
+								ROS_INFO("Originally parametrized planner solution movement gives this");
 							
 							/*
 							//For understanding why enabling blocking leads to so long waiting times:
@@ -1577,11 +1578,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							//end understanding : because it has 0sec duration!
 							//let's just wait 15sec instead of 10 for the exceptionally long paths then
 							*/
-				
-							std::chrono::seconds dura(15);
-							std::cout << "About to wait 15s while movement animation finishes\n";
+							
+							std::cout << "About to wait " << sleep << "s while movement animation finishes\n";
 							std::this_thread::sleep_for( dura );
-							std::cout << "Waited 15s after path\n";
+							std::cout << "Waited " << sleep << "s after path\n";
 			    	}
 			    	else if (kept_proof > 1)
 			    	{ //original planner found smthg + the algo had time to take over, let's compare the moves!
@@ -1634,19 +1634,16 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 		
 							visual_tools_->publishTrajectoryPath(mp_res_before_exceeding.trajectory_.back(), stop_at_first_move);
 							ROS_INFO("Wrapped planner solution movement gives this");
-							visual_tools_->trigger();
 							
 							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
 							ROS_INFO("Originally parametrized planner solution movement gives this");
-							visual_tools2_->trigger();
 				
-							std::chrono::seconds dura(15);
 							// not use sleep() as here :
 							// http://docs.ros.org/hydro/api/pr2_moveit_tutorials/html/planning/src/doc/move_group_interface_tutorial.html
 							// reason : https://stackoverflow.com/questions/49071285/sleep-vs-sleep-for
-							std::cout << "About to wait 15s while movement animations finish\n";
+							std::cout << "About to wait " << sleep << "s while movement animations finish\n";
 							std::this_thread::sleep_for( dura );
-							std::cout << "Waited 15s after pathes launching\n";
+							std::cout << "Waited " << sleep << "s after pathes launching\n";
 			    	}
 			    } //end animation
 				} //end of RViz part
