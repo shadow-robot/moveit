@@ -490,23 +490,18 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
   std::set<std::string> move_group_joints_names{"ra_shoulder_pan_joint","ra_shoulder_lift_joint","ra_elbow_joint",
  "ra_wrist_1_joint","ra_wrist_2_joint","ra_wrist_3_joint"};//ordered
  	//such that it goes from base to wrist
-	// https://stackoverflow.com/questions/6277646/in-c-check-if-stdvectorstring-contains-a-certain-value alex B
-  //Get the keys of a map:
-  for(auto const& imap: jointLimits_Xml)
+ 	for(auto const& iset: move_group_joints_names)
   {
-  	std::string joint_name = imap.first;
-  	if (move_group_joints_names.find(joint_name)
-  			!= move_group_joints_names.end())
-  		if (!(limitedInAngleActuatedJointsNames.find(joint_name)
-						!= limitedInAngleActuatedJointsNames.end()))
-			{ //if (() && ()) doesn't like bool and iterator cohabiting..
-		  	limitedInAngleActuatedJointsNames.insert(joint_name);
-		  	XmlRpc::XmlRpcValue tmpJointMultiConstraints_Xml = jointLimits_Xml[joint_name];
-		  	std::vector<double> minMax;
-		  	minMax.push_back((double)tmpJointMultiConstraints_Xml["min_position"]);
-		  	minMax.push_back((double)tmpJointMultiConstraints_Xml["max_position"]);
-		  	jointAnglesMinMax.push_back(minMax); //ordered s.t it follows the alphabetical order of the joint names because of the rosparam server! :(
-		  }
+  	ROS_ERROR("iset = %s", iset.c_str());
+  	limitedInAngleActuatedJointsNames.insert(iset);
+  	ROS_ERROR("DEBUG1");
+  	XmlRpc::XmlRpcValue tmpJointMultiConstraints_Xml = jointLimits_Xml[iset]; //TODO add robustness (if iset isn't a key of the Xml map, tell the user to double check the joint_limits.yaml!)
+  	ROS_ERROR("DEBUG2");
+  	std::vector<double> minMax;
+  	minMax.push_back((double)tmpJointMultiConstraints_Xml["min_position"]);
+  	minMax.push_back((double)tmpJointMultiConstraints_Xml["max_position"]);
+  	jointAnglesMinMax.push_back(minMax); //ordered s.t it follows the geometrical order of the joint names (base to wrist) and not the alphabetical one of the rosparam server! :) (useful for displaying in RViz later in the same order than the queries)
+  	ROS_ERROR("DEBUG3");
   }
   /*//Dunno why this check doesnt work:
   ROS_ERROR("[ENSURE] Verify joint_angle_lims: it");
@@ -517,11 +512,12 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
  		ROS_ERROR("[DEBUG] i = %d", i);
  		ROS_ERROR("[ENSURE] %s: min %f, max %f rad", it->c_str(),
 							jointAnglesMinMax[i][1], jointAnglesMinMax[i][2]);
-	} //But this one does so it's ok I trust it:
+	}*/
+	//But this one does so it's ok I trust it:
 	ROS_ERROR("[ENSURE] Verify joint_angle_lims:");
 	for (int i = 0; i < jointAnglesMinMax.size(); i++)
     for (int j = 0; j < jointAnglesMinMax[i].size(); j++)
-      ROS_ERROR("[DEBUG] i = %f", jointAnglesMinMax[i][j]);*/
+      ROS_ERROR("[DEBUG] i = %d : %f", i, jointAnglesMinMax[i][j]);
   // Test whether joint angle are unrestricted or not
   double maximum = 0.;
 	for(int i=0; i<jointAnglesMinMax.size(); ++i)
@@ -993,13 +989,13 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
     // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/MotionPlanRequest.html
     queries.push_back(query);
     
-    ROS_ERROR("[EXPLORE] queries.back().request.start_state.joint_state.position.size() = %lu",
+    /*ROS_ERROR("[EXPLORE] queries.back().request.start_state.joint_state.position.size() = %lu",
     queries.back().request.start_state.joint_state.position.size()); // To know whether a component has 6 or 12 values (only start or goal as well)
     // Turns out a component of queries has 15 joint values ??? Wtf?
     std::vector<double> tmp = queries.back().request.start_state.joint_state.position;
     for (int j=0; j<tmp.size(); ++j)
     	ROS_ERROR("[EXPLORE] %f", tmp[j]);
-    //And strangely some values aren't searchable into the file scene_ground_with_boxes.queries!! So I don't know from where come those datas
+    //And strangely some values aren't searchable into the file scene_ground_with_boxes.queries!! So I don't know from where come those datas*/
     
   }
   ROS_INFO("Loaded queries successfully");
