@@ -1549,7 +1549,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 							ROS_INFO("(Originally parametrized planner solution EE path gave this)");
 		
-							visual_tools_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
+							visual_tools2_->publishTrajectoryPath(first_mp_res.trajectory_.back(), stop_at_first_move);
 							ROS_INFO("Originally parametrized planner solution movement gives this");
 				
 							std::chrono::seconds dura(10);
@@ -1564,9 +1564,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    		ROS_ERROR("[DEBUG] kept_proof > 1");*/
 			    	
 			    		previous_size = texts.size();
-			    		texts.push_back(planner + " (pink) : " + std::to_string(first_planQuality*100.) + "%");
+			    		texts.push_back(planner + " : " + std::to_string(first_planQuality*100.) + "%");
 			    		texts.push_back("Versus.");
-			    		texts.push_back(plannerToBeWritten + " (cyan) : " + std::to_string(previousPlanQuality*100.) + "%");
+			    		texts.push_back(plannerToBeWritten + " : " + std::to_string(previousPlanQuality*100.) + "%");
 							texts.push_back(metricChoice + " (metric) : ");
 							texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently)
 							texts.push_back("acceptance(t) := " + acceptanceFuncExpression);
