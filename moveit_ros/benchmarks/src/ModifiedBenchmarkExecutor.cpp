@@ -303,9 +303,10 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 
   std::vector<BenchmarkRequest> queries;
   moveit_msgs::PlanningScene scene_msg;
+  
   std::vector<std::vector<double>> jointAnglesMinMax;
-
-  if (initializeBenchmarks(opts, scene_msg, queries, jointAnglesMinMax))
+  std::list<std::string> limitedInAngleActuatedJointsNames;
+  if (initializeBenchmarks(opts, scene_msg, queries, jointAnglesMinMax, limitedInAngleActuatedJointsNames))
   {
     if (!queriesAndPlannersCompatible(queries, opts.getPlannerConfigurations()))
       return false;
@@ -361,6 +362,7 @@ bool ModifiedBenchmarkExecutor::runBenchmarks(const ModifiedBenchmarkOptions& op
 		   						 GENERATE_LOGS,
 		   						 GENERATE_ANIMATION_RVIZ,
 		   						 jointAnglesMinMax,
+		   						 limitedInAngleActuatedJointsNames,
 		   						 no_first_kept_restart); //debug
       double duration = (ros::WallTime::now() - start_time).toSec();
       
@@ -476,7 +478,7 @@ inline double ModifiedBenchmarkExecutor::AnyDegTo0360(double angle)
 }
 
 bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
-			std::set<std::string>& limitedInAngleActuatedJointsNames,
+			std::list<std::string>& limitedInAngleActuatedJointsNames,
 			std::vector<std::vector<double>>& jointAnglesMinMax)
 {
 	//////////////////////////////////////////////////////////////////
@@ -495,7 +497,7 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
  	for(auto const& ilist: move_group_joints_names)
   {
   	ROS_ERROR("[ENSURE] ilist = %s", ilist.c_str());
-  	limitedInAngleActuatedJointsNames.insert(ilist);
+  	limitedInAngleActuatedJointsNames.push_back(ilist);
   	XmlRpc::XmlRpcValue tmpJointMultiConstraints_Xml = jointLimits_Xml[ilist.c_str()]; //TODO add robustness (if ilist isn't a key of the Xml map, tell the user to double check the joint_limits.yaml!)
   	ROS_ERROR("[DEBUG] min %f, max %f", (double)tmpJointMultiConstraints_Xml["min_position"], (double)tmpJointMultiConstraints_Xml["max_position"]);
   	std::vector<double> minMax;
@@ -533,7 +535,7 @@ bool ModifiedBenchmarkExecutor::getActuatedJointAngleLimits(
 bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOptions& opts,
 																										 moveit_msgs::PlanningScene& scene_msg,
 																										 std::vector<BenchmarkRequest>& requests,
-																										 std::vector<std::vector<double>>& jointAnglesMinMax)
+																										 std::vector<std::vector<double>>& jointAnglesMinMax,  std::list<std::string>& limitedInAngleActuatedJointsNames)
 {
   if (!plannerConfigurationsExist(opts.getPlannerConfigurations(), opts.getGroupName()))
     return false;
@@ -631,7 +633,6 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
   
-  std::set<std::string> limitedInAngleActuatedJointsNames;
 	JOINT_ANGLE_RESTRICTED = getActuatedJointAngleLimits(
 	limitedInAngleActuatedJointsNames, jointAnglesMinMax);
   
@@ -1144,6 +1145,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					     const bool GENERATE_LOGS,
 					     const bool GENERATE_ANIMATION_RVIZ,
 					     const std::vector<std::vector<double>>& jointAnglesMinMax,
+					     const std::list<std::string>& limitedInAngleActuatedJointsNames,
 					     unsigned int& no_first_kept_restart)
 {
   benchmark_data_.clear();
@@ -1332,12 +1334,14 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					ROS_INFO("Goal conf gives this.");
 					
 					// legend above the scene
+					std::vector<std::string> listToVector(limitedInAngleActuatedJointsNames.begin(), limitedInAngleActuatedJointsNames.end());
 			    for (unsigned int i = goal_config_current.size(); i-- > 0; )
 			    //for (auto i = goal_config_current.rbegin(); i != goal_config_current.rend(); ++i)
 			    	// https://stackoverflow.com/questions/3610933/iterating-c-vector-from-the-end-to-the-begin
 			    	// doesn't work here, I will have *iterator for goal config but not for start config!
 			    	// so : https://stackoverflow.com/questions/5458204/unsigned-int-reverse-iteration-with-for-loops
-			    	texts.push_back(std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) +
+			    	//std::list<std::string>::iterator itCurr = std::next(limitedInAngleActuatedJointsNames.begin(),i);
+			    	texts.push_back(listToVector[i] + " : " + std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) +
 			    	" rad (min : " + std::to_string(jointAnglesMinMax[i][0]) + ", max : " + std::to_string(jointAnglesMinMax[i][1]) + ")");
 			    texts.push_back("start/goal joint configurations + angle limits : (query '" + queryName + "')");
 			    texts.push_back("plan computation countdown T = " + std::to_string(countdown) + " sec");
@@ -1571,9 +1575,9 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 								pose.translation().z() = alti_min + i*alti_step;
 								switch(i)
 								{
-									case 9: color = traj_rope_color_orig; //case previous_size and previous_size+2 didnt want to compile :'(
+									case 8: color = traj_rope_color_orig; //case previous_size and previous_size+2 didnt want to compile :'(
 																			break;
-									case 11: color = traj_rope_color_opti;
+									case 10: color = traj_rope_color_opti;
 																				break;
 									default: color = text_color;
 								}

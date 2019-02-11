@@ -159,7 +159,7 @@ public:
 	inline double AnyDegTo0360(double angle);
 	
 	bool getActuatedJointAngleLimits(
-			std::set<std::string>& limitedInAngleActuatedJointsNames,
+			std::list<std::string>& limitedInAngleActuatedJointsNames,
 			std::vector<std::vector<double>>& jointAnglesMinMax);
 			
 	void AdaptJointSpaceQueryMpiPi(moveit_msgs::MotionPlanRequest& query);
@@ -195,7 +195,7 @@ protected:
   };
 
   virtual bool initializeBenchmarks(const ModifiedBenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
-                                    std::vector<BenchmarkRequest>& queries, std::vector<std::vector<double>>& jointAnglesMinMax);
+                                    std::vector<BenchmarkRequest>& queries, std::vector<std::vector<double>>& jointAnglesMinMax, std::list<std::string>& limitedInAngleActuatedJointsNames);
 
   virtual void collectMetrics(PlannerRunData& metrics, const planning_interface::MotionPlanDetailedResponse& mp_res,
                               bool solved, double total_time);
@@ -238,6 +238,7 @@ protected:
                     const std::string& metricChoice, const std::string& sceneName,
                     const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ,
                     const std::vector<std::vector<double>>& jointAnglesMinMax,
+                    const std::list<std::string>& limitedInAngleActuatedJointsNames,
                     unsigned int& no_first_kept_restart); //this stands for behaviour exploration only
 
   planning_scene_monitor::PlanningSceneMonitorPtr psm_;
