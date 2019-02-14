@@ -39,6 +39,13 @@
 #include <moveit/version.h>
 #include <eigen_conversions/eigen_msg.h> // Abstract transformations, such as rotations (represented by angle and axis or by a quaternion), translations, scalings
 
+// For getting the moves displayed in RViz trial1
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h> //not sufficient for publishTrajectoryPath, maybe to REMOVE TODO
+#include <moveit/robot_state/conversions.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
+
 #include <boost/regex.hpp> // To search for letters or words
 #include <boost/progress.hpp>
 #include <boost/math/constants/constants.hpp>
@@ -66,6 +73,11 @@
 //#include <unistd.h> 
 #include <sys/types.h> */
 
+#include <chrono> // for debug purpose (should prevent the sequential execution to do the following actions)
+#include <thread>
+
+#include <boost/range/adaptor/reversed.hpp> //to do reversed range-based loops such as the one that plots the cartesian subtrajectories of the joints when using the energy consumption metric
+
 
 using namespace moveit_ros_benchmarks;
 
@@ -83,6 +95,20 @@ static std::string getHostname()
   }
 }
 
+static const std::string BASE_LINK = "/world";
+static const std::string MARKER_TOPIC = "/moveit_visual_markers";
+
+//http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/quickstart_in_rviz/quickstart_in_rviz_tutorial.html
+const std::string ROBOT_DESCRIPTION = "robot_description";
+const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
+
+static bool JOINT_ANGLE_RESTRICTED;
+static bool ADAPT_QUERIES;
+
+static bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = false;
+//Don't change this parameter, this is a pre-usage value.
+//Depending on the use of either relevancy metric (which focus on the end effector only) or energy one (which sums over all joints and try to minimize), only the EE traj or all sub joints traj will be displayed)
+
 ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::ModifiedBenchmarkExecutorWithoutTweaksAndRestarts(const std::string& robot_description_param)
 {
   pss_ = NULL;
@@ -90,8 +116,25 @@ ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::ModifiedBenchmarkExecutorWith
   rs_ = NULL;
   cs_ = NULL;
   tcs_ = NULL;
-  psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
+  psm_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param)); //pointer
   planning_scene_ = psm_->getPlanningScene(); // pointer
+
+  visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC));
+  visual_tools2_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC)); //additional layer to display the goal
+  //as publishRobotState seems to erase the previous one : https://docs.ros.org/api/moveit_visual_tools/html/moveit__visual__tools_8cpp_source.html#l01382 (only one shared robot state that is updated each time)
+  
+  visual_tools_->loadPlanningSceneMonitor();
+	
+  visual_tools_->loadMarkerPub(false,true); //for the traj lines
+    
+  visual_tools_->loadSharedRobotState();
+  visual_tools2_->loadSharedRobotState(); //additional layer to display the goal
+  
+  visual_tools_->loadRobotStatePub("/display_start_configuration");
+  visual_tools2_->loadRobotStatePub("/display_goal_configuration"); //additional layer to pop the goal conf simultaneously with the start one
+  
+	visual_tools_->deleteAllMarkers();
+  visual_tools_->removeAllCollisionObjects();
 
   // Initialize the class loader for planner plugins
   try
@@ -103,6 +146,14 @@ ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::ModifiedBenchmarkExecutorWith
   {
     ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
   }
+  
+  // Load the robot model
+	robot_model_loader::RobotModelLoader robot_model_loader_;
+	robot_model::RobotModelPtr robot_model_ = robot_model_loader_.getModel(); // Get a shared pointer to the robot
+  
+  robot_state::RobotStatePtr shared_robot_state_;
+  shared_robot_state_.reset(new robot_state::RobotState(robot_model_)); // TODO: load this robot state from planning_scene instead
+	shared_robot_state_->setToDefaultValues();
 }
 
 ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::~ModifiedBenchmarkExecutorWithoutTweaksAndRestarts()
@@ -117,7 +168,7 @@ ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::~ModifiedBenchmarkExecutorWit
     delete cs_;
   if (tcs_)
     delete tcs_;
-  delete psm_;
+  //delete psm_; //error expecting a pointer otherwise
 }
 
 void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::initialize(const std::vector<std::string>& plugin_classes)
@@ -240,7 +291,9 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmarks(const Modi
   std::vector<BenchmarkRequest> queries;
   moveit_msgs::PlanningScene scene_msg;
 
-  if (initializeBenchmarks(opts, scene_msg, queries))
+  std::vector<std::vector<double>> jointAnglesMinMax;
+  std::list<std::string> limitedInAngleActuatedJointsNames;
+  if (initializeBenchmarks(opts, scene_msg, queries, jointAnglesMinMax, limitedInAngleActuatedJointsNames))
   {
     if (!queriesAndPlannersCompatible(queries, opts.getPlannerConfigurations()))
       return false;
@@ -269,21 +322,33 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmarks(const Modi
       ROS_WARN("QUERY '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size()); // (Note that queries are benchmarked in disorder)
       ROS_WARN("--------------------------------");
       ROS_WARN("--------------------------------");
+      
+			const bool GENERATE_LOGS = false; //TODO default true but currently I'm working on the animation part.
+      //This allows/prevent from writing both the bunch of log files initially generated by my ancestors,
+      //+ my unique huge file containing all the queries
+      //And hence massively speeds up the benchmark (probably the algorithm itself as well, in a least scale)
+      const bool GENERATE_ANIMATION_RVIZ = true;
+      
       ros::WallTime start_time = ros::WallTime::now();
-      runBenchmark(queries[i].request, 
-		   queries[i].name, 
-		   options_.getPlannerConfigurations(), 
-		   options_.getNumRuns(), 
-		   options_.getMetricChoice(), 
-		   options_.getSceneName());
+      runBenchmark(queries[i].request,
+      						 queries[i].name, 
+      						 options_.getPlannerConfigurations(), 
+      						 options_.getNumRuns(), 
+      						 options_.getMetricChoice(), 
+      						 options_.getSceneName(),
+		   						 GENERATE_LOGS,
+		   						 GENERATE_ANIMATION_RVIZ,
+		   						 jointAnglesMinMax,
+		   						 limitedInAngleActuatedJointsNames);
       double duration = (ros::WallTime::now() - start_time).toSec();
       
       ROS_INFO("Benchmark took '%f' seconds.", duration);
 
       for (std::size_t j = 0; j < query_end_fns_.size(); ++j)
         query_end_fns_[j](queries[i].request, planning_scene_);
-
-      writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
+			
+			if (GENERATE_LOGS)
+      	writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
 
     return true; //All has gone well //Be careful here well =1, different from return 0 (issues)!!
@@ -312,8 +377,130 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::queriesAndPlannersCompat
   return true;
 }
 
+// In order to work with limited joint angles:
+// https://stackoverflow.com/questions/4633177/c-how-to-wrap-a-float-to-the-interval-pi-pi
+const double     _PI= 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348;
+const double _TWO_PI= 6.2831853071795864769252867665590057683943387987502116419498891846156328125724179972560696;
+// Floating-point modulo
+// The result (the remainder) has same sign as the divisor.
+// Similar to matlab's mod(); Not similar to fmod() -   Mod(-3,4)= 1   fmod(-3,4)= -3
+template<typename T>
+T ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::Mod(T x, T y)
+{
+  static_assert(!std::numeric_limits<T>::is_exact , "Mod: floating-point type expected");
+  if (0. == y)
+    return x;
+
+  double m= x - y * floor(x/y);
+
+  // handle boundary cases resulted from floating-point cut off:
+
+  if (y > 0)              // modulo range: [0..y)
+  {
+    if (m>=y)           // Mod(-1e-16             , 360.    ): m= 360.
+      return 0;
+
+    if (m<0 )
+    {
+      if (y+m == y)
+        return 0  ; // just in case...
+      else
+        return y+m; // Mod(106.81415022205296 , _TWO_PI ): m= -1.421e-14
+    }
+  }
+  else                    // modulo range: (y..0]
+  {
+    if (m<=y)           // Mod(1e-16              , -360.   ): m= -360.
+      return 0;
+
+    if (m>0 )
+    {
+      if (y+m == y)
+        return 0  ; // just in case...
+      else
+        return y+m; // Mod(-106.81415022205296, -_TWO_PI): m= 1.421e-14
+    }
+  }
+  return m;
+}
+// wrap [rad] angle to [-PI..PI)
+inline double ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::AnyRadToMpiPiExc(double angle)
+{
+	return Mod(angle + _PI, _TWO_PI) - _PI;
+}
+// wrap [rad] angle to [0..TWO_PI)
+inline double ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::AnyRadToZeroTwoPiExc(double angle)
+{
+	return Mod(angle, _TWO_PI);
+}
+// wrap [deg] angle to [-180..180)
+inline double ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::AnyDegToM180180(double angle)
+{
+	return Mod(angle + 180., 360.) - 180.;
+}
+// wrap [deg] angle to [0..360)
+inline double ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::AnyDegTo0360(double angle)
+{
+	return Mod(angle ,360.);
+}
+
+bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::getActuatedJointAngleLimits(
+			std::list<std::string>& limitedInAngleActuatedJointsNames,
+			std::vector<std::vector<double>>& jointAnglesMinMax)
+{
+	//////////////////////////////////////////////////////////////////
+  // Get the joint angle limits for laterly bringing back the queries into -pi pi IF the joint angles are restricted by the .yaml
+  //RETURNS restricted or not (bool)
+  //////////////////////////////////////////////////////////////////
+  // Here I ASSUME every joint of the move_group are angle limited
+  const std::string pathJointLimits =
+  "/robot_description_planning/joint_limits";
+  XmlRpc::XmlRpcValue jointLimits_Xml = getServerParameters(pathJointLimits);
+  //ROS_ERROR("[ENSURE] /robot_description_planning/joint_limits.size() = %d", jointLimits_Xml.size());//=15
+  //I skip steps here as one should properly retrieve the joints belonging to the move_group (TODO):
+  std::list<std::string> move_group_joints_names{"ra_shoulder_pan_joint","ra_shoulder_lift_joint","ra_elbow_joint",
+ "ra_wrist_1_joint","ra_wrist_2_joint","ra_wrist_3_joint"};//ordered
+ 	//such that it goes from base to wrist
+ 	for(auto const& ilist: move_group_joints_names)
+  {
+  	ROS_ERROR("[ENSURE] ilist = %s", ilist.c_str());
+  	limitedInAngleActuatedJointsNames.push_back(ilist);
+  	XmlRpc::XmlRpcValue tmpJointMultiConstraints_Xml = jointLimits_Xml[ilist.c_str()]; //TODO add robustness (if ilist isn't a key of the Xml map, tell the user to double check the joint_limits.yaml!)
+  	ROS_ERROR("[DEBUG] min %f, max %f", (double)tmpJointMultiConstraints_Xml["min_position"], (double)tmpJointMultiConstraints_Xml["max_position"]);
+  	std::vector<double> minMax;
+  	minMax.push_back((double)tmpJointMultiConstraints_Xml["min_position"]);
+  	minMax.push_back((double)tmpJointMultiConstraints_Xml["max_position"]);
+  	jointAnglesMinMax.push_back(minMax); //ordered s.t it follows the geometrical order of the joint names (base to wrist) and not the alphabetical one of the rosparam server! :) (useful for displaying in RViz later in the same order than the queries)
+  }
+  /*//Dunno why this check doesnt work:
+  ROS_ERROR("[ENSURE] Verify joint_angle_lims: it");
+  for (auto it = limitedInAngleActuatedJointsNames.begin();
+			 it != limitedInAngleActuatedJointsNames.end(); ++it)
+ 	{
+ 		int i = std::distance(limitedInAngleActuatedJointsNames.begin(), it); //convert it to touble
+ 		ROS_ERROR("[DEBUG] i = %d", i);
+ 		ROS_ERROR("[ENSURE] %s: min %f, max %f rad", it->c_str(),
+							jointAnglesMinMax[i][1], jointAnglesMinMax[i][2]);
+	}*/
+	//But this one does so it's ok I trust it:
+	ROS_ERROR("[ENSURE] Verify joint_angle_lims:");
+	for (int i = 0; i < jointAnglesMinMax.size(); i++)
+    for (int j = 0; j < jointAnglesMinMax[i].size(); j++)
+      ROS_ERROR("[DEBUG] i = %d : %f", i, jointAnglesMinMax[i][j]);
+  // Test whether joint angle are unrestricted or not
+  double maximum = 0.;
+	for(int i=0; i<jointAnglesMinMax.size(); ++i)
+		for(int j=0; j<jointAnglesMinMax[i].size(); ++j)
+		  maximum = std::max(std::fabs(jointAnglesMinMax[i][j]), maximum);
+  ROS_ERROR("[DEBUG] maximum = %f", maximum);
+  if (maximum < _PI)
+  	return true;
+	else
+		return false;
+} //TODO generalize to it to be able to get velocity_limit and acceleration_limits as well, but I'm into a rush so no time
+
 bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::initializeBenchmarks(const ModifiedBenchmarkOptionsWithoutTweaksAndRestarts& opts, moveit_msgs::PlanningScene& scene_msg,
-                                             std::vector<BenchmarkRequest>& requests)
+                                             std::vector<BenchmarkRequest>& requests, std::vector<std::vector<double>>& jointAnglesMinMax,  std::list<std::string>& limitedInAngleActuatedJointsNames)
 {
   if (!plannerConfigurationsExist(opts.getPlannerConfigurations(), opts.getGroupName()))
     return false;
@@ -408,6 +595,9 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::initializeBenchmarks(con
     requests.insert(requests.end(), request_combos.begin(), request_combos.end());
   }
 
+	JOINT_ANGLE_RESTRICTED = getActuatedJointAngleLimits(
+	limitedInAngleActuatedJointsNames, jointAnglesMinMax);
+
   // 2) Existing queries are treated like goal constraints.
   //    Create all combos of query, start states, and path constraints
   for (std::size_t i = 0; i < queries.size(); ++i)
@@ -416,6 +606,10 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::initializeBenchmarks(con
     BenchmarkRequest brequest;
     brequest.name = queries[i].name;
     brequest.request = queries[i].request;
+    
+    if (JOINT_ANGLE_RESTRICTED)
+    	AdaptJointSpaceQueryMpiPi(brequest.request);    
+    
     brequest.request.group_name = opts.getGroupName();
     brequest.request.allowed_planning_time = opts.getTimeout();
     brequest.request.num_planning_attempts = 1;
@@ -464,6 +658,27 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::initializeBenchmarks(con
 
   options_ = opts;
   return true;
+}
+
+void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::AdaptJointSpaceQueryMpiPi(moveit_msgs::MotionPlanRequest& query)
+{//start and goal configurations in joint space
+	//start:
+	const std::vector<double> tmpo1 = query.start_state.joint_state.position;
+  for (int j=0; j<tmpo1.size(); ++j)
+  {
+  	ROS_ERROR("[ENSURE] start conf, before : %f rad", tmpo1[j]);
+  	query.start_state.joint_state.position[j] = AnyRadToMpiPiExc(tmpo1[j]);
+  	ROS_ERROR("[ENSURE] start conf, after : %f rad", query.start_state.joint_state.position[j]);
+	}
+	
+	//goal:
+	std::vector<moveit_msgs::JointConstraint> tmpo2 = query.goal_constraints[0].joint_constraints;
+    for (int j=0; j<tmpo2.size(); ++j)
+    {
+    	ROS_ERROR("[ENSURE] goal conf, before : %f rad", tmpo2[j].position);
+    	query.goal_constraints[0].joint_constraints[j].position = AnyRadToMpiPiExc(tmpo2[j].position);
+    	ROS_ERROR("[ENSURE] goal conf, after : %f rad", query.goal_constraints[0].joint_constraints[j].position);
+  	}
 }
 
 void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::shiftConstraintsByOffset(moveit_msgs::Constraints& constraints,
@@ -654,6 +869,7 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::loadQueries(const std::s
 
   for (std::size_t i = 0; i < query_names.size(); ++i)
   {
+  	ROS_INFO("[EXPLORE] query's name i = %lu", i);
     moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
     try
     {
@@ -782,17 +998,33 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::loadTrajectoryConstraint
   return true;
 }
 
+template<typename T>
+static std::vector<T> slice(std::vector<T> const &v, int m, int n)
+{
+    auto first = v.cbegin() + m;
+    auto last = v.cbegin() + n + 1;
+
+    std::vector<T> vec(first, last);
+    return vec;
+}
+
 void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs::MotionPlanRequest request,
 					     const std::string& queryName,
 					     const std::map<std::string, std::vector<std::string>>& planners, 
 					     int runs, 
 					     const std::string& metricChoice, 
-					     const std::string& sceneName)
+					     const std::string& sceneName,
+					     const bool GENERATE_LOGS,
+					     const bool GENERATE_ANIMATION_RVIZ,
+					     const std::vector<std::vector<double>>& jointAnglesMinMax,
+					     const std::list<std::string>& limitedInAngleActuatedJointsNames)
 {
   benchmark_data_.clear();
 
   double countdown = request.allowed_planning_time;
   ROS_WARN("I ensure that countdown is in seconds -- countdown = '%lf'", countdown);
+  
+  std::vector<std::string> jointNamesVec(limitedInAngleActuatedJointsNames.begin(), limitedInAngleActuatedJointsNames.end());
 
   unsigned int num_planners = 0;
   for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); 
@@ -828,6 +1060,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 				qualityFcnPtr = &evaluate_plan;
 				ROS_INFO("The chosen metric, over which optimization will be done, is set on : '%s'." 		   					 "Currently you can change it by acting on iplanr_description/" 
 						 		 "benchmark_configs/scene_ground_with_boxes.yaml", metric1.c_str());
+				DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = true;
 			} else if (metricChoice.compare(metric2)==0)
 			{
 				qualityFcnPtr = &evaluate_plan_cart;
@@ -871,20 +1104,99 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 				//However here is an idea https://archive.codeplex.com/?p=exprtk
 				std::string acceptanceFuncExpression = "nothing";
 				std::string logfileName; ros::param::get("/moveit_run_benchmark/benchmark_config/parameters/logname", logfileName);
+				std::ofstream myfile;
+				
+				if (GENERATE_LOGS)
+				{
+				 	myfile.open(logfileName, std::ios::out | std::ios::app);
+					myfile << "planner = " << planner << std::endl;
+					myfile << "metric = " << metricChoice << std::endl;
+					myfile << "scene = " << sceneName << std::endl;
+					myfile << "query = " << queryName << std::endl;
+					myfile << "countdown = " << countdown << std::endl;
+					myfile << "acceptance = " << acceptanceFuncExpression << std::endl;
+					myfile << "run = " << j+1 << std::endl;
+					// Write the joint limits
+					myfile << "jointNamesVec = [";
+					for (std::size_t i = 0; i < jointNamesVec.size(); ++i)
+						myfile << " " << jointNamesVec[i];
+					myfile << " ]" << std::endl;
+					myfile << "jointAnglesMin = [";
+					for (std::size_t i = 0; i < jointAnglesMinMax.size(); ++i)
+						myfile << " " << jointAnglesMinMax[i][0];
+					myfile << " ]" << std::endl;
+					myfile << "jointAnglesMax = [";
+					for (std::size_t i = 0; i < jointAnglesMinMax.size(); ++i)
+						myfile << " " << jointAnglesMinMax[i][1];
+					myfile << " ]" << std::endl;
+					// Write the one-line ordered list of parameters for writing laterly online their values
+					for (std::size_t i = 0; i < nbPlannerParams; ++i)
+						myfile << vecPlannerParamNames[i] << ", ";
+					myfile << "quality:" << std::endl;
+				
+				}
 
-				std::ofstream myfile; myfile.open(logfileName, std::ios::out | std::ios::app);
-
-				myfile << "planner = " << planner << std::endl;
-				myfile << "metric = " << metricChoice << std::endl;
-				myfile << "scene = " << sceneName << std::endl;
-				myfile << "query = " << queryName << std::endl;
-				myfile << "countdown = " << countdown << std::endl;
-				myfile << "acceptance = " << acceptanceFuncExpression << std::endl;
-				myfile << "run = " << j+1 << std::endl;
-				// Write the one-line ordered list of parameters for writing laterly online their values
-				for (std::size_t i = 0; i < nbPlannerParams; ++i)
-					myfile << vecPlannerParamNames[i] << ", ";
-				myfile << "quality:" << std::endl;
+	      ////////////////////////////////////////////////////////////
+	      //Let's display the inputed current query (start+goal confs)
+	      ////////////////////////////////////////////////////////////
+		    std::vector<std::string> texts;
+		    std::size_t previous_size;// https://github.com/PickNikRobotics/rviz_visual_tools
+		    //when it will be time to adapt it to without restart Executor for optimal planners, display robot BROWN
+				const rviz_visual_tools::colors start_conf_color = rviz_visual_tools::GREEN;
+				const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
+				const rviz_visual_tools::colors traj_rope_color = rviz_visual_tools::ORANGE;
+				const rviz_visual_tools::colors sub_traj_rope_color = rviz_visual_tools::YELLOW;
+				const rviz_visual_tools::colors text_color = rviz_visual_tools::BLACK;
+				rviz_visual_tools::colors color;
+				//
+		    double alti_min = 1.7, alti_step = 0.075;
+		    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+		    //
+				moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+				const robot_state::JointModelGroup* joint_model_group =
+																					move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+				if (GENERATE_ANIMATION_RVIZ)
+        {
+		      //What is always displayed: start and goal confs,
+		      //no matter if everything failed:
+		      visual_tools_->deleteAllMarkers();
+		      
+					// construct the start conf:
+					std::vector<double> start_config_current = slice<double>(request.start_state.joint_state.position,0,5);
+		      
+		      // construct the goal conf:
+		      std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
+					std::vector<double> goal_config_current;
+					for (int j=0; j<tmp6.size(); ++j)
+					{
+						goal_config_current.push_back(tmp6[j].position);
+					}
+					
+					// Requires to add a RobotState plugin in RViz listening to the topic "/display_start_configuration":
+					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
+					visual_tools_->publishRobotState(start_config_current, joint_model_group, start_conf_color);
+					ROS_INFO("Start conf gives this.");
+					
+					// Requires to add a second RobotState plugin in RViz listening to the topic "/display_goal_configuration":
+					// Don't forget to tick in RViz 'show highlights' if your colors aren't rviz_visual_tools::DEFAULT
+					visual_tools2_->publishRobotState(goal_config_current, joint_model_group, goal_conf_color);
+					ROS_INFO("Goal conf gives this.");
+					
+					// legend above the scene
+			    for (unsigned int i = goal_config_current.size(); i-- > 0; )
+			    	texts.push_back(jointNamesVec[i] + " : " + std::to_string(start_config_current[i]) + " / " + std::to_string(goal_config_current[i]) +
+			    	" rad (min : " + std::to_string(jointAnglesMinMax[i][0]) + ", max : " + std::to_string(jointAnglesMinMax[i][1]) + ")");
+			    texts.push_back("start/goal joint configurations + angle limits : (query '" + queryName + "')");
+			    texts.push_back("plan computation countdown T = " + std::to_string(countdown) + " sec");
+			    
+			    for (std::size_t i = 0; i < texts.size(); ++i)
+			    {
+			    	pose.translation().z() = alti_min + i*alti_step;
+			    	visual_tools_->publishText(pose, texts[i], text_color, rviz_visual_tools::XXLARGE, false);
+			    }
+			    
+			    visual_tools_->trigger();
+		    } //end display of the queries
 
 				unsigned int solved_proof = 0;
       	// Solve problem, once, as before,
@@ -900,30 +1212,100 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 					ROS_WARN("UNIQUE CALL FOUND SOMETHING -- Current quality = %lf out of 1", planQuality); // TO BE REMOVED
 					solved_proof += 1;
       	  finally_solved = true;
-					writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
+      	  if (GENERATE_LOGS)
+					{
+						writePlannerParametersAndQuality(parametersSet_Xml, myfile, vecPlannerParamNames, nbPlannerParams, planQuality);
+					}
 				}
-				myfile << "succeeding_restarts = " << solved_proof << std::endl;
-
-				// Also I forgot to write the steps and they are not deducible via diff() in matlab, as it requires 2 restarts at least! So:
-				myfile << "step = [ 0 ]" << std::endl << std::endl;
-				myfile.close();
+				if (GENERATE_LOGS)
+				{
+					myfile << "succeeding_restarts = " << solved_proof << std::endl;
+					// Also I forgot to write the steps and they are not deducible via diff() in matlab, as it requires 2 restarts at least! So:
+					myfile << "step = [ 0 ]" << std::endl << std::endl;
+					myfile.close();
+				}
 
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
           post_event_fns_[k](request, mp_res, planner_data[j]);
           
         // Collect data
-        start = ros::WallTime::now();
-        collectMetrics(planner_data[j], mp_res, finally_solved, total_time);
-        double metrics_time = (ros::WallTime::now() - start).toSec();
-        ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
-      }
+        if (GENERATE_LOGS)
+      	{
+		      start = ros::WallTime::now();
+		      collectMetrics(planner_data[j], mp_res, finally_solved, total_time);
+		      double metrics_time = (ros::WallTime::now() - start).toSec();
+		      ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
+      	}
+      	
+        if (GENERATE_ANIMATION_RVIZ)
+        {
+        	int sleep = 10; //sec : rtime to give to the trajectories
+        	std::chrono::seconds dura(sleep);
+			    
+			    //the movement animation:
+					bool stop_at_first_move = false; //true blocks the whole benchmark process at the first ever found move
+		    	if (solved_proof==1)
+		    	{ //the unique call to the original planner found smthg
+		    		previous_size = texts.size();
+						texts.push_back(metricChoice + " (metric) : " + std::to_string(planQuality*100.) + "%");
+						texts.push_back("motion planner : " + planner);
+						texts.push_back("(" + std::to_string(j+1) + "th experiment replica)"); //j+1 = the number of the run (out of 5 currently, see the python file findOptimal...)
+						for (std::size_t i = previous_size; i < texts.size(); ++i)
+						{
+							pose.translation().z() = alti_min + i*alti_step;
+							if (i != texts.size())
+							{
+								color = traj_rope_color;
+							} else
+							{
+								color = text_color;
+							}
+							visual_tools_->publishText(pose, texts[i], color, rviz_visual_tools::XXLARGE, false);
+						}
+						visual_tools_->trigger();
+		
+						//trajectory markers
+						if (!DISPLAY_JOINT_CARTESIAN_TRAJECTORIES)
+						{
+							visual_tools_->publishTrajectoryLine(mp_res.trajectory_.back(), joint_model_group, traj_rope_color);
+							visual_tools_->trigger(); //forces a refresh with the new trajectory markers
+						} else
+						{
+							std::vector<const moveit::core::LinkModel*> subEEs = joint_model_group->getLinkModels();
+							//ROS_ERROR("[DEBUG] subEEs.size() = %lu", subEEs.size());
+							bool only_one = false; //to still highlight the EE
+							for (const moveit::core::LinkModel* ee_parent_link : boost::adaptors::reverse(subEEs))
+								if (!only_one)
+								{
+									visual_tools_->publishTrajectoryLine(mp_res.trajectory_.back(), ee_parent_link, traj_rope_color);
+									only_one = true;
+								} else
+								{
+									visual_tools_->publishTrajectoryLine(mp_res.trajectory_.back(), ee_parent_link, sub_traj_rope_color);
+								}
+							visual_tools_->trigger();
+						}
+							
+						ROS_INFO("(Originally parametrized planner solution EE path gave this)");
+						
+						visual_tools2_->publishTrajectoryPath(mp_res.trajectory_.back(), stop_at_first_move);
+						ROS_INFO("Originally parametrized planner solution movement gives this");
+						
+						std::cout << "About to wait " << sleep << "s while movement animation finishes\n";
+						std::this_thread::sleep_for( dura );
+						std::cout << "Waited " << sleep << "s after path\n";
+		    	} //end animation
+				} //end of RViz part
+				
+			}
 
       // Planner completion events
       for (std::size_t j = 0; j < planner_completion_fns_.size(); ++j)
         planner_completion_fns_[j](request, planner_data);
-
-      benchmark_data_.push_back(planner_data);
+        
+			if (GENERATE_LOGS)
+      	benchmark_data_.push_back(planner_data);
     }
   }
 }

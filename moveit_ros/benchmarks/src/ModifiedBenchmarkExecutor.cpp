@@ -110,10 +110,10 @@ const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator o
 const std::string DISPLAY_PLANNED_PATH_PARALLEL = "/display_planned_path_parallel"; //trick to get a channel to publish on another trajPath,
 //if the default one (/move_group/display_planned_path) is already occupied and one wants to launch several trajs simultaneously
 
-bool JOINT_ANGLE_RESTRICTED;
-bool ADAPT_QUERIES;
+static bool JOINT_ANGLE_RESTRICTED;
+static bool ADAPT_QUERIES;
 
-bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = false;
+static bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = false;
 //Don't change this parameter, this is a pre-usage value.
 //Depending on the use of either relevancy metric (which focus on the end effector only) or energy one (which sums over all joints and try to minimize), only the EE traj or all sub joints traj will be displayed)
 

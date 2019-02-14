@@ -61,8 +61,6 @@
 
 // For visualizing moves in rviz
 #include <moveit_visual_tools/moveit_visual_tools.h>
-
-// For getting the moves displayed in RViz trial2
 #include <moveit/move_group_interface/move_group_interface.h>
 
 

@@ -59,6 +59,10 @@
 #include <xmlrpcpp/XmlRpcValue.h> // mandatored for read a bunch of ros server parameters by invoking only once rosparam, as the dictionnary will be of type XmlRpcValue, not map or array...
 //#include <xmlrpcpp/XmlRpcException.h> //if needed for try catch debugging over XmlValues
 
+// For visualizing moves in rviz
+#include <moveit_visual_tools/moveit_visual_tools.h>
+#include <moveit/move_group_interface/move_group_interface.h>
+
 namespace moveit_ros_benchmarks
 {
 /// A class that executes motion plan requests and aggregates data across multiple runs
@@ -144,6 +148,18 @@ public:
 			     XmlRpc::XmlRpcValue& parametersBoundaries, 
 			     const std::string& plannerParamName);		     
   bool accepted(double t, double Tmax);
+  template<typename T>
+	T Mod(T x, T y);
+	inline double AnyRadToMpiPiExc(double angle);
+	inline double AnyRadToZeroTwoPiExc(double angle);
+	inline double AnyDegToM180180(double angle);
+	inline double AnyDegTo0360(double angle);
+	
+	bool getActuatedJointAngleLimits(
+			std::list<std::string>& limitedInAngleActuatedJointsNames,
+			std::vector<std::vector<double>>& jointAnglesMinMax);
+			
+	void AdaptJointSpaceQueryMpiPi(moveit_msgs::MotionPlanRequest& query);
 
   //C language: (these ones are for removing last line of a given file)
   long fsize(FILE *binaryStream);
@@ -176,7 +192,7 @@ protected:
   };
 
   virtual bool initializeBenchmarks(const ModifiedBenchmarkOptionsWithoutTweaksAndRestarts& opts, moveit_msgs::PlanningScene& scene_msg,
-                                    std::vector<BenchmarkRequest>& queries);
+                                    std::vector<BenchmarkRequest>& queries, std::vector<std::vector<double>>& jointAnglesMinMax, std::list<std::string>& limitedInAngleActuatedJointsNames);
 
   virtual void collectMetrics(PlannerRunData& metrics, const planning_interface::MotionPlanDetailedResponse& mp_res,
                               bool solved, double total_time);
@@ -216,9 +232,12 @@ protected:
   /// Execute the given motion plan request on the set of planners for the set number of runs
   void runBenchmark(moveit_msgs::MotionPlanRequest request, const std::string& queryName,
                     const std::map<std::string, std::vector<std::string>>& planners, int runs,
-                    const std::string& metricChoice, const std::string& sceneName);
+                    const std::string& metricChoice, const std::string& sceneName,
+                    const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ,
+                    const std::vector<std::vector<double>>& jointAnglesMinMax,
+                    const std::list<std::string>& limitedInAngleActuatedJointsNames);
 
-  planning_scene_monitor::PlanningSceneMonitor* psm_;
+  planning_scene_monitor::PlanningSceneMonitorPtr psm_;
   moveit_warehouse::PlanningSceneStorage* pss_;
   moveit_warehouse::PlanningSceneWorldStorage* psws_;
   moveit_warehouse::RobotStateStorage* rs_;
@@ -241,6 +260,11 @@ protected:
   std::vector<PlannerCompletionEventFunction> planner_completion_fns_;
   std::vector<QueryStartEventFunction> query_start_fns_;
   std::vector<QueryCompletionEventFunction> query_end_fns_;
+
+	// For visualizing moves in rviz
+	moveit_visual_tools::MoveItVisualToolsPtr visual_tools_;
+	moveit_visual_tools::MoveItVisualToolsPtr visual_tools2_;
+	robot_state::RobotStatePtr shared_robot_state_;
 };
 }
 
