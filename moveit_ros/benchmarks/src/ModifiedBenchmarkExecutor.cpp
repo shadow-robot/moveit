@@ -1296,6 +1296,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 		    std::vector<std::string> texts;
 		    std::size_t previous_size;// https://github.com/PickNikRobotics/rviz_visual_tools
 		    //when it will be time to adapt it to without restart Executor for optimal planners, display robot BROWN, main traj ORANGE, sub trajs YELLOW
+		    // 150;50;150 (purple) is used in the motion planner/planned_path tab for displaying the unwrapped planner
 				const rviz_visual_tools::colors start_conf_color = rviz_visual_tools::GREEN;
 				const rviz_visual_tools::colors goal_conf_color = rviz_visual_tools::RED;
 				const rviz_visual_tools::colors traj_rope_color_opti = rviz_visual_tools::CYAN;
