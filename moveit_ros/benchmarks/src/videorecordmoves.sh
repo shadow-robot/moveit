@@ -33,8 +33,9 @@ if [[ -e $LISTENER ]]; then
 fi
 
 ######################## COMMANDS ##########################
+echo $OUTPUT
 touch $LISTENER
-<$LISTENER ffmpeg -y -video_size ${WIDTHINPIX}x$HEIGHTINPIX -framerate ${FRAMERATE:=60} -f x11grab -i :0.0+$SHIFT_TOP_LEFT_POS_x,$SHIFT_TOP_LEFT_POS_y $OUTPUT >/dev/null 2>>${DIR}Capture.log &
+<$LISTENER ffmpeg -y -video_size ${WIDTHINPIX}x$HEIGHTINPIX -framerate ${FRAMERATE:=60} -f x11grab -i :0.0+$SHIFT_TOP_LEFT_POS_x,$SHIFT_TOP_LEFT_POS_y $OUTPUT #>/dev/null 2>>${DIR}Capture.log &
 ############################################################
 # https://trac.ffmpeg.org/wiki/Capture/Desktop
 
