@@ -1204,7 +1204,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
       	solved = context->solve(mp_res); //github.com/ros-planning/moveit/issues/1230
       	if (solved)
       	{
-      	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_[0]) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
+      	  planQuality = (*qualityFcnPtr)( *(mp_res.trajectory_.back()) ); // TODO HOW/WHY can it 						exists several found trajectories ? (why do I have to retrieve only the first [0] of 						them?)
       	}
       	total_time += (ros::WallTime::now() - start).toSec();
       	if (solved) /* rigourosly : && total_time < countdown), BUT WHAT HAPPENS IS THAT OPT PLANNERS REALLY 					TAKE ALL THEY CAN EAT IN TERM OF COUNTDOWN, HENCE THE QUALITY COMPUTATION MAKING IT SYSTEMATICALLY 					EXCEED THE COUNTDOWN BY SOMETHING LIKE o(0.01) */
