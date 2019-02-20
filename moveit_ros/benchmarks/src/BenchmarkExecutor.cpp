@@ -35,15 +35,22 @@
 /* Author: Ryan Luna */
 
 #include <moveit/benchmarks/BenchmarkExecutor.h>
+#include <moveit/utils/lexical_casts.h>
 #include <moveit/version.h>
-#include <eigen_conversions/eigen_msg.h>
+#include <eigen_conversions/eigen_msg.h> // Abstract transformations, such as rotations (represented by angle and axis or by a quaternion), translations, scalings
 
-#include <boost/regex.hpp>
+#include <boost/regex.hpp> // To search for letters or words
 #include <boost/progress.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp> // seconds since January 1st of 1970
 #include <unistd.h>
+
+#include <math.h>
+
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2/LinearMath/Quaternion.h>
+
 
 using namespace moveit_ros_benchmarks;
 
@@ -69,7 +76,7 @@ BenchmarkExecutor::BenchmarkExecutor(const std::string& robot_description_param)
   cs_ = NULL;
   tcs_ = NULL;
   psm_ = new planning_scene_monitor::PlanningSceneMonitor(robot_description_param);
-  planning_scene_ = psm_->getPlanningScene();
+  planning_scene_ = psm_->getPlanningScene(); // pointer
 
   // Initialize the class loader for planner plugins
   try
@@ -101,7 +108,6 @@ BenchmarkExecutor::~BenchmarkExecutor()
 void BenchmarkExecutor::initialize(const std::vector<std::string>& plugin_classes)
 {
   planner_interfaces_.clear();
-
   // Load the planning plugins
   const std::vector<std::string>& classes = planner_plugin_loader_->getDeclaredClasses();
 
@@ -237,16 +243,16 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
         planning_scene_->processPlanningSceneWorldMsg(scene_msg.world);
       }
       else
-        planning_scene_->usePlanningSceneMsg(scene_msg);
+        planning_scene_->usePlanningSceneMsg(scene_msg); //Apply changes to this planning scene, e.g the robot state is overwritten
 
-      // Calling query start events
+      // Calling query start events // QUITE DONT UNDERSTAND  for what index j stands.. nb runs??
       for (std::size_t j = 0; j < query_start_fns_.size(); ++j)
         query_start_fns_[j](queries[i].request, planning_scene_);
 
       ROS_INFO("Benchmarking query '%s' (%lu of %lu)", queries[i].name.c_str(), i + 1, queries.size());
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request, options_.getPlannerConfigurations(), options_.getNumRuns());
-      double duration = (ros::WallTime::now() - start_time).toSec();
+      double duration = (ros::WallTime::now() - start_time).toSec(); //useless maybe, we want the duration of 1 run, not of the stack of runs
 
       for (std::size_t j = 0; j < query_end_fns_.size(); ++j)
         query_end_fns_[j](queries[i].request, planning_scene_);
@@ -254,7 +260,7 @@ bool BenchmarkExecutor::runBenchmarks(const BenchmarkOptions& opts)
       writeOutput(queries[i], boost::posix_time::to_iso_extended_string(start_time.toBoost()), duration);
     }
 
-    return true;
+    return true; //All has gone well //Be careful here well =1, different from return 0 (issues)!!
   }
   return false;
 }
@@ -350,7 +356,7 @@ bool BenchmarkExecutor::initializeBenchmarks(const BenchmarkOptions& opts, movei
   opts.getGoalOffsets(goal_offset);
 
   // Create the combinations of BenchmarkRequests
-
+  
   // 1) Create requests for combinations of start states,
   //    goal constraints, and path constraints
   for (std::size_t i = 0; i < goal_constraints.size(); ++i)
@@ -686,7 +692,6 @@ bool BenchmarkExecutor::loadPathConstraints(const std::string& regex, std::vecto
   {
     std::vector<std::string> cnames;
     cs_->getKnownConstraints(regex, cnames);
-
     for (std::size_t i = 0; i < cnames.size(); ++i)
     {
       moveit_warehouse::ConstraintsWithMetadata constr;
@@ -761,7 +766,7 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
        ++it)
     num_planners += it->second.size();
 
-  boost::progress_display progress(num_planners * runs, std::cout);
+  boost::progress_display progress(num_planners * runs, std::cout); // 0% to 100%
 
   // Iterate through all planner plugins
   for (std::map<std::string, std::vector<std::string>>::const_iterator it = planners.begin(); it != planners.end();
@@ -790,7 +795,7 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
         // Solve problem
         planning_interface::MotionPlanDetailedResponse mp_res;
         ros::WallTime start = ros::WallTime::now();
-        bool solved = context->solve(mp_res);
+	bool solved = context->solve(mp_res);
         double total_time = (ros::WallTime::now() - start).toSec();
 
         // Collect data
@@ -799,9 +804,10 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
         // Post-run events
         for (std::size_t k = 0; k < post_event_fns_.size(); ++k)
           post_event_fns_[k](request, mp_res, planner_data[j]);
+
         collectMetrics(planner_data[j], mp_res, solved, total_time);
         double metrics_time = (ros::WallTime::now() - start).toSec();
-        ROS_DEBUG("Spent %lf seconds collecting metrics", metrics_time);
+        ROS_INFO("Spent %lf seconds collecting metrics", metrics_time);
 
         ++progress;
       }
@@ -815,11 +821,164 @@ void BenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
   }
 }
 
+
+double evaluate_plan(const robot_trajectory::RobotTrajectory& p) // kindof energy consumption
+{
+  int num_of_joints = p.getWayPoint(0).getVariableCount();
+  const double pi = boost::math::constants::pi<double>();
+
+  // Joints near the shoulder consume more than those near the EE
+  std::vector<int> weights(num_of_joints, 0);
+  for(int k = 0; k<num_of_joints; k++){
+    weights[k] = num_of_joints - k;
+  }
+  
+  std::vector<std::vector <double> > plan_array (p.getWayPointCount(), std::vector<double>(num_of_joints));
+  for (size_t i = 0 ; i < p.getWayPointCount() ; ++i){
+    for (size_t j = 0 ; j < num_of_joints ; ++j){
+      plan_array[i][j] = p.getWayPoint(i).getVariablePositions()[j];
+    }
+  }
+
+  std::vector<std::vector <double> > deltas (p.getWayPointCount()-1, std::vector<double>(num_of_joints));
+  for (size_t i = 0 ; i < p.getWayPointCount()-1 ; ++i){
+    for (size_t j = 0 ; j < num_of_joints ; ++j){
+      deltas[i][j] = plan_array[i+1][j] - plan_array[i][j];
+      if(deltas[i][j] < 0) // abs() only works for integers. We can also use fabs() from math.h
+	deltas[i][j] = - deltas[i][j];
+    }
+  }
+
+  std::vector<double> sum_deltas(num_of_joints, 0);
+  for (size_t i = 0 ; i < p.getWayPointCount()-1 ; ++i){
+    for (size_t j = 0 ; j < num_of_joints ; ++j){
+      sum_deltas[j] += deltas[i][j];
+    }
+  }
+
+  std::vector<double> sum_deltas_weighted(num_of_joints, 0);
+  for (size_t j = 0 ; j < num_of_joints ; ++j){
+    sum_deltas_weighted[j] = sum_deltas[j] * weights[j];
+  }
+
+  double denominator = 0.0;
+  for (auto it = sum_deltas_weighted.begin() ; it != sum_deltas_weighted.end(); ++it){
+    denominator += *it;
+  }
+
+  // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+  std::vector<double> shortest_diff_goal_start_confs(num_of_joints, 0); // in fact assuming no obstacle that comes modify the shortest trajectory
+  for (size_t j = 0 ; j < num_of_joints ; ++j){
+    shortest_diff_goal_start_confs[j] = plan_array[p.getWayPointCount()-1][j]-plan_array[0][j]; // but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi, which is not the shortest move if one colors the area! Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
+    if (shortest_diff_goal_start_confs[j] > pi)
+      shortest_diff_goal_start_confs[j] -= 2*pi;
+    if (shortest_diff_goal_start_confs[j] <= -pi)
+      shortest_diff_goal_start_confs[j] += 2*pi;
+  }
+
+  std::vector<double> shortest_diff_weighted(num_of_joints, 0);
+  for (size_t j = 0 ; j < num_of_joints ; ++j){
+    shortest_diff_weighted[j] = shortest_diff_goal_start_confs[j] * weights[j];
+  }
+
+  // the 1-norm
+  double numerator = 0.0;
+  for (auto it = shortest_diff_weighted.begin() ; it != shortest_diff_weighted.end(); ++it){
+    numerator += fabs(*it);
+  }
+
+  double plan_quality = numerator/denominator;
+
+  return plan_quality;
+}
+
+
+double evaluate_plan_cart(const robot_trajectory::RobotTrajectory& p) // kindof how far the actual trajectory is from the end-effector shortest trajectory
+{
+  int n = p.getWayPointCount();
+
+  std::vector<geometry_msgs::Transform> transforms (n);
+  for (size_t i = 0 ; i < n; ++i)
+  {
+    moveit::core::RobotState goal_state = p.getWayPoint(i); // pos vel accel and effort on the end effector
+
+    const moveit::core::JointModel* joint_eef = goal_state.getJointModel(goal_state.getVariableNames()[goal_state.getVariableCount()-1]); // parent child jointType value
+
+    std::string link_eef = joint_eef->getChildLinkModel()->getName();
+
+    const Eigen::Affine3d& link_pose = goal_state.getGlobalLinkTransform(link_eef); // matrix 4x4
+
+    tf::transformEigenToMsg(link_pose, transforms[i]); // http://docs.ros.org/kinetic/api/eigen_conversions/html/eigen__msg_8cpp_source.html#l00093 their if() occurs when theta>pi or theta<-pi, because then cos(theta/2) becomes <0 (draw a circle to convince yourself). This means that QUATERNION ROTATIONS ARE COMPRISED ONLY BETWEEN [-PI;PI] ! This allows then the use of 2*atan2(scalar part) to find back an associated rotation angle, because it is known that atan2 has an output comprised only between [-pi/2;pi/2] !
+// atan2 is better than acos because, if quaternion rotations are in [-pi;pi], their scalar component belongs to [0;1] only, and hence 2acos(this component) belongs to 2[0;pi]=[0;2pi], while 2acos(this component) should belong to [-pi;pi] to respect the convention Eigen:: used!
+// But to use atan2 the vector part of the quaternion must be normalized https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation (leading btw the whole quaternion to be normalized as well). I am STILL NOT SURE how Eigen constructs a quaternion from a 3x3 rotation matrix, but I assume it uses this algorithm https://arc.aiaa.org/doi/pdf/10.2514/2.4654, in which we can read (1st page) : <<  we are looking for that quaternion q of unit length >>.
+
+  }
+
+  int m = n-1;
+
+  double eef_dist = 0.0;
+  double eef_rot  = 0.0;
+  
+  for(size_t i = 0; i<m; ++i)
+  {
+    double x, y, z;//, w;
+    tf2::Quaternion q1, q2, q1inv, qR;
+    x = transforms[i+1].translation.x - transforms[i].translation.x;
+    y = transforms[i+1].translation.y - transforms[i].translation.y;
+    z = transforms[i+1].translation.z - transforms[i].translation.z;
+    tf2::fromMsg(transforms[i+1].rotation,q2); // http://docs.ros.org/kinetic/api/tf2_geometry_msgs/html/c++/namespacetf2.html#a2fdf91676912e510c0002aa66dde2800 (q2 = rotation from an initial frame0 to a frame2)
+    tf2::fromMsg(transforms[i  ].rotation,q1); // q1 = other rotation from the same initial frame0 to another frame1
+// Then the rotation qRelative that transforms frame1 into frame2 is such that (thinking the way matrices work by multiplication) q2 = qR*q1, hence qR = q2*inv(q1)
+// Assuming that a rotation quaternion is a unit quaternion, inv(q1) simply equals conj(q1)
+// By the way tf2:: seems aware of this property and the source code of inv() behaves like a conj so perhaps that all the quaternions in tf2 are already normalized, but just to be sure :
+    q1.normalize();
+    q2.normalize();
+    q1inv = q1.inverse();
+    qR = q2*q1inv;
+    eef_dist += sqrt(x*x+y*y+z*z);
+    eef_rot += fabs(2*atan2(sqrt(pow(qR.x(),2)+pow(qR.y(),2)+pow(qR.z(),2)),qR.w())); // https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Recovering_the_axis-angle_representation
+
+  }
+
+  double x_t, y_t, z_t, w_t;
+  double tot_dist, tot_rot;
+  tf2::Quaternion qLast, q0, q0inv, qRtot;
+  x_t = transforms[m].translation.x - transforms[0].translation.x;
+  y_t = transforms[m].translation.y - transforms[0].translation.y;
+  z_t = transforms[m].translation.z - transforms[0].translation.z;
+  tf2::fromMsg(transforms[m].rotation,qLast);
+  tf2::fromMsg(transforms[0].rotation,q0);
+  qLast.normalize();
+  q0.normalize();
+  q0inv = q0.inverse();
+  qRtot = qLast*q0inv;
+  
+  tot_dist = sqrt(x_t*x_t+y_t*y_t+z_t*z_t);
+  tot_rot = fabs(2*atan2(sqrt(pow(qRtot.x(),2)+pow(qRtot.y(),2)+pow(qRtot.z(),2)),qRtot.w()));
+  
+  double quality = 0.0, quality_cart;
+
+  if(eef_dist > 0.001)
+    quality += tot_dist/eef_dist;
+  else
+    quality += 1;
+
+  if(tot_rot  > 0.001)
+    quality += tot_rot/eef_rot;
+  else
+    quality += 1;
+  
+  quality_cart = quality/2;
+  
+  return quality_cart;
+
+}
+
 void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
                                        const planning_interface::MotionPlanDetailedResponse& mp_res, bool solved,
                                        double total_time)
 {
-  metrics["time REAL"] = boost::lexical_cast<std::string>(total_time);
+  metrics["time REAL"] = moveit::core::toString(total_time);
   metrics["solved BOOLEAN"] = boost::lexical_cast<std::string>(solved);
 
   if (solved)
@@ -829,6 +988,8 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
     double clearance = 0.0;   // trajectory clearance (average)
     double smoothness = 0.0;  // trajectory smoothness (average)
     bool correct = true;      // entire trajectory collision free and in bounds
+    double planQuality = 0.0; // trajectory quality (added attribute)
+    double planQualityCart = 0.0;
 
     double process_time = total_time;
     for (std::size_t j = 0; j < mp_res.trajectory_.size(); ++j)
@@ -839,6 +1000,10 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       smoothness = 0.0;
       const robot_trajectory::RobotTrajectory& p = *mp_res.trajectory_[j];
 
+      // compute plan quality
+      planQuality = evaluate_plan(p);
+      planQualityCart = evaluate_plan_cart(p);
+      
       // compute path length
       for (std::size_t k = 1; k < p.getWayPointCount(); ++k)
         L += p.getWayPoint(k - 1).distance(p.getWayPoint(k));
@@ -894,6 +1059,8 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
       metrics["path_" + mp_res.description_[j] + "_correct BOOLEAN"] = boost::lexical_cast<std::string>(correct);
       metrics["path_" + mp_res.description_[j] + "_length REAL"] = boost::lexical_cast<std::string>(L);
       metrics["path_" + mp_res.description_[j] + "_clearance REAL"] = boost::lexical_cast<std::string>(clearance);
+      metrics["path_" + mp_res.description_[j] + "_plan_quality REAL"] = boost::lexical_cast<std::string>(planQuality);
+      metrics["path_" + mp_res.description_[j] + "_plan_quality_cartesian REAL"] = boost::lexical_cast<std::string>(planQualityCart);
       metrics["path_" + mp_res.description_[j] + "_smoothness REAL"] = boost::lexical_cast<std::string>(smoothness);
       metrics["path_" + mp_res.description_[j] + "_time REAL"] =
           boost::lexical_cast<std::string>(mp_res.processing_time_[j]);
@@ -901,7 +1068,7 @@ void BenchmarkExecutor::collectMetrics(PlannerRunData& metrics,
     }
     if (process_time <= 0.0)
       process_time = 0.0;
-    metrics["process_time REAL"] = boost::lexical_cast<std::string>(process_time);
+    metrics["process_time REAL"] = moveit::core::toString(process_time);
   }
 }
 
