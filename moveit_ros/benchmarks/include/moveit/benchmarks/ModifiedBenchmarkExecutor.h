@@ -70,7 +70,7 @@ namespace moveit_ros_benchmarks
 /// Note: This class operates outside of MoveGroup and does NOT use PlanningRequestAdapters
 class ModifiedBenchmarkExecutor : public XmlRpc::XmlRpcValue //only way if I don't want to notify/modify XmlRpcValue that structFromXml() has to be friend with ModifiedBenchmarkExecutor class, and thus have to somehow provide XmlRpcValue.h in the online versionned repo -- inherit from Xml class.
 {
-public: 
+public:
   /// Structure to hold information for a single run of a planner
   typedef std::map<std::string, std::string> PlannerRunData;
   /// Structure to hold information for a single planner's benchmark data.
@@ -234,7 +234,7 @@ protected:
   void runBenchmark(moveit_msgs::MotionPlanRequest request, const std::string& queryName,
                     const std::map<std::string, std::vector<std::string>>& planners, int runs,
                     const std::string& metricChoice, const std::string& sceneName,
-                    const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ,
+                    const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ, const bool RECORD_ANIMATION_RVIZ,
                     const std::vector<std::vector<double>>& jointAnglesMinMax,
                     const std::list<std::string>& limitedInAngleActuatedJointsNames,
                     unsigned int& no_first_kept_restart); //this stands for behaviour exploration only
