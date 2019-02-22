@@ -9,7 +9,7 @@ OUTPUTNAME=$1
 ######################## SETTINGS ##########################
 FRAMERATE=$2 #default 60 fps
 EXTENSION=".mp4"
-DIR="/tmp/"
+DIR="/tmp/vids/"
 # axis x = from top left pointing to the right
 SHIFT_TOP_LEFT_POS_x=0
 # axis y = from top left pointing to the bottom

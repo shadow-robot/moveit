@@ -1540,7 +1540,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
         
         if (GENERATE_ANIMATION_RVIZ)
         {
-        	int sleep = 10; //sec : rtime to give to the trajectories
+        	int sleep = 20; //sec : rtime to give to the trajectories
         	std::chrono::seconds dura(sleep);
 			    /*ROS_WARN("[DEBUG] first_solved = %d", first_solved);
 			    ROS_WARN("[DEBUG] kept_proof = %d", kept_proof);*/
