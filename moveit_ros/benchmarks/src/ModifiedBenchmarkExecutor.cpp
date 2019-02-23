@@ -1708,7 +1708,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							
 							if (RECORD_ANIMATION_RVIZ)
 						  { //stop recording
-						  	std::string str = "echo 'q' >> /tmp/stop";
+						  	std::string str = "echo 'q' >> /tmp/vids/stop"; //TODO BE SUPER CAREFUL, PATH HAS TO MATCH WITH THE ONE IN THE BASHSCRIPT WHENEVER YOU MODIFY IT !
 						  	const char *command = str.c_str(); 
    							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
     						std::system(command); 
