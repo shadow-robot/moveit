@@ -1193,8 +1193,15 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       for (std::size_t j = 0; j < planner_start_fns_.size(); ++j)
         planner_start_fns_[j](request, planner_data);
 
+			ROS_ERROR("[DEBUG] test");
+
       planning_interface::PlanningContextPtr context = planner_interfaces_[it->first]-> 
       						      															getPlanningContext(planning_scene_, request);
+      						      															
+			//debug:
+			moveit_msgs::MoveItErrorCodes notdummy;
+			context = planner_interfaces_[it->first]->getPlanningContext(planning_scene_, request, notdummy);
+			ROS_ERROR("[DEBUG] moveit_msgs::MoveItErrorCodes notdummy.SUCCESS = %s)", notdummy.SUCCESS); 
       
 			//addition of mine that should be below, but already lot of content    
       // https://www.learncpp.com/cpp-tutorial/78-function-pointers/
