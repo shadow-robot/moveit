@@ -195,9 +195,14 @@ void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugi
   planner_interfaces_.clear();
   // Load the planning plugins
   const std::vector<std::string>& classes = planner_plugin_loader_->getDeclaredClasses();
+  //debug:
+  for (int j = 0; j < classes.size(); j++)
+    ROS_ERROR("[DEBUG] classes[%d] = %s", j, classes[j].c_str());
+  //
 
   for (std::size_t i = 0; i < plugin_classes.size(); ++i)
   {
+  	ROS_ERROR("[DEBUG] plugin_classes[%d] = %s", i, plugin_classes[i].c_str());
     std::vector<std::string>::const_iterator it = std::find(classes.begin(), classes.end(), plugin_classes[i]);
     if (it == classes.end())
     {
@@ -210,7 +215,20 @@ void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugi
       planning_interface::PlannerManagerPtr p = planner_plugin_loader_->createUniqueInstance(plugin_classes[i]);
       p->initialize(planning_scene_->getRobotModel(), "");
 
-      p->getPlannerConfigurations();
+			p->getPlannerConfigurations(); // original line
+      //debug:
+      const planning_interface::PlannerConfigurationMap debugmap = p->getPlannerConfigurations(); // debug line
+      for(auto it1 = debugmap.cbegin(); it1 != debugmap.cend(); ++it1)
+			{
+				ROS_ERROR("[DEBUG] debugmap[%s] = ", it1->first.c_str());
+	      for(auto it2 = it1->second.config.cbegin(); it2 != it1->second.config.cend(); ++it2)
+				{
+					ROS_ERROR("[DEBUG] %s = %s", it2->first.c_str(), it2->second.c_str());
+				}
+				ROS_ERROR("[DEBUG] group = %s", it1->second.group.c_str());
+				ROS_ERROR("[DEBUG] group = %s", it1->second.name.c_str());
+			}
+      //
       planner_interfaces_[plugin_classes[i]] = p;
     }
     catch (pluginlib::PluginlibException& ex)
@@ -1197,6 +1215,13 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 
       planning_interface::PlanningContextPtr context = planner_interfaces_[it->first]-> 
       						      															getPlanningContext(planning_scene_, request);
+			// http://docs.ros.org/kinetic/api/moveit_planners_ompl/html/planning__context__manager_8cpp_source.html#l00353
+			// pc = planner_configs_
+			// http://docs.ros.org/kinetic/api/moveit_planners_ompl/html/planning__context__manager_8cpp_source.html#l00201
+			// planner_configs_ = pconfig
+			// look to ./benchmark/src/benchmark_execution.cpp from this folder line1404 modifyPlannerConfiguration()
+			// pconfig = settings = planner.getPlannerConfigurations()
+			// with planning_interface::PlannerManager& planner = *planner_interfaces_to_benchmark[i] line1100
       						      															
 			//debug:
 			moveit_msgs::MoveItErrorCodes notdummy;

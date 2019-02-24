@@ -50,6 +50,7 @@ int main(int argc, char** argv)
   spinner.start();
 
   // Read benchmark options from param server
+  ROS_ERROR("[DEBUG] ros::this_node::getName() = %s", ros::this_node::getName().c_str());
   moveit_ros_benchmarks::ModifiedBenchmarkOptions opts(ros::this_node::getName());
   
   // Setup benchmark server
