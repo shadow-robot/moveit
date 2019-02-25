@@ -109,6 +109,10 @@ static bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = false;
 //Don't change this parameter, this is a pre-usage value.
 //Depending on the use of either relevancy metric (which focus on the end effector only) or energy one (which sums over all joints and try to minimize), only the EE traj or all sub joints traj will be displayed)
 
+static const std::string PATH_TO_EXECUTABLE_BASHSCRIPT = "~/iplanr_project/workspace/src/moveit/moveit_ros/benchmarks/src/videorecordmoves.sh ";
+//the following video name has to be defined laterly
+static std::string JOINT_ANGLE_STATUS;
+
 ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::ModifiedBenchmarkExecutorWithoutTweaksAndRestarts(const std::string& robot_description_param)
 {
   pss_ = NULL;
@@ -328,6 +332,7 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmarks(const Modi
       //+ my unique huge file containing all the queries
       //And hence massively speeds up the benchmark (probably the algorithm itself as well, in a least scale)
       const bool GENERATE_ANIMATION_RVIZ = false;
+      const bool RECORD_ANIMATION_RVIZ = true; //Will generate a bunch of .mp4 files comparing the wrapped/original moves, and located in /tmp/
       
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request,
@@ -338,6 +343,7 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmarks(const Modi
       						 options_.getSceneName(),
 		   						 GENERATE_LOGS,
 		   						 GENERATE_ANIMATION_RVIZ,
+		   						 RECORD_ANIMATION_RVIZ,
 		   						 jointAnglesMinMax,
 		   						 limitedInAngleActuatedJointsNames);
       double duration = (ros::WallTime::now() - start_time).toSec();
@@ -597,6 +603,10 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::initializeBenchmarks(con
 
 	JOINT_ANGLE_RESTRICTED = getActuatedJointAngleLimits(
 	limitedInAngleActuatedJointsNames, jointAnglesMinMax);
+	if (JOINT_ANGLE_RESTRICTED)
+		JOINT_ANGLE_STATUS = "restricted";
+	else
+		JOINT_ANGLE_STATUS = "unrestricted";
 
   // 2) Existing queries are treated like goal constraints.
   //    Create all combos of query, start states, and path constraints
@@ -1016,6 +1026,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 					     const std::string& sceneName,
 					     const bool GENERATE_LOGS,
 					     const bool GENERATE_ANIMATION_RVIZ,
+					     const bool RECORD_ANIMATION_RVIZ,
 					     const std::vector<std::vector<double>>& jointAnglesMinMax,
 					     const std::list<std::string>& limitedInAngleActuatedJointsNames)
 {
@@ -1240,7 +1251,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
       	
         if (GENERATE_ANIMATION_RVIZ)
         {
-        	int sleep = 10; //sec : rtime to give to the trajectories
+        	int sleep = 20; //sec : rtime to give to the trajectories
         	std::chrono::seconds dura(sleep);
 			    
 			    //the movement animation:
@@ -1264,6 +1275,15 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 							visual_tools_->publishText(pose, texts[i], color, rviz_visual_tools::XXLARGE, false);
 						}
 						visual_tools_->trigger();
+		
+						if (RECORD_ANIMATION_RVIZ)
+						{ //start recording
+							std::string str = PATH_TO_EXECUTABLE_BASHSCRIPT , sep = "__"; 
+							str = str + JOINT_ANGLE_STATUS + sep + "countdown" + std::to_string(countdown) + sep + queryName + sep + planner + sep + metricChoice + "run_" + std::to_string(j+1); 
+							const char *command = str.c_str(); 
+							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
+							std::system(command); 
+						}
 		
 						//trajectory markers
 						if (!DISPLAY_JOINT_CARTESIAN_TRAJECTORIES)
@@ -1295,6 +1315,14 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 						std::cout << "About to wait " << sleep << "s while movement animation finishes\n";
 						std::this_thread::sleep_for( dura );
 						std::cout << "Waited " << sleep << "s after path\n";
+						
+						if (RECORD_ANIMATION_RVIZ)
+					  { //stop recording
+					  	std::string str = "echo 'q' >> /tmp/vids/stop"; //TODO BE SUPER CAREFUL, PATH HAS TO MATCH WITH THE ONE IN THE BASHSCRIPT WHENEVER YOU MODIFY IT !
+					  	const char *command = str.c_str(); 
+ 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
+  						std::system(command); 
+					  }	
 		    	} //end animation
 				} //end of RViz part
 				

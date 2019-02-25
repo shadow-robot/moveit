@@ -78,6 +78,8 @@
 
 #include <boost/range/adaptor/reversed.hpp> //to do reversed range-based loops such as the one that plots the cartesian subtrajectories of the joints when using the energy consumption metric
 
+#include <ostream> //TODO debug purpose so to be removed
+
 
 using namespace moveit_ros_benchmarks;
 
@@ -131,6 +133,7 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   psm_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param)); //pointer
   
   ROS_ERROR("[DEBUG] psm_->getRobotDescription() = %s", psm_->getRobotDescription().c_str());
+  ROS_ERROR("[DEBUG] psm_->getName() = %s", psm_->getName().c_str());
   
 	planning_scene_ = psm_->getPlanningScene();
 	
@@ -218,6 +221,10 @@ void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugi
     {
       planning_interface::PlannerManagerPtr p = planner_plugin_loader_->createUniqueInstance(plugin_classes[i]);
       // https://docs.ros.org/api/pluginlib/html/class__loader__imp_8hpp_source.html line169 but dont understand anything
+      
+      ROS_ERROR("[DEBUG] planning_scene_->getRobotModel()->printModelInfo(std::cout) =");
+      planning_scene_->getRobotModel()->printModelInfo(std::cout);
+      
       p->initialize(planning_scene_->getRobotModel(), "");
       // http://docs.ros.org/kinetic/api/moveit_core/html/planning__interface_8cpp_source.html#l00094
 

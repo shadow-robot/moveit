@@ -233,7 +233,7 @@ protected:
   void runBenchmark(moveit_msgs::MotionPlanRequest request, const std::string& queryName,
                     const std::map<std::string, std::vector<std::string>>& planners, int runs,
                     const std::string& metricChoice, const std::string& sceneName,
-                    const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ,
+                    const bool GENERATE_LOGS, const bool GENERATE_ANIMATION_RVIZ, const bool RECORD_ANIMATION_RVIZ,
                     const std::vector<std::vector<double>>& jointAnglesMinMax,
                     const std::list<std::string>& limitedInAngleActuatedJointsNames);
 
