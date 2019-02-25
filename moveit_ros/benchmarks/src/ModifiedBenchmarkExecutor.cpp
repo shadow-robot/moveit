@@ -811,9 +811,9 @@ void ModifiedBenchmarkExecutor::AdaptJointSpaceQueryMpiPi(moveit_msgs::MotionPla
 	const std::vector<double> tmpo1 = query.start_state.joint_state.position;
   for (int j=0; j<tmpo1.size(); ++j)
   {
-  	ROS_ERROR("[ENSURE] start conf, before : %f rad", tmpo1[j]);
+  	//ROS_ERROR("[ENSURE] start conf, before : %f rad", tmpo1[j]);
   	query.start_state.joint_state.position[j] = AnyRadToMpiPiExc(tmpo1[j]);
-  	ROS_ERROR("[ENSURE] start conf, after : %f rad", query.start_state.joint_state.position[j]);
+  	//ROS_ERROR("[ENSURE] start conf, after : %f rad", query.start_state.joint_state.position[j]);
 	}
 	
 	//goal:
