@@ -130,7 +130,10 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   tcs_ = NULL;
   psm_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_param)); //pointer
   
+  ROS_ERROR("[DEBUG] psm_->getRobotDescription() = %s", psm_->getRobotDescription().c_str());
+  
 	planning_scene_ = psm_->getPlanningScene();
+	
 	
   visual_tools_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC));
   visual_tools2_.reset(new moveit_visual_tools::MoveItVisualTools(BASE_LINK, MARKER_TOPIC)); //additional layer to display the goal
@@ -197,13 +200,13 @@ void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugi
   // Load the planning plugins
   const std::vector<std::string>& classes = planner_plugin_loader_->getDeclaredClasses();
   //debug:
-  for (int j = 0; j < classes.size(); j++)
+  for (int j = 0; j < classes.size(); ++j)
     ROS_ERROR("[DEBUG] classes[%d] = %s", j, classes[j].c_str());
   //
 
   for (std::size_t i = 0; i < plugin_classes.size(); ++i)
   {
-  	ROS_ERROR("[DEBUG] plugin_classes[%d] = %s", i, plugin_classes[i].c_str());
+  	ROS_ERROR("[DEBUG] plugin_classes[%lu] = %s", i, plugin_classes[i].c_str());
     std::vector<std::string>::const_iterator it = std::find(classes.begin(), classes.end(), plugin_classes[i]);
     if (it == classes.end())
     {
@@ -682,13 +685,13 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
   ROS_ERROR("[EXPLORE] queries.size() = %lu", queries.size());
   for (std::size_t i = 0; i < queries.size(); ++i)
   {
-  	ROS_ERROR("[EXPLORE] query i = %lu", i);
+  	//ROS_ERROR("[EXPLORE] query i = %lu", i);
     // Common benchmark request properties
     BenchmarkRequest brequest;
     brequest.name = queries[i].name;
     brequest.request = queries[i].request;
     
-    ROS_ERROR("[DEBUG] JOINT_ANGLE_RESTRICTED = %d", JOINT_ANGLE_RESTRICTED);
+    //ROS_ERROR("[DEBUG] JOINT_ANGLE_RESTRICTED = %d", JOINT_ANGLE_RESTRICTED);
     if (JOINT_ANGLE_RESTRICTED)
     	AdaptJointSpaceQueryMpiPi(brequest.request);
     
@@ -714,10 +717,10 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
     //ROS_WARN("[EXPLORE] 2) start_states.size() = %lu", start_states.size());
     //ROS_WARN("[EXPLORE] 2) path_constraints.size() = %lu", path_constraints.size());
     
-    ROS_WARN("[EXPLORE] brequest.request.start_state.joint_state.position =");
+    /*ROS_WARN("[EXPLORE] brequest.request.start_state.joint_state.position =");
     std::vector<double> tmp1 = brequest.request.start_state.joint_state.position;
     for (int j=0; j<tmp1.size(); ++j)
-    	ROS_WARN("[EXPLORE] %f", tmp1[j]);
+    	ROS_WARN("[EXPLORE] %f", tmp1[j]);*/
     	
     //ROS_WARN("[EXPLORE] 2) brequest.request.goal_constraints.size() = %lu", brequest.request.goal_constraints.size());//=1
     // http://docs.ros.org/kinetic/api/moveit_msgs/html/msg/Constraints.html :
@@ -1013,7 +1016,7 @@ bool ModifiedBenchmarkExecutor::loadQueries(const std::string& regex, const std:
 
   for (std::size_t i = 0; i < query_names.size(); ++i)
   {
-    ROS_ERROR("[EXPLORE] query's name i = %lu", i);
+    //ROS_ERROR("[EXPLORE] query's name i = %lu", i);
     moveit_warehouse::MotionPlanRequestWithMetadata planning_query;
     try
     {
@@ -1218,8 +1221,6 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
       for (std::size_t j = 0; j < planner_start_fns_.size(); ++j)
         planner_start_fns_[j](request, planner_data);
 
-			ROS_ERROR("[DEBUG] test");
-
       planning_interface::PlanningContextPtr context = planner_interfaces_[it->first]-> 
       						      															getPlanningContext(planning_scene_, request);
 			// http://docs.ros.org/kinetic/api/moveit_planners_ompl/html/planning__context__manager_8cpp_source.html#l00353
@@ -1229,11 +1230,6 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			// look to ./benchmark/src/benchmark_execution.cpp from this folder line1404 modifyPlannerConfiguration()
 			// pconfig = settings = planner.getPlannerConfigurations()
 			// with planning_interface::PlannerManager& planner = *planner_interfaces_to_benchmark[i] line1100
-      						      															
-			//debug:
-			moveit_msgs::MoveItErrorCodes notdummy;
-			context = planner_interfaces_[it->first]->getPlanningContext(planning_scene_, request, notdummy);
-			ROS_ERROR("[DEBUG] moveit_msgs::MoveItErrorCodes notdummy.SUCCESS = %s)", notdummy.SUCCESS); 
       
 			//addition of mine that should be below, but already lot of content    
       // https://www.learncpp.com/cpp-tutorial/78-function-pointers/
