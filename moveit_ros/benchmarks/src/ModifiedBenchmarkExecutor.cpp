@@ -820,9 +820,9 @@ void ModifiedBenchmarkExecutor::AdaptJointSpaceQueryMpiPi(moveit_msgs::MotionPla
 	std::vector<moveit_msgs::JointConstraint> tmpo2 = query.goal_constraints[0].joint_constraints;
     for (int j=0; j<tmpo2.size(); ++j)
     {
-    	ROS_ERROR("[ENSURE] goal conf, before : %f rad", tmpo2[j].position);
+    	//ROS_ERROR("[ENSURE] goal conf, before : %f rad", tmpo2[j].position);
     	query.goal_constraints[0].joint_constraints[j].position = AnyRadToMpiPiExc(tmpo2[j].position);
-    	ROS_ERROR("[ENSURE] goal conf, after : %f rad", query.goal_constraints[0].joint_constraints[j].position);
+    	//ROS_ERROR("[ENSURE] goal conf, after : %f rad", query.goal_constraints[0].joint_constraints[j].position);
   	}
 }
 
