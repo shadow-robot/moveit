@@ -54,11 +54,15 @@ int main(int argc, char** argv)
   moveit_ros_benchmarks::ModifiedBenchmarkOptions opts(ros::this_node::getName());
   
   // Setup benchmark server
+  ROS_ERROR("[DEBUG] test5");
   moveit_ros_benchmarks::ModifiedBenchmarkExecutor server;
+  ROS_ERROR("[DEBUG] test6");
 
   std::vector<std::string> plugins;
-  opts.getPlannerPluginList(plugins);
+  opts.getPlannerPluginList(plugins); //TODO check the opts
+  ROS_ERROR("[DEBUG] test7");
   server.initialize(plugins);
+  ROS_ERROR("[DEBUG] test8");
 
   //Iterations over countdown alter it only by +-1sec and summon this node, but this node, even with a low countdown, takes (I believe) more than one second (bc of the multiples runs and queries) to return its agreement to be re-summoned again to the countdown loop. So, for the uniform random dim moves (see in Executor), initialization of a seed here should not lead to any repetition in sequences of random numbers
   std::srand(std::time(NULL));

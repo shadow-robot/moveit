@@ -157,6 +157,7 @@ ModifiedBenchmarkExecutor::ModifiedBenchmarkExecutor(const std::string& robot_de
   {
     planner_plugin_loader_.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>(
         "moveit_core", "planning_interface::PlannerManager"));
+    // http://docs.ros.org/kinetic/api/pluginlib/html/classpluginlib_1_1ClassLoader.html
   }
   catch (pluginlib::PluginlibException& ex)
   {
@@ -213,7 +214,9 @@ void ModifiedBenchmarkExecutor::initialize(const std::vector<std::string>& plugi
     try
     {
       planning_interface::PlannerManagerPtr p = planner_plugin_loader_->createUniqueInstance(plugin_classes[i]);
+      // https://docs.ros.org/api/pluginlib/html/class__loader__imp_8hpp_source.html line169 but dont understand anything
       p->initialize(planning_scene_->getRobotModel(), "");
+      // http://docs.ros.org/kinetic/api/moveit_core/html/planning__interface_8cpp_source.html#l00094
 
 			p->getPlannerConfigurations(); // original line
       //debug:
@@ -567,11 +570,13 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
 																										 std::vector<BenchmarkRequest>& requests,
 																										 std::vector<std::vector<double>>& jointAnglesMinMax,  std::list<std::string>& limitedInAngleActuatedJointsNames)
 {
+	ROS_ERROR("[DEBUG] test4");
   if (!plannerConfigurationsExist(opts.getPlannerConfigurations(), opts.getGroupName()))
     return false;
 
   try
   {
+  	ROS_ERROR("[DEBUG] test3");
     warehouse_ros::DatabaseConnection::Ptr conn = dbloader.loadDatabase();
     conn->setParams(opts.getHostName(), opts.getPort(), 20);
     if (conn->connect())
@@ -599,6 +604,8 @@ bool ModifiedBenchmarkExecutor::initializeBenchmarks(const ModifiedBenchmarkOpti
   std::vector<PathConstraints> goal_constraints;
   std::vector<TrajectoryConstraints> traj_constraints;
   std::vector<BenchmarkRequest> queries;
+
+	ROS_ERROR("[DEBUG] test2");
 
   bool ok = loadPlanningScene(opts.getSceneName(), scene_msg) && loadStates(opts.getStartStateRegex(), start_states) &&
             loadPathConstraints(opts.getGoalConstraintRegex(), goal_constraints) &&
