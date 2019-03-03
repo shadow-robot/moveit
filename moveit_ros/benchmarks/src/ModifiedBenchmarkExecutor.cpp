@@ -108,6 +108,7 @@ const std::string ROBOT_DESCRIPTION = "robot_description";
 // The :move_group_interface:`MoveGroup` class can be easily
 // setup using just the name of the planning group you would like to control and plan for.
 const std::string PLANNING_GROUP = "right_arm"; //or right_arm_and_manipulator or right_arm_and_hand
+const std::string WHOLE_GROUP = "right_arm_and_manipulator";
 
 const std::string DISPLAY_PLANNED_PATH_PARALLEL = "/display_planned_path_parallel"; //trick to get a channel to publish on another trajPath,
 //if the default one (/move_group/display_planned_path) is already occupied and one wants to launch several trajs simultaneously
@@ -1364,10 +1365,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 		    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
 		    //
 				moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+				moveit::planning_interface::MoveGroupInterface dead_group(WHOLE_GROUP);
 				/*// We can also print the name of the end-effector link for this group.
 				ROS_WARN("[DEBUG] End effector link: %s", move_group.getEndEffectorLink().c_str());*/
 				const robot_state::JointModelGroup* joint_model_group =
 																					move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+				const robot_state::JointModelGroup* joint_model_dead_group = dead_group.getCurrentState()->getJointModelGroup(WHOLE_GROUP);
 				if (GENERATE_ANIMATION_RVIZ)
         {
 		      //What is always displayed: start and goal confs,
@@ -1709,8 +1712,10 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 							if (!DISPLAY_JOINT_CARTESIAN_TRAJECTORIES)
 							{
 								visual_tools_->publishTrajectoryLine(mp_res_before_exceeding.trajectory_.back(), joint_model_group, traj_rope_color_opti);
-							
+								
 								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_group, traj_rope_color_orig);
+								visual_tools_->publishTrajectoryLine(first_mp_res.trajectory_.back(), joint_model_dead_group, sub_traj_rope_color_orig); //MAYBE WRONG MAYBE TO DELETE
+								
 								visual_tools_->trigger(); //forces a refresh with the new trajectory markers
 							} else
 							{
