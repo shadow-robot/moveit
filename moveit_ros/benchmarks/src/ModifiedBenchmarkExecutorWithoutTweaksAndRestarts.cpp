@@ -1279,7 +1279,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 						if (RECORD_ANIMATION_RVIZ)
 						{ //start recording
 							std::string str = PATH_TO_EXECUTABLE_BASHSCRIPT , sep = "__"; 
-							str = str + JOINT_ANGLE_STATUS + sep + "countdown" + std::to_string(countdown) + sep + queryName + sep + planner + sep + metricChoice + sep + "run_" + std::to_string(j+1); 
+							str = str + JOINT_ANGLE_STATUS + sep + "countdown" + std::to_string(countdown) + sep + queryName + sep + planner + sep + metricChoice + sep + "metric_" + std::to_string(planQuality*100.) + sep + "run_" + std::to_string(j+1); 
 							const char *command = str.c_str(); 
 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
 							std::system(command); 
