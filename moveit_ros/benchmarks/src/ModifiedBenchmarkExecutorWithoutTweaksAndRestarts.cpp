@@ -109,9 +109,10 @@ static bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = false;
 //Don't change this parameter, this is a pre-usage value.
 //Depending on the use of either relevancy metric (which focus on the end effector only) or energy one (which sums over all joints and try to minimize), only the EE traj or all sub joints traj will be displayed)
 
-static const std::string PATH_TO_EXECUTABLE_BASHSCRIPT = "~/iplanr_project/workspace/src/moveit/moveit_ros/benchmarks/src/videorecordmoves.sh ";
+static const std::string PATH_TO_EXECUTABLE_RECORDER_BASHSCRIPT = "~/iplanr_project/workspace/src/moveit/moveit_ros/benchmarks/src/videorecordmoves.sh ";
 //the following video name has to be defined laterly
 static std::string JOINT_ANGLE_STATUS;
+static const std::string PATH_TO_EXECUTABLE_SCREENSHOTER_BASHSCRIPT = "~/iplanr_project/workspace/src/moveit/moveit_ros/benchmarks/src/screenshotrecordtrails.sh ";
 
 ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::ModifiedBenchmarkExecutorWithoutTweaksAndRestarts(const std::string& robot_description_param)
 {
@@ -333,6 +334,8 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmarks(const Modi
       //And hence massively speeds up the benchmark (probably the algorithm itself as well, in a least scale)
       const bool GENERATE_ANIMATION_RVIZ = true;
       const bool RECORD_ANIMATION_RVIZ = true; //Will generate a bunch of .mp4 files comparing the wrapped/original moves, and located in /tmp/
+      //const std::string RECORD_MODE = "video"; //Will generate a bunch of .mp4 files comparing the wrapped/original moves, and located in /tmp/vids/
+      const std::string RECORD_MODE = "trail"; //Will generate a bunch of .svg/pdf files comparing the wrapped/original moves, and located in /tmp/trails/
       
       ros::WallTime start_time = ros::WallTime::now();
       runBenchmark(queries[i].request,
@@ -343,7 +346,7 @@ bool ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmarks(const Modi
       						 options_.getSceneName(),
 		   						 GENERATE_LOGS,
 		   						 GENERATE_ANIMATION_RVIZ,
-		   						 RECORD_ANIMATION_RVIZ,
+		   						 RECORD_ANIMATION_RVIZ, RECORD_MODE,
 		   						 jointAnglesMinMax,
 		   						 limitedInAngleActuatedJointsNames);
       double duration = (ros::WallTime::now() - start_time).toSec();
@@ -1026,7 +1029,7 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 					     const std::string& sceneName,
 					     const bool GENERATE_LOGS,
 					     const bool GENERATE_ANIMATION_RVIZ,
-					     const bool RECORD_ANIMATION_RVIZ,
+					     const bool RECORD_ANIMATION_RVIZ, const std::string RECORD_MODE,
 					     const std::vector<std::vector<double>>& jointAnglesMinMax,
 					     const std::list<std::string>& limitedInAngleActuatedJointsNames)
 {
@@ -1277,12 +1280,22 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 						visual_tools_->trigger();
 		
 						if (RECORD_ANIMATION_RVIZ)
-						{ //start recording
-							std::string str = PATH_TO_EXECUTABLE_BASHSCRIPT , sep = "__"; 
-							str = str + JOINT_ANGLE_STATUS + sep + "countdown" + std::to_string(countdown) + sep + queryName + sep + planner + sep + metricChoice + sep + "metric_" + std::to_string(planQuality*100.) + sep + "run_" + std::to_string(j+1); 
-							const char *command = str.c_str(); 
-							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
-							std::system(command); 
+						{
+							if (RECORD_MODE == "video")
+							{
+								//start recording
+								std::string str = PATH_TO_EXECUTABLE_RECORDER_BASHSCRIPT , sep = "__";
+								str = str + JOINT_ANGLE_STATUS + sep + metricChoice + sep +  planner + sep + queryName + sep + "countdown_" + std::to_string(countdown)
+		  							+ sep + "run_" + std::to_string(j+1) + sep + "metric_" + std::to_string(planQuality*100.);
+								const char *command = str.c_str(); 
+								ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
+								std::system(command);
+							} else if (RECORD_MODE == "trail")
+					  	{    							
+					  	} else
+					  	{
+					  		ROS_ERROR("YOU SPECIFIED WANTING TO RECORD BUT MISSPELLED THE FORMAT ! Please choose either 'video' or 'trail' in the Executor code.");
+					  	}
 						}
 		
 						//trajectory markers
@@ -1317,11 +1330,24 @@ void ModifiedBenchmarkExecutorWithoutTweaksAndRestarts::runBenchmark(moveit_msgs
 						std::cout << "Waited " << sleep << "s after path\n";
 						
 						if (RECORD_ANIMATION_RVIZ)
-					  { //stop recording
-					  	std::string str = "echo 'q' >> /tmp/vids/stop"; //TODO BE SUPER CAREFUL, PATH HAS TO MATCH WITH THE ONE IN THE BASHSCRIPT WHENEVER YOU MODIFY IT !
-					  	const char *command = str.c_str(); 
- 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
-  						std::system(command); 
+					  {
+							if (RECORD_MODE == "video")
+							{
+								//stop recording
+								std::string str = "echo 'q' >> /tmp/vids/stop"; //TODO BE SUPER CAREFUL, PATH HAS TO MATCH WITH THE ONE IN THE BASHSCRIPT WHENEVER YOU MODIFY IT !
+								const char *command = str.c_str(); 
+	 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
+								std::system(command);
+							} else if (RECORD_MODE == "trail")
+					  	{
+					  		std::string str = PATH_TO_EXECUTABLE_SCREENSHOTER_BASHSCRIPT , sep = "__"; 
+  							str = str + JOINT_ANGLE_STATUS + sep + metricChoice + sep +  planner + sep + queryName + sep + "countdown_" + std::to_string(countdown)
+		  							+ sep + "run_" + std::to_string(j+1) + sep + "metric_" + std::to_string(planQuality*100.);
+								//take the screenshot
+								const char *command = str.c_str(); 
+	 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
+	  						std::system(command);     							
+					  	}
 					  }	
 		    	} //end animation
 				} //end of RViz part
