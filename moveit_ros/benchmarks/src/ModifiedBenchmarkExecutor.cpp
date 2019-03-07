@@ -1810,14 +1810,14 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 						  		{
 		  							str = str + JOINT_ANGLE_STATUS + sep + "acceptance_" + 
 		  							acceptanceFuncExpressionForFileName + sep + metricChoice + sep +  planner + sep + queryName + sep + "countdown_" + std::to_string(countdown)
-		  							+ sep + "run_" + std::to_string(j+1) + sep + "metric_" + std::to_string((previousPlanQuality-first_planQuality)*100.);
+		  							+ sep + "run_" + std::to_string(j+1) + sep + "metric_" + std::to_string((previousPlanQuality-first_planQuality)*100.) + " .pdf";
 										//take the screenshot
 										const char *command = str.c_str(); 
 			 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
 										std::system(command);
 									} else if (RECORD_MODE == "queries")
 									{
-										str = str + queryName;
+										str = str + queryName + " .png";
 										//take the screenshot
 										const char *command = str.c_str(); 
 			 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 

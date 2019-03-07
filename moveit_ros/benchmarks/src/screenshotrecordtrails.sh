@@ -20,7 +20,7 @@ fi
 OUTPUTNAME=$1
 
 ######################## SETTINGS ##########################
-EXTENSION=".pdf"
+EXTENSION=$2
 DIR="/tmp/trails/"
 # axis x = from top left pointing to the right
 SHIFT_TOP_LEFT_POS_x=1 #it doesnt accept 0 !!!
@@ -32,7 +32,7 @@ HEIGHTINPIX=660
 
 mkdir -p $DIR
 
-OUTPUT="$DIR$OUTPUTNAME$EXTENSION"
+OUTPUT="$DIR$OUTPUTNAME${EXTENSION:=".pdf"}"
 
 ######################## COMMANDS ##########################
 
