@@ -116,7 +116,7 @@ const std::string DISPLAY_PLANNED_PATH_PARALLEL = "/display_planned_path_paralle
 static bool JOINT_ANGLE_RESTRICTED;
 static bool ADAPT_QUERIES;
 
-static bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = false;
+static bool DISPLAY_JOINT_CARTESIAN_TRAJECTORIES = true;
 //Don't change this parameter, this is a pre-usage value.
 //Depending on the use of either relevancy metric (which focus on the end effector only) or energy one (which sums over all joints and try to minimize), only the EE traj or all sub joints traj will be displayed)
 
@@ -1210,6 +1210,26 @@ static std::vector<T> slice(std::vector<T> const &v, int m, int n)
     return vec;
 }
 
+static double mod(double angle, double modulo)
+{
+	return angle - floor(angle/modulo)*modulo;
+}
+
+static std::vector<double> shortest(std::vector<double> goal_config_current, 
+																		std::vector<double> start_config_current)
+{
+	// https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+  std::vector<double> shortest_diff_goal_start_confs(goal_config_current.size(), 0);
+  const double pi = boost::math::constants::pi<double>();
+  
+	for (size_t i = 0 ; i < goal_config_current.size() ; ++i)
+	{
+    shortest_diff_goal_start_confs[i] = goal_config_current[i]-start_config_current[i];
+    shortest_diff_goal_start_confs[i] = mod(shortest_diff_goal_start_confs[i]+pi, 2*pi) - pi;
+  }
+  return shortest_diff_goal_start_confs;
+}
+
 void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest request,
 					     const std::string& queryName,
 					     const std::map<std::string, std::vector<std::string>>& planners, 
@@ -1384,7 +1404,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				const rviz_visual_tools::colors tag_color = rviz_visual_tools::WHITE;
 				rviz_visual_tools::colors color;
 				//
-		    double alti_min = 1.7, alti_step = 0.075, alti_tag = 0.3, shift_tag = 1.;
+		    double alti_min = 1.7, alti_step = 0.075, alti_tag = 0.125, shift_tag = 1., alti_step_tag = 0.4;
 		    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
 		    Eigen::Isometry3d poseTag = Eigen::Isometry3d::Identity();
 		    //
@@ -1457,28 +1477,38 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	visual_tools_->publishText(pose, texts[i], text_color, rviz_visual_tools::XXLARGE, false);
 			    }
 			    
-			    //Tag the box with the query number + U if a joint will make useless(ful) extra rotation in unbridled mode
-			    //To generate a table with all queries and not-univocal potential
+			    
+			    
+			    // TODO Following can be wrapped in a function but too lazy
+			    //Tag the box with the query number + S if a joint will make useless(ful) extra rotation in unbridled mode
+			    //To generate a table with all queries and their not-univocal potential (whether move savings/energy gains are possible)
 			    poseTag.translation().z() = alti_tag;
-			    poseTag.translation().x() = shift_tag; poseTag.translation().y() = shift_tag;
+			    poseTag.translation().x() = shift_tag+0.05; poseTag.translation().y() = shift_tag;
 			    std::string tag = queryName.substr(11,queryName.length());
 			    
-			    std::vector<double> toCheck = start_config_current;
-			    toCheck.insert( start_config_current.end(), goal_config_current.begin(), goal_config_current.end() );
-          ROS_ERROR("[DEBUG] ###########################################");
-          for (int j=0; j<toCheck.size(); ++j)
-					{
-						if (fabs(toCheck[j]) > _PI) //those prints are realized when queries not brought back in -pi+pi ! Prints should not be used always, unless initial queries values are stored!
+			    std::string singularJoints = ""; //to be compared/carefully observed in a restricted robot movement and unrestricted robot movement
+          ROS_ERROR("[DEBUG] singularJoints = %s", singularJoints.c_str());
+          std::vector<double> shortDiff = shortest(goal_config_current, start_config_current);
+          for (int j=0; j<start_config_current.size(); ++j)
+					{ //TODO TESTS ON START AND GOAL COMPONENTS
+						if (fabs(goal_config_current[j]-start_config_current[j]) < _TWO_PI)
+						// BTW those prints are realized when queries not brought back in -pi+pi ! Prints should not be used always, unless initial queries values are stored!
 						{
-							ROS_ERROR("[DEBUG] ###########################################");
-							ROS_ERROR("[DEBUG] actuator %lu are unbridled on start config!", y1[j]);
-							ROS_ERROR("[DEBUG] ###########################################");
+							singularJoints += "B" + std::to_string(j+1); // want the joints to be indexed from 1 to 6
+						} else if (fabs(start_config_current[j]) + fabs(shortDiff[j]) < _PI)
+						{
+							singularJoints += "U" + std::to_string(j+1); // want the joints to be indexed from 1 to 6
 						}
+						ROS_ERROR("[DEBUG] singularJoints = %s", singularJoints.c_str());
 					}
-					ROS_ERROR("[DEBUG] ###########################################");
+					ROS_ERROR("[DEBUG] singularJoints = %s", (tag + singularJoints).c_str());
+					//TODO if singularJoints not empty, add +S+singularJoints to tag
 					
+		    	visual_tools_->publishText(poseTag, singularJoints, sub_traj_rope_color_opti, rviz_visual_tools::XXXXLARGE, false);
+		    	poseTag.translation().z() = alti_tag + alti_step_tag;
 		    	visual_tools_->publishText(poseTag, tag, tag_color, rviz_visual_tools::XXXXLARGE, false);
 		    	//end of the "Tag box" investigation
+			    
 			    
 			    
 			    visual_tools_->trigger();
@@ -2099,15 +2129,11 @@ double ModifiedBenchmarkExecutor::evaluate_plan(const robot_trajectory::RobotTra
     denominator += *it;
   }
 
-  // https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
-  std::vector<double> shortest_diff_goal_start_confs(num_of_joints, 0); // in fact assuming no obstacle that comes modify the shortest trajectory
-  for (size_t j = 0 ; j < num_of_joints ; ++j){
-    shortest_diff_goal_start_confs[j] = plan_array[p.getWayPointCount()-1][j]-plan_array[0][j]; // but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi, which is not the shortest move if one colors the area! Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
-    if (shortest_diff_goal_start_confs[j] > pi)
-      shortest_diff_goal_start_confs[j] -= 2*pi;
-    if (shortest_diff_goal_start_confs[j] <= -pi)
-      shortest_diff_goal_start_confs[j] += 2*pi;
-  }
+  std::vector<double> shortest_diff_goal_start_confs = shortest(plan_array[p.getWayPointCount()-1],
+  																															plan_array[0]); // in fact assuming no obstacle that comes modify the shortest trajectory
+	// but by drawing the angles goal=0.25*pi and start=1.5*pi on a trigonometric circle, abs(goal-start)=1.25=(1+1/4)*pi,
+	//which is not the shortest move if one colors the area!
+	//Hence the use of a signed angle (i.e which can be negative) ... and the absolute values of the 1-norm later.
 
   std::vector<double> shortest_diff_weighted(num_of_joints, 0);
   for (size_t j = 0 ; j < num_of_joints ; ++j){
