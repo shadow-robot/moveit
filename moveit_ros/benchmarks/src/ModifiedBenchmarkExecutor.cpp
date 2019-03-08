@@ -1489,20 +1489,40 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    std::string singularJoints = ""; //to be compared/carefully observed in a restricted robot movement and unrestricted robot movement
           ROS_ERROR("[DEBUG] singularJoints = %s", singularJoints.c_str());
           std::vector<double> shortDiff = shortest(goal_config_current, start_config_current);
+          
+          std::string singularJointsB = "";
+          unsigned int countB = 0;
           for (int j=0; j<start_config_current.size(); ++j)
-					{ //TODO TESTS ON START AND GOAL COMPONENTS
-						if (fabs(goal_config_current[j]-start_config_current[j]) < _TWO_PI)
+					{
+						if (fabs(goal_config_current[j]-start_config_current[j]) > _TWO_PI)
 						// BTW those prints are realized when queries not brought back in -pi+pi ! Prints should not be used always, unless initial queries values are stored!
 						{
-							singularJoints += "B" + std::to_string(j+1); // want the joints to be indexed from 1 to 6
-						} else if (fabs(start_config_current[j]) + fabs(shortDiff[j]) < _PI)
-						{
-							singularJoints += "U" + std::to_string(j+1); // want the joints to be indexed from 1 to 6
+							singularJointsB += std::to_string(j+1); // want the joints to be indexed from 1 to 6
+							countB += 1;
 						}
-						ROS_ERROR("[DEBUG] singularJoints = %s", singularJoints.c_str());
 					}
+					if (countB >= 1)
+						singularJoints += "B" + singularJointsB;
+					std::string singularJointsU = "";
+          unsigned int countU = 0;
+          for (int j=0; j<start_config_current.size(); ++j)
+					{
+						ROS_ERROR("[ENSURE] goal - start = %f - %f = %f, shortcut = %f",
+											goal_config_current[j]*180/_PI,
+											start_config_current[j]*180/_PI,
+											(goal_config_current[j] - start_config_current[j])*180/_PI,
+											shortDiff[j]*180/_PI
+										 );
+						if (fabs(start_config_current[j]) + fabs(shortDiff[j]) < _PI)
+						{
+							singularJointsU += std::to_string(j+1); // want the joints to be indexed from 1 to 6
+							countU += 1;
+						}
+					}
+					if (countU >= 1)
+						singularJoints += "U" + singularJointsU;
+					
 					ROS_ERROR("[DEBUG] singularJoints = %s", (tag + singularJoints).c_str());
-					//TODO if singularJoints not empty, add +S+singularJoints to tag
 					
 		    	visual_tools_->publishText(poseTag, singularJoints, sub_traj_rope_color_opti, rviz_visual_tools::XXXXLARGE, false);
 		    	poseTag.translation().z() = alti_tag + alti_step_tag;
