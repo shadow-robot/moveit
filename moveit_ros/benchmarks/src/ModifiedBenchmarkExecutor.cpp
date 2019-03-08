@@ -1503,7 +1503,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 						}
 						if (countB >= 1)
 							singularJoints += "B" + singularJointsB;
-						std::string singularJointsU = "";
+							
+						std::string singularJointsU = ""; //queries that could lead unbridled robots to be more move efficient than bridled joint if an approriate switch exist, to shortcut by the briddled's brake.
 		        unsigned int countU = 0;
 		        for (int j=0; j<start_config_current.size(); ++j)
 						{
@@ -1513,7 +1514,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 												(goal_config_current[j] - start_config_current[j])*180/_PI,
 												shortDiff[j]*180/_PI
 											 );
-							if (fabs(start_config_current[j]) + fabs(shortDiff[j]) > _PI)
+							if (fabs( AnyRadToMpiPiExc(start_config_current[j]) + shortDiff[j] ) > _PI)
 							{
 								singularJointsU += std::to_string(j+1); // want the joints to be indexed from 1 to 6
 								countU += 1;
@@ -1893,7 +1894,7 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 										std::system(command);
 									} else if (RECORD_MODE == "queries")
 									{
-										str = str + queryName + " .png";
+										str = str + queryName + " .png"; //TODO add the 12 joint values in the image filename
 										//take the screenshot
 										const char *command = str.c_str(); 
 			 							ROS_ERROR("[DEBUG] (Requesting shell to do : %s)", command); 
