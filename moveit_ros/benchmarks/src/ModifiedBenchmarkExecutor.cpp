@@ -1478,56 +1478,56 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    }
 			    
 			    
-			    
-			    // TODO Following can be wrapped in a function but too lazy
-			    //Tag the box with the query number + S if a joint will make useless(ful) extra rotation in unbridled mode
-			    //To generate a table with all queries and their not-univocal potential (whether move savings/energy gains are possible)
-			    poseTag.translation().z() = alti_tag;
-			    poseTag.translation().x() = shift_tag+0.05; poseTag.translation().y() = shift_tag;
-			    std::string tag = queryName.substr(11,queryName.length());
-			    
-			    std::string singularJoints = ""; //to be compared/carefully observed in a restricted robot movement and unrestricted robot movement
-          ROS_ERROR("[DEBUG] singularJoints = %s", singularJoints.c_str());
-          std::vector<double> shortDiff = shortest(goal_config_current, start_config_current);
-          
-          std::string singularJointsB = "";
-          unsigned int countB = 0;
-          for (int j=0; j<start_config_current.size(); ++j)
-					{
-						if (fabs(goal_config_current[j]-start_config_current[j]) > _TWO_PI)
-						// BTW those prints are realized when queries not brought back in -pi+pi ! Prints should not be used always, unless initial queries values are stored!
+			    if ((RECORD_ANIMATION_RVIZ == true) && (RECORD_MODE == "queries"))
+			    { // TODO Following can be wrapped in a function but too lazy
+					  //Tag the box with the query number + S if a joint will make useless(ful) extra rotation in unbridled mode
+					  //To generate a table with all queries and their not-univocal potential (whether move savings/energy gains are possible)
+					  poseTag.translation().z() = alti_tag;
+					  poseTag.translation().x() = shift_tag+0.05; poseTag.translation().y() = shift_tag;
+					  std::string tag = queryName.substr(11,queryName.length());
+					  
+					  std::string singularJoints = ""; //to be compared/carefully observed in a restricted robot movement and unrestricted robot movement
+		        ROS_ERROR("[DEBUG] singularJoints = %s", singularJoints.c_str());
+		        std::vector<double> shortDiff = shortest(goal_config_current, start_config_current);
+		        
+		        std::string singularJointsB = "";
+		        unsigned int countB = 0;
+		        for (int j=0; j<start_config_current.size(); ++j)
 						{
-							singularJointsB += std::to_string(j+1); // want the joints to be indexed from 1 to 6
-							countB += 1;
+							if (fabs(goal_config_current[j]-start_config_current[j]) > _TWO_PI)
+							// BTW those prints are realized when queries not brought back in -pi+pi ! Prints should not be used always, unless initial queries values are stored!
+							{
+								singularJointsB += std::to_string(j+1); // want the joints to be indexed from 1 to 6
+								countB += 1;
+							}
 						}
-					}
-					if (countB >= 1)
-						singularJoints += "B" + singularJointsB;
-					std::string singularJointsU = "";
-          unsigned int countU = 0;
-          for (int j=0; j<start_config_current.size(); ++j)
-					{
-						ROS_ERROR("[ENSURE] goal - start = %f - %f = %f, shortcut = %f",
-											goal_config_current[j]*180/_PI,
-											start_config_current[j]*180/_PI,
-											(goal_config_current[j] - start_config_current[j])*180/_PI,
-											shortDiff[j]*180/_PI
-										 );
-						if (fabs(start_config_current[j]) + fabs(shortDiff[j]) < _PI)
+						if (countB >= 1)
+							singularJoints += "B" + singularJointsB;
+						std::string singularJointsU = "";
+		        unsigned int countU = 0;
+		        for (int j=0; j<start_config_current.size(); ++j)
 						{
-							singularJointsU += std::to_string(j+1); // want the joints to be indexed from 1 to 6
-							countU += 1;
+							ROS_ERROR("[ENSURE] goal - start = %f - %f = %f, shortcut = %f",
+												goal_config_current[j]*180/_PI,
+												start_config_current[j]*180/_PI,
+												(goal_config_current[j] - start_config_current[j])*180/_PI,
+												shortDiff[j]*180/_PI
+											 );
+							if (fabs(start_config_current[j]) + fabs(shortDiff[j]) > _PI)
+							{
+								singularJointsU += std::to_string(j+1); // want the joints to be indexed from 1 to 6
+								countU += 1;
+							}
 						}
-					}
-					if (countU >= 1)
-						singularJoints += "U" + singularJointsU;
+						if (countU >= 1)
+							singularJoints += "U" + singularJointsU;
 					
-					ROS_ERROR("[DEBUG] singularJoints = %s", (tag + singularJoints).c_str());
+						ROS_ERROR("[DEBUG] singularJoints = %s", (tag + singularJoints).c_str());
 					
-		    	visual_tools_->publishText(poseTag, singularJoints, sub_traj_rope_color_opti, rviz_visual_tools::XXXXLARGE, false);
-		    	poseTag.translation().z() = alti_tag + alti_step_tag;
-		    	visual_tools_->publishText(poseTag, tag, tag_color, rviz_visual_tools::XXXXLARGE, false);
-		    	//end of the "Tag box" investigation
+				  	visual_tools_->publishText(poseTag, singularJoints, sub_traj_rope_color_opti, rviz_visual_tools::XXXXLARGE, false);
+				  	poseTag.translation().z() = alti_tag + alti_step_tag;
+				  	visual_tools_->publishText(poseTag, tag, tag_color, rviz_visual_tools::XXXXLARGE, false);
+		    	}//end of the "Tag box" investigation
 			    
 			    
 			    
