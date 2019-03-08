@@ -1381,10 +1381,12 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 				const rviz_visual_tools::colors traj_rope_color_orig = rviz_visual_tools::PINK;
 				const rviz_visual_tools::colors sub_traj_rope_color_orig = rviz_visual_tools::PURPLE;
 				const rviz_visual_tools::colors text_color = rviz_visual_tools::BLACK;
+				const rviz_visual_tools::colors tag_color = rviz_visual_tools::WHITE;
 				rviz_visual_tools::colors color;
 				//
-		    double alti_min = 1.7, alti_step = 0.075;
+		    double alti_min = 1.7, alti_step = 0.075, alti_tag = 0.3, shift_tag = 1.;
 		    Eigen::Isometry3d pose = Eigen::Isometry3d::Identity();
+		    Eigen::Isometry3d poseTag = Eigen::Isometry3d::Identity();
 		    //
 				moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
 				//moveit::planning_interface::MoveGroupInterface dead_group(WHOLE_GROUP); //doesntwork
@@ -1402,8 +1404,8 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 					// construct the start conf:
 					// It definitely seems that the queries printed do not match with the scene_ground_with_boxes queries file:
 					std::vector<double> start_config_current = slice<double>(request.start_state.joint_state.position,0,5);
-					/*for (int j=0; j<start_config_current.size(); ++j)
-						ROS_ERROR("[DEBUG] %f rad", start_config_current[j]);*/
+					for (int j=0; j<start_config_current.size(); ++j)
+						ROS_ERROR("[DEBUG] %f rad", start_config_current[j]);
 		      
 		      // construct the goal conf:
 		      std::vector<moveit_msgs::JointConstraint> tmp6 = request.goal_constraints[0].joint_constraints;
@@ -1454,6 +1456,30 @@ void ModifiedBenchmarkExecutor::runBenchmark(moveit_msgs::MotionPlanRequest requ
 			    	pose.translation().z() = alti_min + i*alti_step;
 			    	visual_tools_->publishText(pose, texts[i], text_color, rviz_visual_tools::XXLARGE, false);
 			    }
+			    
+			    //Tag the box with the query number + U if a joint will make useless(ful) extra rotation in unbridled mode
+			    //To generate a table with all queries and not-univocal potential
+			    poseTag.translation().z() = alti_tag;
+			    poseTag.translation().x() = shift_tag; poseTag.translation().y() = shift_tag;
+			    std::string tag = queryName.substr(11,queryName.length());
+			    
+			    std::vector<double> toCheck = start_config_current;
+			    toCheck.insert( start_config_current.end(), goal_config_current.begin(), goal_config_current.end() );
+          ROS_ERROR("[DEBUG] ###########################################");
+          for (int j=0; j<toCheck.size(); ++j)
+					{
+						if (fabs(toCheck[j]) > _PI) //those prints are realized when queries not brought back in -pi+pi ! Prints should not be used always, unless initial queries values are stored!
+						{
+							ROS_ERROR("[DEBUG] ###########################################");
+							ROS_ERROR("[DEBUG] actuator %lu are unbridled on start config!", y1[j]);
+							ROS_ERROR("[DEBUG] ###########################################");
+						}
+					}
+					ROS_ERROR("[DEBUG] ###########################################");
+					
+		    	visual_tools_->publishText(poseTag, tag, tag_color, rviz_visual_tools::XXXXLARGE, false);
+		    	//end of the "Tag box" investigation
+			    
 			    
 			    visual_tools_->trigger();
 		    } //end display of the queries
