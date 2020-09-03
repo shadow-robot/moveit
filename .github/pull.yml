@@ -16,11 +16,7 @@ rules:
     upstream: ros-planning:melodic-devel
     mergeMethod: rebase
     mergeUnstable: false
-    conflictReviewers:
-      - ethanfowler
   - base: F#SRC-2333_wait_for_tcp_joint_sub
     upstream: ros-planning:kinetic-devel
     mergeMethod: rebase
     mergeUnstable: false
-    conflictReviewers:
-      - ethanfowler
