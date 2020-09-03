@@ -1,0 +1,26 @@
+version: "1"
+rules:
+  - base: master
+    upstream: ros-planning:master
+    mergeMethod: hardreset
+    mergeUnstable: false
+  - base: melodic-devel
+    upstream: ros-planning:melodic-devel
+    mergeMethod: hardreset
+    mergeUnstable: false
+  - base: kinetic-devel
+    upstream: ros-planning:kinetic-devel
+    mergeMethod: hardreset
+    mergeUnstable: false
+  - base: F#SRC-2333_wait_for_tcp_joint_sub_melodic
+    upstream: ros-planning:melodic-devel
+    mergeMethod: rebase
+    mergeUnstable: false
+    conflictReviewers:
+      - ethanfowler
+  - base: F#SRC-2333_wait_for_tcp_joint_sub
+    upstream: ros-planning:kinetic-devel
+    mergeMethod: rebase
+    mergeUnstable: false
+    conflictReviewers:
+      - ethanfowler

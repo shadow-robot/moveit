@@ -1,3 +1,8 @@
+# Why is this the default branch?
+
+We are using the [Pull app](https://github.com/wei/pull) to keep our moveit fork up to date with [upstream](https://github.com/ros-planning/moveit). This requires that the default branch have [this yaml config file](.github/pull.yml).
+
+
 <img src="https://moveit.ros.org/assets/logo/moveit_logo-black.png" alt="MoveIt Logo" width="200"/>
 
 **The MoveIt Motion Planning Framework**
