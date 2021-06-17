@@ -144,7 +144,7 @@ void CurrentStateMonitor::startStateMonitor(const std::string& joint_states_topi
     if (joint_states_topic.empty())
       ROS_ERROR_NAMED(LOGNAME, "The joint states topic cannot be an empty string");
     else
-      joint_state_subscriber_ = nh_.subscribe(joint_states_topic, 25, &CurrentStateMonitor::jointStateCallback, this);
+      joint_state_subscriber_ = nh_.subscribe(joint_states_topic, 25, &CurrentStateMonitor::jointStateCallback, this, ros::TransportHints().tcpNoDelay());
     if (tf_buffer_ && !robot_model_->getMultiDOFJointModels().empty())
     {
       tf_connection_.reset(new TFConnection(
@@ -223,6 +223,7 @@ bool CurrentStateMonitor::waitForCurrentState(const ros::Time t, double wait_tim
   {
     state_update_condition_.wait_for(lock, boost::chrono::nanoseconds((timeout - elapsed).toNSec()));
     elapsed = ros::WallTime::now() - start;
+    std::cout<<"ELAPSED TIME: "<<elapsed<<std::endl;
     if (elapsed > timeout)
     {
       ROS_INFO_STREAM_NAMED(LOGNAME,
