@@ -131,6 +131,7 @@ private Q_SLOTS:
   void changedSceneDisplayTime();
   void changedOctreeRenderMode();
   void changedOctreeColorMode();
+  void setSceneName(const QString& name);
 
 protected Q_SLOTS:
   virtual void changedAttachedBodyColor();
@@ -178,7 +179,6 @@ protected:
   virtual void onSceneMonitorReceivedUpdate(planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType update_type);
 
   planning_scene_monitor::PlanningSceneMonitorPtr planning_scene_monitor_;
-  bool model_is_loading_;
   boost::mutex robot_model_loading_lock_;
 
   moveit::tools::BackgroundProcessing background_process_;

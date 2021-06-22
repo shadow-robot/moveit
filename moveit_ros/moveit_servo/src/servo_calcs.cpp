@@ -86,7 +86,11 @@ geometry_msgs::TransformStamped convertIsometryToTransform(const Eigen::Isometry
 // Constructor for the class that handles servoing calculations
 ServoCalcs::ServoCalcs(ros::NodeHandle& nh, ServoParameters& parameters,
                        const planning_scene_monitor::PlanningSceneMonitorPtr& planning_scene_monitor)
-  : nh_(nh), parameters_(parameters), planning_scene_monitor_(planning_scene_monitor), period_(parameters.publish_period)
+  : nh_(nh)
+  , parameters_(parameters)
+  , planning_scene_monitor_(planning_scene_monitor)
+  , stop_requested_(true)
+  , paused_(false)
 {
   // MoveIt Setup
   current_state_ = planning_scene_monitor_->getStateMonitor()->getCurrentState();
@@ -150,8 +154,16 @@ ServoCalcs::ServoCalcs(ros::NodeHandle& nh, ServoParameters& parameters,
   tf_moveit_to_robot_cmd_frame_ = empty_matrix;
 }
 
+ServoCalcs::~ServoCalcs()
+{
+  stop();
+}
+
 void ServoCalcs::start()
 {
+  // Stop the thread if we are currently running
+  stop();
+
   // We will update last_sent_command_ every time we start servo
   auto initial_joint_trajectory = moveit::util::make_shared_from_pool<trajectory_msgs::JointTrajectory>();
 
@@ -176,31 +188,85 @@ void ServoCalcs::start()
     // I do not know of a robot that takes acceleration commands.
     // However, some controllers check that this data is non-empty.
     // Send all zeros, for now.
-    std::vector<double> acceleration(num_joints_);
-    point.accelerations = acceleration;
+    point.accelerations.resize(num_joints_);
   }
   initial_joint_trajectory->points.push_back(point);
   last_sent_command_ = initial_joint_trajectory;
-
-  timer_ = nh_.createTimer(period_, &ServoCalcs::run, this);
 
   current_state_ = planning_scene_monitor_->getStateMonitor()->getCurrentState();
   tf_moveit_to_ee_frame_ = current_state_->getGlobalLinkTransform(parameters_.planning_frame).inverse() *
                            current_state_->getGlobalLinkTransform(parameters_.ee_frame_name);
   tf_moveit_to_robot_cmd_frame_ = current_state_->getGlobalLinkTransform(parameters_.planning_frame).inverse() *
                                   current_state_->getGlobalLinkTransform(parameters_.robot_link_command_frame);
+
+  stop_requested_ = false;
+  thread_ = std::thread([this] { mainCalcLoop(); });
+  new_input_cmd_ = false;
 }
 
-void ServoCalcs::run(const ros::TimerEvent& timer_event)
+void ServoCalcs::stop()
 {
-  // Log warning when the last loop duration was longer than the period
-  if (timer_event.profile.last_duration.toSec() > period_.toSec())
+  // Request stop
+  stop_requested_ = true;
+
+  // Notify condition variable in case the thread is blocked on it
   {
-    ROS_WARN_STREAM_THROTTLE_NAMED(ROS_LOG_THROTTLE_PERIOD, LOGNAME,
-                                   "last_duration: " << timer_event.profile.last_duration.toSec() << " ("
-                                                     << period_.toSec() << ")");
+    // scope so the mutex is unlocked after so the thread can continue
+    // and therefore be joinable
+    const std::lock_guard<std::mutex> lock(input_mutex_);
+    new_input_cmd_ = false;
+    input_cv_.notify_all();
   }
 
+  // Join the thread
+  if (thread_.joinable())
+  {
+    thread_.join();
+  }
+}
+
+void ServoCalcs::mainCalcLoop()
+{
+  ros::Rate rate(1.0 / parameters_.publish_period);
+
+  while (ros::ok() && !stop_requested_)
+  {
+    // lock the input state mutex
+    std::unique_lock<std::mutex> input_lock(input_mutex_);
+
+    // low latency mode -- begin calculations as soon as a new command is received.
+    if (parameters_.low_latency_mode)
+    {
+      input_cv_.wait(input_lock, [this] { return (new_input_cmd_ || stop_requested_); });
+    }
+
+    // reset new_input_cmd_ flag
+    new_input_cmd_ = false;
+
+    // run servo calcs
+    const auto start_time = ros::Time::now();
+    calculateSingleIteration();
+    const auto run_duration = ros::Time::now() - start_time;
+
+    // Log warning when the run duration was longer than the period
+    if (run_duration.toSec() > parameters_.publish_period)
+    {
+      ROS_WARN_STREAM_THROTTLE_NAMED(ROS_LOG_THROTTLE_PERIOD, LOGNAME,
+                                     "run_duration: " << run_duration.toSec() << " (" << parameters_.publish_period
+                                                      << ")");
+    }
+
+    // normal mode, unlock input mutex and wait for the period of the loop
+    if (!parameters_.low_latency_mode)
+    {
+      input_lock.unlock();
+      rate.sleep();
+    }
+  }
+}
+
+void ServoCalcs::calculateSingleIteration()
+{
   // Publish status each loop iteration
   auto status_msg = moveit::util::make_shared_from_pool<std_msgs::Int8>();
   status_msg->data = static_cast<int8_t>(status_);
@@ -213,22 +279,20 @@ void ServoCalcs::run(const ros::TimerEvent& timer_event)
 
   // Update from latest state
   current_state_ = planning_scene_monitor_->getStateMonitor()->getCurrentState();
-  {
-    const std::lock_guard<std::mutex> lock(latest_state_mutex_);
-    if (latest_twist_stamped_)
-      twist_stamped_cmd_ = *latest_twist_stamped_;
-    if (latest_joint_cmd_)
-      joint_servo_cmd_ = *latest_joint_cmd_;
 
-    // Check for stale cmds
-    twist_command_is_stale_ =
-        ((ros::Time::now() - latest_twist_command_stamp_) >= ros::Duration(parameters_.incoming_command_timeout));
-    joint_command_is_stale_ =
-        ((ros::Time::now() - latest_joint_command_stamp_) >= ros::Duration(parameters_.incoming_command_timeout));
+  if (latest_twist_stamped_)
+    twist_stamped_cmd_ = *latest_twist_stamped_;
+  if (latest_joint_cmd_)
+    joint_servo_cmd_ = *latest_joint_cmd_;
 
-    have_nonzero_twist_stamped_ = latest_nonzero_twist_stamped_;
-    have_nonzero_joint_command_ = latest_nonzero_joint_cmd_;
-  }
+  // Check for stale cmds
+  twist_command_is_stale_ =
+      ((ros::Time::now() - latest_twist_command_stamp_) >= ros::Duration(parameters_.incoming_command_timeout));
+  joint_command_is_stale_ =
+      ((ros::Time::now() - latest_joint_command_stamp_) >= ros::Duration(parameters_.incoming_command_timeout));
+
+  have_nonzero_twist_stamped_ = latest_nonzero_twist_stamped_;
+  have_nonzero_joint_command_ = latest_nonzero_joint_cmd_;
 
   // Get the transform from MoveIt planning frame to servoing command frame
   // Calculate this transform to ensure it is available via C++ API
@@ -693,58 +757,26 @@ double ServoCalcs::velocityScalingFactorForSingularity(const Eigen::VectorXd& co
 
 void ServoCalcs::enforceVelLimits(Eigen::ArrayXd& delta_theta)
 {
+  // Convert to joint angle velocities for checking and applying joint specific velocity limits.
   Eigen::ArrayXd velocity = delta_theta / parameters_.publish_period;
 
-  std::size_t joint_delta_index = 0;
-  // Track the smallest velocity scaling factor required, across all joints
-  double velocity_limit_scaling_factor = 1;
-
-  for (auto joint : joint_model_group_->getActiveJointModels())
+  std::size_t joint_delta_index{ 0 };
+  double velocity_scaling_factor{ 1.0 };
+  for (const moveit::core::JointModel* joint : joint_model_group_->getActiveJointModels())
   {
-    // Some joints do not have bounds defined
-    const auto bounds = joint->getVariableBounds(joint->getName());
-
-    if (bounds.velocity_bounded_)
+    const auto& bounds = joint->getVariableBounds(joint->getName());
+    if (bounds.velocity_bounded_ && velocity(joint_delta_index) != 0.0)
     {
-      velocity(joint_delta_index) = delta_theta(joint_delta_index) / parameters_.publish_period;
-
-      bool clip_velocity = false;
-      double velocity_limit = 0.0;
-      if (velocity(joint_delta_index) < bounds.min_velocity_)
-      {
-        clip_velocity = true;
-        velocity_limit = bounds.min_velocity_;
-      }
-      else if (velocity(joint_delta_index) > bounds.max_velocity_)
-      {
-        clip_velocity = true;
-        velocity_limit = bounds.max_velocity_;
-      }
-
-      // Apply velocity bounds
-      if (clip_velocity)
-      {
-        const double scaling_factor =
-            fabs(velocity_limit * parameters_.publish_period) / fabs(delta_theta(joint_delta_index));
-
-        // Store the scaling factor if it's the smallest yet
-        if (scaling_factor < velocity_limit_scaling_factor)
-          velocity_limit_scaling_factor = scaling_factor;
-      }
+      const double unbounded_velocity = velocity(joint_delta_index);
+      // Clamp each joint velocity to a joint specific [min_velocity, max_velocity] range.
+      const auto bounded_velocity = std::min(std::max(unbounded_velocity, bounds.min_velocity_), bounds.max_velocity_);
+      velocity_scaling_factor = std::min(velocity_scaling_factor, bounded_velocity / unbounded_velocity);
     }
     ++joint_delta_index;
   }
 
-  // Apply the velocity scaling to all joints
-  if (velocity_limit_scaling_factor < 1)
-  {
-    for (joint_delta_index = 0; joint_delta_index < joint_model_group_->getActiveJointModels().size();
-         ++joint_delta_index)
-    {
-      delta_theta(joint_delta_index) = velocity_limit_scaling_factor * delta_theta(joint_delta_index);
-      velocity(joint_delta_index) = velocity_limit_scaling_factor * velocity(joint_delta_index);
-    }
-  }
+  // Convert back to joint angle increments.
+  delta_theta = velocity_scaling_factor * velocity * parameters_.publish_period;
 }
 
 bool ServoCalcs::enforcePositionLimits()
@@ -802,8 +834,10 @@ void ServoCalcs::suddenHalt(trajectory_msgs::JointTrajectory& joint_trajectory)
   // being 0 seconds in the past, the smallest supported timestep is added as time from start to the trajectory point.
   point.time_from_start.fromNSec(1);
 
-  point.positions.resize(num_joints_);
-  point.velocities.resize(num_joints_);
+  if (parameters_.publish_joint_positions)
+    point.positions.resize(num_joints_);
+  if (parameters_.publish_joint_velocities)
+    point.velocities.resize(num_joints_);
 
   // Assert the following loop is safe to execute
   assert(original_joint_state_.position.size() >= num_joints_);
@@ -980,7 +1014,7 @@ void ServoCalcs::removeDimension(Eigen::MatrixXd& jacobian, Eigen::VectorXd& del
 
 bool ServoCalcs::getCommandFrameTransform(Eigen::Isometry3d& transform)
 {
-  const std::lock_guard<std::mutex> lock(latest_state_mutex_);
+  const std::lock_guard<std::mutex> lock(input_mutex_);
   transform = tf_moveit_to_robot_cmd_frame_;
 
   // All zeros means the transform wasn't initialized, so return false
@@ -989,7 +1023,7 @@ bool ServoCalcs::getCommandFrameTransform(Eigen::Isometry3d& transform)
 
 bool ServoCalcs::getCommandFrameTransform(geometry_msgs::TransformStamped& transform)
 {
-  const std::lock_guard<std::mutex> lock(latest_state_mutex_);
+  const std::lock_guard<std::mutex> lock(input_mutex_);
   // All zeros means the transform wasn't initialized, so return false
   if (tf_moveit_to_robot_cmd_frame_.matrix().isZero(0))
   {
@@ -1003,7 +1037,7 @@ bool ServoCalcs::getCommandFrameTransform(geometry_msgs::TransformStamped& trans
 
 bool ServoCalcs::getEEFrameTransform(Eigen::Isometry3d& transform)
 {
-  const std::lock_guard<std::mutex> lock(latest_state_mutex_);
+  const std::lock_guard<std::mutex> lock(input_mutex_);
   transform = tf_moveit_to_ee_frame_;
 
   // All zeros means the transform wasn't initialized, so return false
@@ -1012,7 +1046,7 @@ bool ServoCalcs::getEEFrameTransform(Eigen::Isometry3d& transform)
 
 bool ServoCalcs::getEEFrameTransform(geometry_msgs::TransformStamped& transform)
 {
-  const std::lock_guard<std::mutex> lock(latest_state_mutex_);
+  const std::lock_guard<std::mutex> lock(input_mutex_);
   // All zeros means the transform wasn't initialized, so return false
   if (tf_moveit_to_ee_frame_.matrix().isZero(0))
   {
@@ -1025,22 +1059,30 @@ bool ServoCalcs::getEEFrameTransform(geometry_msgs::TransformStamped& transform)
 
 void ServoCalcs::twistStampedCB(const geometry_msgs::TwistStampedConstPtr& msg)
 {
-  const std::lock_guard<std::mutex> lock(latest_state_mutex_);
+  const std::lock_guard<std::mutex> lock(input_mutex_);
   latest_twist_stamped_ = msg;
   latest_nonzero_twist_stamped_ = isNonZero(*latest_twist_stamped_);
 
   if (msg->header.stamp != ros::Time(0.))
     latest_twist_command_stamp_ = msg->header.stamp;
+
+  // notify that we have a new input
+  new_input_cmd_ = true;
+  input_cv_.notify_all();
 }
 
 void ServoCalcs::jointCmdCB(const control_msgs::JointJogConstPtr& msg)
 {
-  const std::lock_guard<std::mutex> lock(latest_state_mutex_);
+  const std::lock_guard<std::mutex> lock(input_mutex_);
   latest_joint_cmd_ = msg;
   latest_nonzero_joint_cmd_ = isNonZero(*latest_joint_cmd_);
 
   if (msg->header.stamp != ros::Time(0.))
     latest_joint_command_stamp_ = msg->header.stamp;
+
+  // notify that we have a new input
+  new_input_cmd_ = true;
+  input_cv_.notify_all();
 }
 
 void ServoCalcs::collisionVelocityScaleCB(const std_msgs::Float64ConstPtr& msg)

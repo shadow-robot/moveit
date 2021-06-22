@@ -55,7 +55,10 @@ namespace core
  * valid paths from paths with large joint space jumps. */
 static const std::size_t MIN_STEPS_FOR_JUMP_THRESH = 10;
 
-const std::string LOGNAME = "robot_state";
+namespace
+{
+constexpr char LOGNAME[] = "robot_state";
+}  // namespace
 
 RobotState::RobotState(const RobotModelConstPtr& robot_model)
   : robot_model_(robot_model)
@@ -261,12 +264,12 @@ void RobotState::dropVelocities()
 
 void RobotState::dropAccelerations()
 {
-  has_velocity_ = false;
+  has_acceleration_ = false;
 }
 
 void RobotState::dropEffort()
 {
-  has_velocity_ = false;
+  has_effort_ = false;
 }
 
 void RobotState::dropDynamics()
@@ -516,6 +519,30 @@ void RobotState::setJointGroupPositions(const JointModelGroup* group, const Eige
   const std::vector<int>& il = group->getVariableIndexList();
   for (std::size_t i = 0; i < il.size(); ++i)
     position_[il[i]] = values(i);
+  updateMimicJoints(group);
+}
+
+void RobotState::setJointGroupActivePositions(const JointModelGroup* group, const std::vector<double>& gstate)
+{
+  assert(gstate.size() == group->getActiveVariableCount());
+  std::size_t i = 0;
+  for (const JointModel* jm : group->getActiveJointModels())
+  {
+    setJointPositions(jm, &gstate[i]);
+    i += jm->getVariableCount();
+  }
+  updateMimicJoints(group);
+}
+
+void RobotState::setJointGroupActivePositions(const JointModelGroup* group, const Eigen::VectorXd& values)
+{
+  assert(values.size() == group->getActiveVariableCount());
+  std::size_t i = 0;
+  for (const JointModel* jm : group->getActiveJointModels())
+  {
+    setJointPositions(jm, &values(i));
+    i += jm->getVariableCount();
+  }
   updateMimicJoints(group);
 }
 
@@ -886,6 +913,7 @@ double RobotState::distance(const RobotState& other, const JointModelGroup* join
 
 void RobotState::interpolate(const RobotState& to, double t, RobotState& state) const
 {
+  moveit::core::checkInterpolationParamBounds(LOGNAME, t);
   robot_model_->interpolate(getVariablePositions(), to.getVariablePositions(), t, state.getVariablePositions());
 
   memset(state.dirty_joint_transforms_, 1, state.robot_model_->getJointModelCount() * sizeof(unsigned char));
@@ -894,6 +922,7 @@ void RobotState::interpolate(const RobotState& to, double t, RobotState& state) 
 
 void RobotState::interpolate(const RobotState& to, double t, RobotState& state, const JointModelGroup* joint_group) const
 {
+  moveit::core::checkInterpolationParamBounds(LOGNAME, t);
   const std::vector<const JointModel*>& jm = joint_group->getActiveJointModels();
   for (std::size_t i = 0; i < jm.size(); ++i)
   {

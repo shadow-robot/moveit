@@ -124,8 +124,10 @@ public:
     goal_orientation_tolerance_ = 1e-3;  // ~0.1 deg
     allowed_planning_time_ = 5.0;
     num_planning_attempts_ = 1;
-    max_velocity_scaling_factor_ = 1.0;
-    max_acceleration_scaling_factor_ = 1.0;
+    node_handle_.param<double>("robot_description_planning/default_velocity_scaling_factor",
+                               max_velocity_scaling_factor_, 0.1);
+    node_handle_.param<double>("robot_description_planning/default_acceleration_scaling_factor",
+                               max_acceleration_scaling_factor_, 0.1);
     initializing_constraints_ = false;
 
     if (joint_model_group_->isChain())
@@ -1610,8 +1612,14 @@ bool moveit::planning_interface::MoveGroupInterface::setNamedTarget(const std::s
 
 bool moveit::planning_interface::MoveGroupInterface::setJointValueTarget(const std::vector<double>& joint_values)
 {
-  if (joint_values.size() != impl_->getJointModelGroup()->getVariableCount())
+  auto const n_group_joints = impl_->getJointModelGroup()->getVariableCount();
+  if (joint_values.size() != n_group_joints)
+  {
+    ROS_DEBUG_STREAM("Provided joint value list has length " << joint_values.size() << " but group "
+                                                             << impl_->getJointModelGroup()->getName() << " has "
+                                                             << n_group_joints << " joints");
     return false;
+  }
   impl_->setTargetType(JOINT);
   impl_->getJointStateTarget().setJointGroupPositions(impl_->getJointModelGroup(), joint_values);
   return impl_->getJointStateTarget().satisfiesBounds(impl_->getJointModelGroup(), impl_->getGoalJointTolerance());
