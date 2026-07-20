@@ -1,15 +1,10 @@
-cmake_minimum_required(VERSION 3.1.3)
+cmake_minimum_required(VERSION 3.16)
 project(moveit_core)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # Silent these warnings. They are too often false-positives.
-  message("TODO: Analyse and fix gcc's maybe-uninitialized warnings")
-  add_compile_options(-Wno-maybe-uninitialized)
-endif()
 include(cmake/moveit.cmake)
 moveit_build_options()
 
-find_package(Boost REQUIRED system filesystem date_time thread iostreams regex ${EXTRA_BOOST_COMPONENTS})
+find_package(Boost REQUIRED filesystem date_time thread iostreams regex ${EXTRA_BOOST_COMPONENTS})
 find_package(Eigen3 REQUIRED)
 
 # TODO: Move collision detection into separate packages
@@ -50,14 +45,19 @@ find_package(ruckig REQUIRED)
 # in include_directories below because the target is correctly imported here.
 get_target_property(ruckig_INCLUDE_DIRS ruckig::ruckig INTERFACE_INCLUDE_DIRECTORIES)
 set(ruckig_LIBRARIES "ruckig::ruckig")
+# Remove the WITH_CLOUD_CLIENT definition because we don't use it and it causes build issues in some configurations
+# See https://github.com/moveit/moveit/pull/3636
+get_target_property(ruckig_defs ruckig::ruckig INTERFACE_COMPILE_DEFINITIONS)
+if(ruckig_defs)
+  list(REMOVE_ITEM ruckig_defs "WITH_CLOUD_CLIENT")
+  set_target_properties(ruckig::ruckig PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${ruckig_defs}")
+endif()
 
 find_package(urdfdom REQUIRED)
 find_package(urdfdom_headers REQUIRED)
 
 find_package(catkin REQUIRED
 COMPONENTS
-  # pybind needs to be found earlier in Ubuntu 22.04 and similar https://github.com/pybind/pybind11/issues/3996
-  pybind11_catkin
   tf2_eigen
   tf2_geometry_msgs
   eigen_stl_containers
@@ -78,6 +78,7 @@ COMPONENTS
   urdf
   visualization_msgs
   xmlrpcpp
+  pybind11_catkin
   pluginlib
   angles
 )

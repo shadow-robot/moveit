@@ -404,9 +404,9 @@ class MoveitJoy:
                         ):
                             rospy.logerr("tf error when resolving tf: %s" % e)
                     else:
-                        self.initial_poses[
-                            marker.name[3:]
-                        ] = marker.pose  # tf should be resolved
+                        self.initial_poses[marker.name[3:]] = (
+                            marker.pose
+                        )  # tf should be resolved
         finally:
             self.marker_lock.release()
 

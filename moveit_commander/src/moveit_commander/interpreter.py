@@ -591,7 +591,7 @@ class MoveGroupCommandInterpreter(object):
                 self._last_plan = None
                 try:
                     offset = float(clist[2])
-                    (axis, factor) = self.GO_DIRS[clist[1]]
+                    axis, factor = self.GO_DIRS[clist[1]]
                     return self.command_go_offset(g, offset, factor, axis, clist[1])
                 except MoveItCommanderException as e:
                     return (

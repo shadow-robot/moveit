@@ -1,7 +1,7 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- *  Copyright (c) 2015, Fraunhofer IPA
+ *  Copyright (c) 2024, Sherbrooke University
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of Fraunhofer IPA nor the names of its
+ *   * Neither the name of Willow Garage nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -32,28 +32,49 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Mathias Lüdtke */
+/// \author Captain Yoshi
 
-#pragma once
+#include <ros/ros.h>
+#include <gtest/gtest.h>
 
-#include <moveit/controller_manager/controller_manager.h>
-#include <moveit/macros/class_forward.h>
+#include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 
-namespace moveit_ros_control_interface
-{
-MOVEIT_CLASS_FORWARD(ControllerHandleAllocator);  // Defines ControllerHandleAllocatorPtr, ConstPtr, WeakPtr... etc
-
-/**
- * Base class for MoveItControllerHandle allocators
- */
-class ControllerHandleAllocator
+class CHOMPMoveitTest : public ::testing::Test
 {
 public:
-  virtual moveit_controller_manager::MoveItControllerHandlePtr alloc(const std::string& name,
-                                                                     const std::vector<std::string>& resources) = 0;
-  virtual ~ControllerHandleAllocator()
+  moveit::planning_interface::MoveGroupInterface move_group_;
+  moveit::planning_interface::MoveGroupInterface::Plan my_plan_;
+
+public:
+  CHOMPMoveitTest() : move_group_("hand")
   {
   }
 };
 
-}  // namespace moveit_ros_control_interface
+// TEST CASES
+
+// https://github.com/moveit/moveit/issues/2542
+TEST_F(CHOMPMoveitTest, jointSpaceGoodGoal)
+{
+  move_group_.setStartState(*(move_group_.getCurrentState()));
+  move_group_.setJointValueTarget(std::vector<double>({ 0.0, 0.0 }));
+  move_group_.setPlanningTime(5.0);
+
+  moveit::core::MoveItErrorCode error_code = move_group_.plan(my_plan_);
+  EXPECT_GT(my_plan_.trajectory_.joint_trajectory.points.size(), 0u);
+  EXPECT_EQ(error_code.val, moveit::core::MoveItErrorCode::SUCCESS);
+}
+
+int main(int argc, char** argv)
+{
+  testing::InitGoogleTest(&argc, argv);
+  ros::init(argc, argv, "chomp_moveit_test_panda");
+
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
+  int ret = RUN_ALL_TESTS();
+  spinner.stop();
+  ros::shutdown();
+  return ret;
+}

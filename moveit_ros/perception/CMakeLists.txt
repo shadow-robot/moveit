@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1.3)
+cmake_minimum_required(VERSION 3.16)
 project(moveit_ros_perception)
 
 option(WITH_OPENGL "Build the parts that depend on OpenGL" ON)
@@ -24,6 +24,7 @@ endif(APPLE)
 
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
+  geometric_shapes
   moveit_core
   roscpp
   rosconsole

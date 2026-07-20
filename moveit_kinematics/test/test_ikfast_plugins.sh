@@ -7,20 +7,22 @@
 
 set -e # fail script on error
 
-sudo update-alternatives --install /usr/bin/python python /usr/bin/python2 1
+if [ -f /usr/bin/python2 ]; then
+	sudo update-alternatives --install /usr/bin/python python /usr/bin/python2 1
+fi
 sudo update-alternatives --install /usr/bin/python python /usr/bin/python3 2
 sudo apt-get -q update
 
-if [ "$ROS_DISTRO" == "noetic" ]; then
-	sudo update-alternatives --set python /usr/bin/python3
-	sudo apt-get -qq install python3-lxml python3-yaml
-else
+if [ "$ROS_DISTRO" == "melodic" ]; then
 	sudo update-alternatives --set python /usr/bin/python2
 	sudo apt-get -qq install python-lxml python-yaml
+else
+	sudo update-alternatives --set python /usr/bin/python3
+	sudo apt-get -qq install python3-lxml python3-yaml
 fi
 
 # Clone moveit_resources for URDFs. They are not available before running docker.
-git clone -q -b master --depth=1 https://github.com/ros-planning/moveit_resources /tmp/ros/src/moveit_resources
+git clone -q -b master --depth=1 https://github.com/moveit/moveit_resources /tmp/ros/src/moveit_resources
 docker run --rm -v /tmp/ros:/tmp/ros -w /tmp/ros "$DOCKER_IMAGE" bash -c "catkin build --no-status --no-summary --no-deps moveit_resources_panda_description"
 
 fanuc=/tmp/ros/src/moveit_resources/fanuc_description/urdf/fanuc.urdf

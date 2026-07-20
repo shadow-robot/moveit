@@ -300,6 +300,8 @@ void MotionPlanningFrameJointsWidget::queryGoalStateChanged()
 
 void MotionPlanningFrameJointsWidget::setActiveModel(JMGItemModel* model)
 {
+  if (ui_->joints_view_->model() == model)
+    return;
   ui_->joints_view_->setModel(model);
   ui_->joints_view_label_->setText(
       QString("Group joints of %1 state").arg(model == start_state_model_.get() ? "start" : "goal"));
@@ -388,7 +390,10 @@ cleanup:
 
   // hide remaining sliders
   for (; i < ns_sliders_.size(); ++i)
+  {
+    ns_sliders_[i]->setValue(0);
     ns_sliders_[i]->hide();
+  }
 }
 
 QSlider* MotionPlanningFrameJointsWidget::createNSSlider(int i)
@@ -594,8 +599,12 @@ bool JointsWidgetEventFilter::eventFilter(QObject* /*target*/, QEvent* event)
     }
     else if (!active_.isValid())
       return false;
-
-    float v = static_cast<float>(static_cast<QMouseEvent*>(event)->x() - pmin_) / (pmax_ - pmin_);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    auto x = static_cast<QMouseEvent*>(event)->pos().x();
+#else
+    auto x = static_cast<QMouseEvent*>(event)->position().x();
+#endif
+    float v = static_cast<float>(x - pmin_) / (pmax_ - pmin_);
     view->model()->setData(active_, v, ProgressBarDelegate::JointRangeFractionRole);
     return true;  // event handled
   }

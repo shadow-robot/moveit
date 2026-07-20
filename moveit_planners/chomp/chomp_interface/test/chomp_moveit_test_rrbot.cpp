@@ -108,7 +108,7 @@ TEST_F(CHOMPMoveitTest, collisionAtEndOfPath)
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
-  ros::init(argc, argv, "chomp_moveit_test");
+  ros::init(argc, argv, "chomp_moveit_test_rrbot");
 
   ros::AsyncSpinner spinner(1);
   spinner.start();

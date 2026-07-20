@@ -1413,6 +1413,78 @@ bool RobotState::getJacobian(const JointModelGroup* group, const LinkModel* link
   return true;
 }
 
+bool RobotState::getJacobianDerivative(const JointModelGroup* group, const LinkModel* link,
+                                       const Eigen::Vector3d& reference_point_position, Eigen::MatrixXd& jacobian,
+                                       Eigen::MatrixXd& jacobian_derivative) const
+{
+  const int rows = 6;
+  const int columns = group->getVariableCount();
+  jacobian_derivative.setZero(rows, columns);
+
+  // Calculate the Jacobian with use_quaternion_representation = false
+  if (!getJacobian(group, link, reference_point_position, jacobian, false))
+  {
+    ROS_ERROR_NAMED(LOGNAME, "Jacobian computation failed");
+    return false;
+  }
+
+  auto velocities = getJointVelocities(group->getJointModels()[0]);
+
+  while (link)
+  {
+    const JointModel* pjm = link->getParentJointModel();
+    if (pjm->getVariableCount() > 0)
+    {
+      if (!group->hasJointModel(pjm->getName()))
+      {
+        link = pjm->getParentLinkModel();
+        continue;
+      }
+      unsigned int current_joint_index = group->getVariableGroupIndex(pjm->getName());
+      if (pjm->getType() == moveit::core::JointModel::REVOLUTE || pjm->getType() == moveit::core::JointModel::PRISMATIC)
+      {
+        // iterate over all joints, pd_joint_index - partial derivative joint index
+        for (unsigned int pd_joint_index = 0; pd_joint_index < group->getVariableCount(); pd_joint_index++)
+        {
+          jacobian_derivative.col(current_joint_index) +=
+              getJacobianColumnPartialDerivative(jacobian, current_joint_index, pd_joint_index) *
+              velocities[pd_joint_index];
+        }
+      }
+      else
+        ROS_ERROR_NAMED(LOGNAME, "Unsupported type of joint in Jacobian derivative computation");
+    }
+    if (pjm == group->getJointModels()[0])
+      break;
+    link = pjm->getParentLinkModel();
+  }
+  return true;
+}
+
+Eigen::Matrix<double, 6, 1> RobotState::getJacobianColumnPartialDerivative(const Eigen::MatrixXd& jacobian,
+                                                                           int column_index, int joint_index)
+{
+  // Twist is [v omega]^T
+  const Eigen::Matrix<double, 6, 1>& jac_j = jacobian.col(joint_index);
+  const Eigen::Matrix<double, 6, 1>& jac_i = jacobian.col(column_index);
+
+  Eigen::Matrix<double, 6, 1> t_djdq = Eigen::Matrix<double, 6, 1>::Zero();
+
+  if (joint_index <= column_index)
+  {
+    // ref (20)
+    const Eigen::Vector3d& jac_j_angular = jac_j.segment<3>(3);
+    t_djdq.segment<3>(0) = jac_j_angular.cross(jac_i.segment<3>(0));
+    t_djdq.segment<3>(3) = jac_j_angular.cross(jac_i.segment<3>(3));
+  }
+  else if (joint_index > column_index)
+  {
+    // ref (23)
+    t_djdq.segment<3>(0) = -jac_j.segment<3>(0).cross(jac_i.segment<3>(3));
+  }
+  return t_djdq;
+}
+
 bool RobotState::setFromDiffIK(const JointModelGroup* jmg, const Eigen::VectorXd& twist, const std::string& tip,
                                double dt, const GroupStateValidityCallbackFn& constraint)
 {
@@ -1868,8 +1940,8 @@ bool RobotState::setFromIKSubgroups(const JointModelGroup* jmg, const EigenSTL::
   {
     if (consistency_limits[i].size() != sub_groups[i]->getVariableCount())
     {
-      ROS_ERROR_NAMED(LOGNAME, "Number of joints in consistency_limits is %zu but it should be should be %u", i,
-                      sub_groups[i]->getVariableCount());
+      ROS_ERROR_NAMED(LOGNAME, "Number of joints in consistency_limits[%zu] is %zu but it should be should be %u", i,
+                      consistency_limits[i].size(), sub_groups[i]->getVariableCount());
       return false;
     }
   }
@@ -2025,39 +2097,6 @@ bool RobotState::setFromIKSubgroups(const JointModelGroup* jmg, const EigenSTL::
     first_seed = false;
   } while (elapsed < timeout);
   return false;
-}
-
-double RobotState::computeCartesianPath(const JointModelGroup* group, std::vector<RobotStatePtr>& traj,
-                                        const LinkModel* link, const Eigen::Vector3d& direction,
-                                        bool global_reference_frame, double distance, double max_step,
-                                        double jump_threshold_factor, const GroupStateValidityCallbackFn& validCallback,
-                                        const kinematics::KinematicsQueryOptions& options)
-{
-  return CartesianInterpolator::computeCartesianPath(this, group, traj, link, direction, global_reference_frame,
-                                                     distance, MaxEEFStep(max_step),
-                                                     JumpThreshold(jump_threshold_factor), validCallback, options);
-}
-
-double RobotState::computeCartesianPath(const JointModelGroup* group, std::vector<RobotStatePtr>& traj,
-                                        const LinkModel* link, const Eigen::Isometry3d& target,
-                                        bool global_reference_frame, double max_step, double jump_threshold_factor,
-                                        const GroupStateValidityCallbackFn& validCallback,
-                                        const kinematics::KinematicsQueryOptions& options)
-{
-  return CartesianInterpolator::computeCartesianPath(this, group, traj, link, target, global_reference_frame,
-                                                     MaxEEFStep(max_step), JumpThreshold(jump_threshold_factor),
-                                                     validCallback, options);
-}
-
-double RobotState::computeCartesianPath(const JointModelGroup* group, std::vector<RobotStatePtr>& traj,
-                                        const LinkModel* link, const EigenSTL::vector_Isometry3d& waypoints,
-                                        bool global_reference_frame, double max_step, double jump_threshold_factor,
-                                        const GroupStateValidityCallbackFn& validCallback,
-                                        const kinematics::KinematicsQueryOptions& options)
-{
-  return CartesianInterpolator::computeCartesianPath(this, group, traj, link, waypoints, global_reference_frame,
-                                                     MaxEEFStep(max_step), JumpThreshold(jump_threshold_factor),
-                                                     validCallback, options);
 }
 
 void RobotState::computeAABB(std::vector<double>& aabb) const

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1.3)
+cmake_minimum_required(VERSION 3.16)
 project(moveit_planners_chomp)
 
 # find catkin in isolation so that CATKIN_ENABLE_TESTING is defined
@@ -58,10 +58,17 @@ install(TARGETS ${PROJECT_NAME} chomp_planner_plugin
 if(CATKIN_ENABLE_TESTING)
   # additional test dependencies
   find_package(rostest REQUIRED)
-  add_rostest_gtest(chomp_moveit_test
-    test/chomp_moveit.test
-    test/chomp_moveit_test.cpp)
-  target_link_libraries(chomp_moveit_test
+  add_rostest_gtest(chomp_moveit_test_rrbot
+    test/chomp_moveit_rrbot.test
+    test/chomp_moveit_test_rrbot.cpp)
+  target_link_libraries(chomp_moveit_test_rrbot
+    ${catkin_LIBRARIES}
+    ${rostest_LIBRARIES})
+
+  add_rostest_gtest(chomp_moveit_test_panda
+    test/chomp_moveit_panda.test
+    test/chomp_moveit_test_panda.cpp)
+  target_link_libraries(chomp_moveit_test_panda
     ${catkin_LIBRARIES}
     ${rostest_LIBRARIES})
 endif()

@@ -43,8 +43,16 @@
 
 namespace move_group
 {
-MoveGroupExecuteTrajectoryAction::MoveGroupExecuteTrajectoryAction() : MoveGroupCapability("ExecuteTrajectoryAction")
+MoveGroupExecuteTrajectoryAction::MoveGroupExecuteTrajectoryAction()
+  : MoveGroupCapability("ExecuteTrajectoryAction"), callback_queue_(), spinner_(1, &callback_queue_)
 {
+  root_node_handle_.setCallbackQueue(&callback_queue_);
+  spinner_.start();
+}
+
+MoveGroupExecuteTrajectoryAction::~MoveGroupExecuteTrajectoryAction()
+{
+  spinner_.stop();
 }
 
 void MoveGroupExecuteTrajectoryAction::initialize()
@@ -91,7 +99,6 @@ void MoveGroupExecuteTrajectoryAction::executePath(const moveit_msgs::ExecuteTra
 {
   ROS_INFO_NAMED(getName(), "Execution request received");
 
-  context_->trajectory_execution_manager_->clear();
   if (context_->trajectory_execution_manager_->push(goal->trajectory))
   {
     setExecuteTrajectoryState(MONITOR);

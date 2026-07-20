@@ -202,6 +202,10 @@ public:
     return scene_const_;
   }
 
+  /** @brief Returns a copy of the current planning scene. */
+  planning_scene::PlanningScenePtr
+  copyPlanningScene(const moveit_msgs::PlanningScene& diff = moveit_msgs::PlanningScene());
+
   /** @brief Return true if the scene \e scene can be updated directly
       or indirectly by this monitor. This function will return true if
       the pointer of the scene is the same as the one maintained,
@@ -306,14 +310,15 @@ public:
 
   /** @brief Update the scene using the monitored state. This function is automatically called when an update to the
      current state is received (if startStateMonitor() has been called).
-      The updates are throttled to a maximum update frequency however, which is set by setStateUpdateFrequency(). */
-  void updateSceneWithCurrentState();
+      The updates are throttled to a maximum update frequency however, which is set by setStateUpdateFrequency().
+      @param skip_update_if_locked causes the update to be skipped if the planning scene is locked. */
+  void updateSceneWithCurrentState(bool skip_update_if_locked = false);
 
   /** @brief Update the scene using the monitored state at a specified frequency, in Hz. This function has an effect
      only when updates from the CurrentStateMonitor are received at a higher frequency.
       In that case, the updates are throttled down, so that they do not exceed a maximum update frequency specified
      here.
-      @param hz the update frequency. By default this is 10Hz. */
+      @param hz the update frequency. By default this is 33Hz. */
   void setStateUpdateFrequency(double hz);
 
   /** @brief Get the maximum frequency (Hz) at which the current state of the planning scene is updated.*/
@@ -553,15 +558,19 @@ private:
   bool getPlanningSceneServiceCallback(moveit_msgs::GetPlanningScene::Request& req,
                                        moveit_msgs::GetPlanningScene::Response& res);
 
-  // Lock for state_update_pending_ and dt_state_update_
-  boost::mutex state_pending_mutex_;
+  /// True if current_state_monitor_ has a newer RobotState than scene_
+  std::atomic<bool> state_update_pending_;
 
-  /// True when we need to update the RobotState from current_state_monitor_
-  // This field is protected by state_pending_mutex_
-  volatile bool state_update_pending_;
+  // Lock for writing last_robot_state_update_wall_time_ and dt_state_update_
+  boost::mutex state_update_mutex_;
+
+  /// Last time the state was updated from current_state_monitor_
+  // Only access this from callback functions (and constructor)
+  // This field is protected by state_update_mutex_
+  ros::WallTime last_robot_state_update_wall_time_;
 
   /// the amount of time to wait in between updates to the robot state
-  // This field is protected by state_pending_mutex_
+  // This field is protected by state_update_mutex_
   ros::WallDuration dt_state_update_;
 
   /// the amount of time to wait when looking up transforms
@@ -570,13 +579,9 @@ private:
   ros::Duration shape_transform_cache_lookup_wait_time_;
 
   /// timer for state updates.
-  // Check if last_state_update_ is true and if so call updateSceneWithCurrentState()
+  // If state_update_pending_ is true, call updateSceneWithCurrentState()
   // Not safe to access from callback functions.
   ros::WallTimer state_update_timer_;
-
-  /// Last time the state was updated from current_state_monitor_
-  // Only access this from callback functions (and constructor)
-  ros::WallTime last_robot_state_update_wall_time_;
 
   robot_model_loader::RobotModelLoaderPtr rm_loader_;
   moveit::core::RobotModelConstPtr robot_model_;
@@ -585,6 +590,9 @@ private:
 
   class DynamicReconfigureImpl;
   DynamicReconfigureImpl* reconfigure_impl_;
+
+  std::set<std::string> ignored_frames_;
+  bool checkFrameIgnored(const std::string& frame);
 };
 
 /** \brief This is a convenience class for obtaining access to an
@@ -627,14 +635,14 @@ public:
     return planning_scene_monitor_ && planning_scene_monitor_->getPlanningScene();
   }
 
-  operator const planning_scene::PlanningSceneConstPtr &() const
+  operator const planning_scene::PlanningSceneConstPtr&() const
   {
-    return static_cast<const PlanningSceneMonitor*>(planning_scene_monitor_.get())->getPlanningScene();
+    return std::const_pointer_cast<const PlanningSceneMonitor>(planning_scene_monitor_)->getPlanningScene();
   }
 
   const planning_scene::PlanningSceneConstPtr& operator->() const
   {
-    return static_cast<const PlanningSceneMonitor*>(planning_scene_monitor_.get())->getPlanningScene();
+    return std::const_pointer_cast<const PlanningSceneMonitor>(planning_scene_monitor_)->getPlanningScene();
   }
 
 protected:
@@ -708,7 +716,7 @@ public:
   {
   }
 
-  operator const planning_scene::PlanningScenePtr &()
+  operator const planning_scene::PlanningScenePtr&()
   {
     return planning_scene_monitor_->getPlanningScene();
   }

@@ -16,6 +16,7 @@ Author: Dave Coleman, PickNik Robotics
 Date: March 2013
 
 """
+
 """
 Copyright (c) 2013, Jeremy Zoss, SwRI
 All rights reserved.
@@ -57,6 +58,7 @@ try:
     from roslib.packages import get_pkg_dir, InvalidROSPkgException
 except ImportError:
     print("Failed to import roslib. No ROS environment available? Trying without.")
+
     # define stubs
     class InvalidROSPkgException(Exception):
         pass
@@ -507,13 +509,11 @@ def main():
     try:
         update_moveit_package(args)
     except Exception as ex:
-        print(
-            f"""Failed to update MoveIt package:
+        print(f"""Failed to update MoveIt package:
 {ex}
 Update your kinematics.yaml manually to include the following configuration:
 {args.planning_group_name}:
-  kinematics_solver: {args.plugin_name}"""
-        )
+  kinematics_solver: {args.plugin_name}""")
 
 
 if __name__ == "__main__":

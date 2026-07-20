@@ -141,7 +141,7 @@ def run_interactive(group_name):
             )
             continue
 
-        (level, msg) = c.execute(cmdorig)
+        level, msg = c.execute(cmdorig)
         print_message(level, msg)
         # update the set of keywords
         completer.set_options(get_context_keywords(c))
